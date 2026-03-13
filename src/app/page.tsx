@@ -98,7 +98,6 @@ export default function LoginPage() {
                     id="email"
                     type="email"
                     placeholder="ej. admin@empresa.com"
-                    defaultValue="admin@empresademo.com"
                     className="bg-[#1c2536] border-white/5 h-12 pl-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600"
                   />
                 </div>
@@ -121,7 +120,6 @@ export default function LoginPage() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    defaultValue="demo123"
                     className="bg-[#1c2536] border-white/5 h-12 pl-11 pr-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600"
                   />
                   <button
