@@ -11,7 +11,15 @@ import type { SGCScope } from '@/lib/types';
 import { toast } from 'sonner';
 
 export default function AlcanceSGCPage() {
-    const [scope, setScope] = useState<SGCScope>(mockSGCScope);
+    const [scope, setScope] = useState<SGCScope>({
+        id: '',
+        tenantId: '',
+        scopeStatement: 'Describa aquí el alcance de su sistema de gestión...',
+        exclusions: [],
+        sites: [],
+        lastReviewDate: new Date(),
+        approvedBy: ''
+    });
     const [isEditing, setIsEditing] = useState(false);
     const [editScope, setEditScope] = useState(scope.scopeStatement);
 
