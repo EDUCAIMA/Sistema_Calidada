@@ -26,17 +26,53 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const [registerData, setRegisterData] = useState({
+    fullname: '',
+    company: '',
+    email: '',
+    password: '',
+    confirm: ''
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    if (registerData.password !== registerData.confirm) {
+        setError('Las contraseñas no coinciden');
+        return;
+    }
+
     setLoading(true);
-    // Simular registro
-    setTimeout(() => {
-      setLoading(false);
+    
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullname: registerData.fullname,
+          company: registerData.company,
+          email: registerData.email,
+          password: registerData.password
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al registrar');
+      }
+
       setSuccess(true);
       setTimeout(() => {
         router.push('/');
-      }, 2000);
-    }, 1500);
+      }, 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -100,6 +136,12 @@ export default function RegisterPage() {
                   </p>
                 </div>
 
+                {error && (
+                  <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center animate-in fade-in slide-in-from-top-2">
+                    {error}
+                  </div>
+                )}
+
                 <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2 col-span-1">
                     <Label htmlFor="fullname" className="text-sm font-medium text-slate-300">Nombre completo</Label>
@@ -107,7 +149,7 @@ export default function RegisterPage() {
                       <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors">
                         <User className="h-4 w-4" />
                       </div>
-                      <Input id="fullname" placeholder="Juan Pérez" className="bg-[#1c2536] border-white/5 h-11 pl-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600" required />
+                      <Input id="fullname" placeholder="Juan Pérez" value={registerData.fullname} onChange={e => setRegisterData({...registerData, fullname: e.target.value})} className="bg-[#1c2536] border-white/5 h-11 pl-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600" required />
                     </div>
                   </div>
 
@@ -117,7 +159,7 @@ export default function RegisterPage() {
                       <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors">
                         <Building className="h-4 w-4" />
                       </div>
-                      <Input id="company" placeholder="Nombre de tu empresa" className="bg-[#1c2536] border-white/5 h-11 pl-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600" required />
+                      <Input id="company" placeholder="Nombre de tu empresa" value={registerData.company} onChange={e => setRegisterData({...registerData, company: e.target.value})} className="bg-[#1c2536] border-white/5 h-11 pl-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600" required />
                     </div>
                   </div>
 
@@ -127,7 +169,7 @@ export default function RegisterPage() {
                       <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors">
                         <Mail className="h-4 w-4" />
                       </div>
-                      <Input id="email" type="email" placeholder="ej. contacto@empresa.com" className="bg-[#1c2536] border-white/5 h-11 pl-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600" required />
+                      <Input id="email" type="email" placeholder="ej. contacto@empresa.com" value={registerData.email} onChange={e => setRegisterData({...registerData, email: e.target.value})} className="bg-[#1c2536] border-white/5 h-11 pl-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600" required />
                     </div>
                   </div>
 
@@ -137,7 +179,7 @@ export default function RegisterPage() {
                       <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors">
                         <Lock className="h-4 w-4" />
                       </div>
-                      <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" className="bg-[#1c2536] border-white/5 h-11 pl-11 pr-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600" required />
+                      <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" value={registerData.password} onChange={e => setRegisterData({...registerData, password: e.target.value})} className="bg-[#1c2536] border-white/5 h-11 pl-11 pr-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600" required />
                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -150,7 +192,7 @@ export default function RegisterPage() {
                       <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors">
                         <Lock className="h-4 w-4" />
                       </div>
-                      <Input id="confirm" type={showPassword ? "text" : "password"} placeholder="••••••••" className="bg-[#1c2536] border-white/5 h-11 pl-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600" required />
+                      <Input id="confirm" type={showPassword ? "text" : "password"} placeholder="••••••••" value={registerData.confirm} onChange={e => setRegisterData({...registerData, confirm: e.target.value})} className="bg-[#1c2536] border-white/5 h-11 pl-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600" required />
                     </div>
                   </div>
 
