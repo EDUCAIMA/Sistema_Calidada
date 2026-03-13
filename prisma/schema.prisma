@@ -1,0 +1,350 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN_EMPRESA
+  USUARIO
+  AUDITOR_INTERNO
+  AUDITOR_EXTERNO
+}
+
+enum DocumentStatus {
+  BORRADOR
+  EN_REVISION
+  APROBADO
+  OBSOLETO
+}
+
+enum DocumentType {
+  MANUAL
+  PROCEDIMIENTO
+  INSTRUCTIVO
+  FORMATO
+  POLITICA
+  REGISTRO
+  OTRO
+}
+
+enum ProcessCategory {
+  ESTRATEGICO
+  MISIONAL
+  APOYO
+}
+
+enum RiskType {
+  OPERACIONAL
+  CALIDAD
+  SST
+  AMBIENTAL
+  OTRO
+}
+
+enum RiskLevel {
+  BAJO
+  MEDIO
+  ALTO
+  CRITICO
+}
+
+enum AuditStatus {
+  PROGRAMADA
+  EN_PROGRESO
+  COMPLETADA
+  CANCELADA
+}
+
+enum FindingType {
+  NC_MAYOR
+  NC_MENOR
+  OBSERVACION
+  OPORTUNIDAD_MEJORA
+}
+
+enum ActionStatus {
+  ABIERTA
+  EN_PROGRESO
+  CERRADA
+  VENCIDA
+}
+
+enum PlanType {
+  BASICO
+  PROFESIONAL
+  ENTERPRISE
+}
+
+enum DOFACategory {
+  DEBILIDAD
+  OPORTUNIDAD
+  FORTALEZA
+  AMENAZA
+}
+
+enum StakeholderType {
+  INTERNO
+  EXTERNO
+}
+
+enum StakeholderInfluence {
+  ALTA
+  MEDIA
+  BAJA
+}
+
+// ==================== MODELS ====================
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  plan      PlanType @default(BASICO)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  processes    Process[]
+  documents    Document[]
+  riskMatrices RiskMatrix[]
+  risks        Risk[]
+  audits       Audit[]
+  dofaItems    DOFAItem[]
+  stakeholders Stakeholder[]
+  sgcScopes    SGCScope[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenantId  String
+  email     String   @unique
+  name      String
+  position  String?
+  role      Role     @default(USUARIO)
+  avatar    String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  processesResponsible Process[] @relation("ProcessResponsible")
+}
+
+model Process {
+  id              String          @id @default(cuid())
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
+  tenantId        String
+  name            String
+  code            String
+  category        ProcessCategory
+  objective       String
+  scope           String
+  responsible     User            @relation("ProcessResponsible", fields: [responsibleId], references: [id])
+  responsibleId   String
+  responsibleName String?
+  order           Int
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  characterization ProcessCharacterization?
+  documents        Document[]
+  risks            Risk[]
+}
+
+model ProcessCharacterization {
+  id        String   @id @default(cuid())
+  process   Process  @relation(fields: [processId], references: [id])
+  processId String   @unique
+  version   String
+  date      String
+  planear   Json // Array of PHVARow
+  hacer     Json // Array of PHVARow
+  verificar Json // Array of PHVARow
+  actuar    Json // Array of PHVARow
+  resources Json // Array of strings
+  indicators Json // Array of ProcessIndicator
+  documents Json // Array of strings/codes
+  risks     Json // Array of strings/codes
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id             String         @id @default(cuid())
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+  tenantId       String
+  code           String
+  name           String
+  type           DocumentType
+  status         DocumentStatus @default(BORRADOR)
+  process        Process?       @relation(fields: [processId], references: [id])
+  processId      String?
+  processName    String?
+  currentVersion Int            @default(1)
+  fileUrl        String?
+  fileName       String?
+  fileSize       Int?
+  createdBy      String
+  createdByName  String?
+  approvedBy     String?
+  approvedDate   DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  versions DocumentVersion[]
+}
+
+model DocumentVersion {
+  id                String   @id @default(cuid())
+  document          Document @relation(fields: [documentId], references: [id])
+  documentId        String
+  version           Int
+  changeDescription String
+  fileUrl           String
+  fileName          String
+  uploadedBy        String
+  uploadedByName    String?
+  uploadedAt        DateTime @default(now())
+}
+
+model RiskMatrix {
+  id          String   @id @default(cuid())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  tenantId    String
+  name        String
+  type        RiskType
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  risks Risk[]
+}
+
+model Risk {
+  id                 String       @id @default(cuid())
+  tenant             Tenant       @relation(fields: [tenantId], references: [id])
+  tenantId           String
+  matrix             RiskMatrix   @relation(fields: [matrixId], references: [id])
+  matrixId           String
+  process            Process?     @relation(fields: [processId], references: [id])
+  processId          String?
+  processName        String?
+  description        String
+  type               RiskType
+  cause              String
+  consequence        String
+  probability        Int
+  impact             Int
+  level              RiskLevel
+  riskValue          Int
+  existingControls   String
+  treatmentPlan      String
+  responsible        String
+  dueDate            DateTime?
+  status             ActionStatus @default(ABIERTA)
+  residualProbability Int?
+  residualImpact     Int?
+  residualLevel      RiskLevel?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model Audit {
+  id             String      @id @default(cuid())
+  tenant         Tenant      @relation(fields: [tenantId], references: [id])
+  tenantId       String
+  name           String
+  type           String // INTERNA | EXTERNA
+  status         AuditStatus @default(PROGRAMADA)
+  leadAuditor    String
+  leadAuditorName String?
+  processes      Json // Array of process IDs
+  scheduledDate  DateTime
+  completionDate DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  findings Finding[]
+}
+
+model Finding {
+  id          String      @id @default(cuid())
+  audit       Audit       @relation(fields: [auditId], references: [id])
+  auditId     String
+  type        FindingType
+  clause      String
+  processId   String?
+  description String
+  evidence    String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  correctiveAction CorrectiveAction?
+}
+
+model CorrectiveAction {
+  id          String       @id @default(cuid())
+  finding     Finding      @relation(fields: [findingId], references: [id])
+  findingId   String       @unique
+  description String
+  responsible String
+  dueDate     DateTime
+  status      ActionStatus @default(ABIERTA)
+  evidence    String?
+  closedDate  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model DOFAItem {
+  id          String       @id @default(cuid())
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  tenantId    String
+  category    DOFACategory
+  description String
+  impact      String?
+  actions     String?
+  responsible String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Stakeholder {
+  id          String               @id @default(cuid())
+  tenant      Tenant               @relation(fields: [tenantId], references: [id])
+  tenantId    String
+  name        String
+  type        StakeholderType
+  needs       String
+  expectations String
+  influence   StakeholderInfluence
+  strategy    String
+  contactInfo String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+model SGCScope {
+  id                 String   @id @default(cuid())
+  tenant             Tenant   @relation(fields: [tenantId], references: [id])
+  tenantId           String
+  scopeStatement     String
+  applicableStandards Json // Array of strings
+  exclusions         Json // Array of objects {clause, justification}
+  sites              Json // Array of objects {name, address, activities}
+  processes          Json // Array of process IDs
+  lastReviewDate     DateTime
+  approvedBy         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
