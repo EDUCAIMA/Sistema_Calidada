@@ -55,7 +55,7 @@ const categoryConfig: Record<DOFACategory, {
 const categories: DOFACategory[] = ['FORTALEZA', 'DEBILIDAD', 'OPORTUNIDAD', 'AMENAZA']; // Ordered for 2x2 (Top: Internal, Bottom: External)
 
 export default function ContextoOrganizacionalPage() {
-    const [items, setItems] = useState<DOFAItem[]>([]);
+    const [items, setItems] = useState<DOFAItem[]>(mockDOFAItems);
     const [showNew, setShowNew] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [selectedItem, setSelectedItem] = useState<DOFAItem | null>(null);

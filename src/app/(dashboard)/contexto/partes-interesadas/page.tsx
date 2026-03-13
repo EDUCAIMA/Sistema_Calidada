@@ -29,7 +29,7 @@ const influenceConfig: Record<StakeholderInfluence, { label: string; icon: React
 };
 
 export default function PartesInteresadasPage() {
-    const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
+    const [stakeholders, setStakeholders] = useState<Stakeholder[]>(mockStakeholders);
     const [showNew, setShowNew] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [selectedItem, setSelectedItem] = useState<Stakeholder | null>(null);
