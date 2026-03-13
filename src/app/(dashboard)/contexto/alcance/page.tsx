@@ -17,6 +17,8 @@ export default function AlcanceSGCPage() {
         scopeStatement: 'Describa aquí el alcance de su sistema de gestión...',
         exclusions: [],
         sites: [],
+        applicableStandards: ['ISO 9001:2015'],
+        processes: [],
         lastReviewDate: new Date(),
         approvedBy: ''
     });
