@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Edit, Save, FileText, Download, Info, Lightbulb, CheckCircle2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
