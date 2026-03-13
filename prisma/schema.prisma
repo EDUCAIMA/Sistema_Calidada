@@ -127,6 +127,7 @@ model User {
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   tenantId  String
   email     String   @unique
+  password  String?
   name      String
   position  String?
   role      Role     @default(USUARIO)

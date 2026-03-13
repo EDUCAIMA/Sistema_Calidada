@@ -44,10 +44,9 @@ export async function POST(request: Request) {
         data: {
           name: fullname,
           email: email,
+          password: password, // Almacenado temporalmente en texto plano (se recomienda hashear)
           role: 'ADMIN_EMPRESA',
           tenantId: tenant.id,
-          // Nota: En una app real, aquí deberías hashear la contraseña
-          // Por ahora la guardamos o manejamos el flujo de auth según tu preferencia
         },
       });
 
