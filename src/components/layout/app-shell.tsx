@@ -240,7 +240,8 @@ function NavGroup({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
 }
 
 export function AppSidebar() {
-    const { currentUser, tenant, sidebarCollapsed, toggleSidebar } = useApp();
+    const { currentUser, tenant, sidebarCollapsed, logout } = useApp();
+    if (!currentUser) return null;
     const initials = currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2);
 
     return (
@@ -327,7 +328,12 @@ export function AppSidebar() {
                             <p className="text-xs font-semibold text-sidebar-foreground truncate">{currentUser.name}</p>
                             <p className="text-[10px] text-sidebar-foreground/50 truncate">{currentUser.position}</p>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-sidebar-foreground/40 hover:text-sidebar-foreground">
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 text-sidebar-foreground/40 hover:text-sidebar-foreground"
+                            onClick={logout}
+                        >
                             <LogOut className="h-3.5 w-3.5" />
                         </Button>
                     </div>

@@ -1,26 +1,34 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { User, Tenant } from '@/lib/types';
 import { mockCurrentUser, mockTenant } from '@/lib/mock-data';
 
 interface AppContextType {
-    currentUser: User;
+    currentUser: User | null;
     tenant: Tenant;
-    setCurrentUser: (user: User) => void;
+    setCurrentUser: (user: User | null) => void;
     sidebarCollapsed: boolean;
     toggleSidebar: () => void;
+    logout: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-    const [currentUser, setCurrentUser] = useState<User>(mockCurrentUser);
+    const router = useRouter();
+    const [currentUser, setCurrentUser] = useState<User | null>(mockCurrentUser);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     const toggleSidebar = useCallback(() => {
         setSidebarCollapsed(prev => !prev);
     }, []);
+
+    const logout = useCallback(() => {
+        setCurrentUser(null);
+        router.push('/');
+    }, [router]);
 
     return (
         <AppContext.Provider value={{
@@ -29,6 +37,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setCurrentUser,
             sidebarCollapsed,
             toggleSidebar,
+            logout,
         }}>
             {children}
         </AppContext.Provider>
