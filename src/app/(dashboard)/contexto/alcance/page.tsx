@@ -10,16 +10,54 @@ import { mockSGCScope } from '@/lib/mock-data';
 import type { SGCScope } from '@/lib/types';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
+import { useApp } from '@/context/app-context';
+import { useEffect } from 'react';
 
 export default function AlcanceSGCPage() {
-    const [scope, setScope] = useState<SGCScope>(mockSGCScope);
+    const { tenant } = useApp();
+    const [scope, setScope] = useState<SGCScope & { id?: string }>(mockSGCScope);
     const [isEditing, setIsEditing] = useState(false);
-    const [editScope, setEditScope] = useState(scope.scopeStatement);
+    const [editScope, setEditScope] = useState('');
+    const [loading, setLoading] = useState(true);
 
-    const handleSave = () => {
-        setScope({ ...scope, scopeStatement: editScope, lastReviewDate: new Date() });
-        setIsEditing(false);
-        toast.success('Alcance del SGC actualizado exitosamente');
+    useEffect(() => {
+        const fetchScope = async () => {
+            try {
+                const res = await fetch(`/api/contexto/alcance?tenantId=${tenant.id}`);
+                const data = await res.json();
+                if (data && !data.error) {
+                    setScope(data);
+                    setEditScope(data.scopeStatement);
+                }
+            } catch (error) {
+                console.error('Error fetching scope:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchScope();
+    }, [tenant.id]);
+
+    const handleSave = async () => {
+        try {
+            const res = await fetch('/api/contexto/alcance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: scope.id,
+                    tenantId: tenant.id,
+                    scopeStatement: editScope,
+                }),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            setScope(data);
+            setIsEditing(false);
+            toast.success('Alcance del SGC guardado en base de datos');
+        } catch (error) {
+            toast.error('Error al guardar el alcance');
+        }
     };
 
     const handleDownloadPDF = () => {

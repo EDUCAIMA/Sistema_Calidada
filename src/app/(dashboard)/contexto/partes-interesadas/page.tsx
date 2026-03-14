@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useApp } from '@/context/app-context';
 import { Plus, Search, Edit, Trash2, Save, Eye, Users, Building2, Globe, ShieldAlert, ArrowUpRight, ArrowRight, ArrowDownRight, Clock, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,11 +30,30 @@ const influenceConfig: Record<StakeholderInfluence, { label: string; icon: React
 };
 
 export default function PartesInteresadasPage() {
-    const [stakeholders, setStakeholders] = useState<Stakeholder[]>(mockStakeholders);
+    const { tenant } = useApp();
+    const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
+    const [loading, setLoading] = useState(true);
     const [showNew, setShowNew] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [selectedItem, setSelectedItem] = useState<Stakeholder | null>(null);
     const [newItem, setNewItem] = useState<Partial<Stakeholder>>({ type: 'EXTERNO', influence: 'MEDIA' });
+
+    useEffect(() => {
+        const fetchStakeholders = async () => {
+            try {
+                const res = await fetch(`/api/contexto/partes-interesadas?tenantId=${tenant.id}`);
+                const data = await res.json();
+                if (data && !data.error) {
+                    setStakeholders(data);
+                }
+            } catch (error) {
+                console.error('Error fetching stakeholders:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchStakeholders();
+    }, [tenant.id]);
 
     const handleDownloadPDF = () => {
         const doc = new jsPDF();
@@ -112,34 +132,57 @@ export default function PartesInteresadasPage() {
         altaInfluencia: stakeholders.filter(s => s.influence === 'ALTA').length,
     };
 
-    const handleCreate = () => {
+    const handleCreate = async () => {
         if (!newItem.name) { toast.error('El nombre es requerido'); return; }
-        const item: Stakeholder = {
-            id: `sh-${Date.now()}`,
-            tenantId: 'tenant-1',
-            name: newItem.name!,
-            type: newItem.type as StakeholderType || 'EXTERNO',
-            needs: newItem.needs || '',
-            expectations: newItem.expectations || '',
-            influence: newItem.influence as StakeholderInfluence || 'MEDIA',
-            strategy: newItem.strategy || '',
-            contactInfo: newItem.contactInfo,
-        };
-        if (selectedItem) {
-            setStakeholders(stakeholders.map(s => s.id === selectedItem.id ? { ...item, id: s.id } : s));
-            toast.success('Parte interesada actualizada');
-        } else {
-            setStakeholders([...stakeholders, item]);
-            toast.success(`Parte interesada "${item.name}" agregada`);
+        
+        try {
+            const res = await fetch('/api/contexto/partes-interesadas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: selectedItem?.id,
+                    tenantId: tenant.id,
+                    name: newItem.name,
+                    type: newItem.type,
+                    needs: newItem.needs,
+                    expectations: newItem.expectations,
+                    influence: newItem.influence,
+                    strategy: newItem.strategy,
+                    contactInfo: newItem.contactInfo,
+                }),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            if (selectedItem) {
+                setStakeholders(stakeholders.map(s => s.id === data.id ? data : s));
+                toast.success('Parte interesada actualizada en DB');
+            } else {
+                setStakeholders([data, ...stakeholders]);
+                toast.success(`Parte interesada "${data.name}" guardada en DB`);
+            }
+            
+            setShowNew(false);
+            setNewItem({ type: 'EXTERNO', influence: 'MEDIA' });
+            setSelectedItem(null);
+        } catch (error) {
+            toast.error('Error al guardar la parte interesada');
         }
-        setShowNew(false);
-        setNewItem({ type: 'EXTERNO', influence: 'MEDIA' });
-        setSelectedItem(null);
     };
 
-    const handleDelete = (id: string) => {
-        setStakeholders(stakeholders.filter(s => s.id !== id));
-        toast.success('Parte interesada eliminada');
+    const handleDelete = async (id: string) => {
+        try {
+            const res = await fetch(`/api/contexto/partes-interesadas?id=${id}`, {
+                method: 'DELETE',
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            setStakeholders(stakeholders.filter(s => s.id !== id));
+            toast.success('Elemento eliminado de la base de datos');
+        } catch (error) {
+            toast.error('Error al eliminar la parte interesada');
+        }
     };
 
     return (

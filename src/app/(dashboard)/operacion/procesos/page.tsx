@@ -370,37 +370,65 @@ function CharacterizationView({ process, characterization, onClose }: { process:
     );
 }
 
+import { useApp } from '@/context/app-context';
+import { useEffect } from 'react';
+
 export default function ProcessMapPage() {
-    const [processes, setProcesses] = useState<Process[]>(mockProcesses);
+    const { tenant, currentUser } = useApp();
+    const [processes, setProcesses] = useState<Process[]>([]);
+    const [loading, setLoading] = useState(true);
     const [selectedProcess, setSelectedProcess] = useState<Process | null>(null);
     const [showCharacterization, setShowCharacterization] = useState(false);
     const [showNewProcess, setShowNewProcess] = useState(false);
     const [newProcess, setNewProcess] = useState<Partial<Process>>({ category: 'MISIONAL' });
 
-    const categories: ProcessCategory[] = ['ESTRATEGICO', 'MISIONAL', 'APOYO'];
+    useEffect(() => {
+        const fetchProcesses = async () => {
+            try {
+                const res = await fetch(`/api/procesos?tenantId=${tenant.id}`);
+                const data = await res.json();
+                if (data && !data.error) {
+                    setProcesses(data);
+                }
+            } catch (error) {
+                console.error('Error fetching processes:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProcesses();
+    }, [tenant.id]);
 
-    const handleCreateProcess = () => {
+    const handleCreateProcess = async () => {
         if (!newProcess.name || !newProcess.code) {
             toast.error('Nombre y código son requeridos');
             return;
         }
-        const created: Process = {
-            id: `proc-${Date.now()}`,
-            tenantId: 'tenant-1',
-            name: newProcess.name!,
-            code: newProcess.code!,
-            category: newProcess.category as ProcessCategory || 'MISIONAL',
-            objective: newProcess.objective || '',
-            scope: newProcess.scope || '',
-            responsibleId: 'user-1',
-            responsibleName: 'Carlos Administrador',
-            order: processes.filter(p => p.category === newProcess.category).length + 1,
-            active: true,
-        };
-        setProcesses([...processes, created]);
-        setShowNewProcess(false);
-        setNewProcess({ category: 'MISIONAL' });
-        toast.success(`Proceso "${created.name}" creado exitosamente`);
+        
+        try {
+            const res = await fetch('/api/procesos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tenantId: tenant.id,
+                    name: newProcess.name,
+                    code: newProcess.code,
+                    category: newProcess.category,
+                    objective: newProcess.objective,
+                    scope: newProcess.scope,
+                    responsibleId: currentUser?.id || 'user-1',
+                }),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            setProcesses([...processes, { ...data, responsibleName: currentUser?.name || '—' }]);
+            setShowNewProcess(false);
+            setNewProcess({ category: 'MISIONAL' });
+            toast.success(`Proceso "${data.name}" guardado exitosamente`);
+        } catch (error) {
+            toast.error('Error al guardar el proceso');
+        }
     };
 
     return (

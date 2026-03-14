@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useApp } from '@/context/app-context';
 import {
     Plus, Edit, Trash2, Save, Lightbulb, ShieldCheck,
     AlertTriangle, TrendingUp as ChartLine, Eye,
@@ -55,11 +56,30 @@ const categoryConfig: Record<DOFACategory, {
 const categories: DOFACategory[] = ['FORTALEZA', 'DEBILIDAD', 'OPORTUNIDAD', 'AMENAZA']; // Ordered for 2x2 (Top: Internal, Bottom: External)
 
 export default function ContextoOrganizacionalPage() {
-    const [items, setItems] = useState<DOFAItem[]>(mockDOFAItems);
+    const { tenant } = useApp();
+    const [items, setItems] = useState<DOFAItem[]>([]);
+    const [loading, setLoading] = useState(true);
     const [showNew, setShowNew] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [selectedItem, setSelectedItem] = useState<DOFAItem | null>(null);
     const [newItem, setNewItem] = useState<Partial<DOFAItem>>({ category: 'FORTALEZA' });
+
+    useEffect(() => {
+        const fetchItems = async () => {
+            try {
+                const res = await fetch(`/api/contexto/dofa?tenantId=${tenant.id}`);
+                const data = await res.json();
+                if (data && !data.error) {
+                    setItems(data);
+                }
+            } catch (error) {
+                console.error('Error fetching DOFA items:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchItems();
+    }, [tenant.id]);
 
     const handleDownloadPDF = () => {
         const doc = new jsPDF();
@@ -133,27 +153,54 @@ export default function ContextoOrganizacionalPage() {
         toast.success('PDF descargado exitosamente');
     };
 
-    const handleCreate = () => {
+    const handleCreate = async () => {
         if (!newItem.description) { toast.error('La descripción es requerida'); return; }
-        const item: DOFAItem = {
-            id: `dofa-${Date.now()}`,
-            tenantId: 'tenant-1',
-            category: newItem.category as DOFACategory,
-            description: newItem.description,
-            impact: newItem.impact || '',
-            actions: newItem.actions || '',
-            responsible: newItem.responsible || '',
-            createdAt: new Date(),
-        };
-        setItems([...items, item]);
-        setShowNew(false);
-        setNewItem({ category: 'FORTALEZA' });
-        toast.success(`${categoryConfig[item.category].label} agregada exitosamente`);
+        
+        try {
+            const res = await fetch('/api/contexto/dofa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: selectedItem?.id,
+                    tenantId: tenant.id,
+                    category: newItem.category,
+                    description: newItem.description,
+                    impact: newItem.impact,
+                    actions: newItem.actions,
+                    responsible: newItem.responsible,
+                }),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            if (selectedItem) {
+                setItems(items.map(i => i.id === data.id ? data : i));
+            } else {
+                setItems([data, ...items]);
+            }
+
+            setShowNew(false);
+            setNewItem({ category: 'FORTALEZA' });
+            setSelectedItem(null);
+            toast.success('Factor DOFA guardado exitosamente');
+        } catch (error) {
+            toast.error('Error al guardar el factor DOFA');
+        }
     };
 
-    const handleDelete = (id: string) => {
-        setItems(items.filter(i => i.id !== id));
-        toast.success('Elemento eliminado');
+    const handleDelete = async (id: string) => {
+        try {
+            const res = await fetch(`/api/contexto/dofa?id=${id}`, {
+                method: 'DELETE',
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            setItems(items.filter(i => i.id !== id));
+            toast.success('Elemento eliminado de la base de datos');
+        } catch (error) {
+            toast.error('Error al eliminar el elemento');
+        }
     };
 
     return (
