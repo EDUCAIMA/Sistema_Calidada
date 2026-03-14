@@ -22,13 +22,42 @@ export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
-    setTimeout(() => {
-      router.push('/dashboard');
-    }, 800);
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al iniciar sesión');
+      }
+
+      // Guardar sesión en localStorage
+      localStorage.setItem('sgc_user', JSON.stringify(data.user));
+      localStorage.setItem('sgc_tenant', JSON.stringify(data.tenant));
+
+      // Redirigir según rol
+      if (data.user.role === 'SUPER_ADMIN') {
+        router.push('/admin-portal');
+      } else {
+        router.push('/dashboard');
+      }
+    } catch (err: any) {
+      setError(err.message);
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,6 +114,12 @@ export default function LoginPage() {
               </p>
             </div>
 
+            {error && (
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center animate-in fade-in slide-in-from-top-2">
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium text-slate-300">
@@ -98,7 +133,10 @@ export default function LoginPage() {
                     id="email"
                     type="email"
                     placeholder="ej. admin@empresa.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
                     className="bg-[#1c2536] border-white/5 h-12 pl-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600"
+                    required
                   />
                 </div>
               </div>
@@ -120,7 +158,10 @@ export default function LoginPage() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
                     className="bg-[#1c2536] border-white/5 h-12 pl-11 pr-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600"
+                    required
                   />
                   <button
                     type="button"
