@@ -185,6 +185,14 @@ export default function PartesInteresadasPage() {
         }
     };
 
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-20">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-[#f8fafc] -m-6 p-8 font-sans text-slate-900 pb-20">
             {/* Page Header */}
@@ -290,7 +298,7 @@ export default function PartesInteresadasPage() {
                                                     {item.needs || 'No registrados'}
                                                 </td>
                                                 <td className="px-6 py-5 text-[12px] text-slate-800 font-bold italic leading-relaxed max-w-sm">
-                                                    "{item.expectations || 'Sin definir'}"
+                                                    &quot;{item.expectations || 'Sin definir'}&quot;
                                                 </td>
                                                 <td className="px-6 py-5">
                                                     <div className="flex justify-center">
@@ -477,7 +485,7 @@ export default function PartesInteresadasPage() {
                                     <div className="space-y-2">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expectativas</p>
                                         <p className="text-sm font-medium text-slate-700 leading-relaxed italic border-l-2 border-slate-100 pl-4">
-                                            "{selectedItem.expectations || 'Sin expectativas relevadas'}"
+                                            &quot;{selectedItem.expectations || 'Sin expectativas relevadas'}&quot;
                                         </p>
                                     </div>
                                 </div>
