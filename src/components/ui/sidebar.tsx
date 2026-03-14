@@ -42,11 +42,19 @@ const Sidebar: React.FC<SidebarProps> = ({ children }) => {
         width: `${width}px`,
         height: '100vh',
         borderRight: '1px solid #ccc',
-        overflowY: 'auto',
-        position: 'relative'
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column'
       }}
     >
-      {children}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto'
+        }}
+      >
+        {children}
+      </div>
       <div
         onMouseDown={handleMouseDown}
         style={{
