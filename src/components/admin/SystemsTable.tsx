@@ -4,8 +4,11 @@ import React, { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, Filter, MoreVertical } from 'lucide-react';
+import { Download, Filter, MoreVertical, ExternalLink } from 'lucide-react';
 import { SystemData } from '@/lib/admin/admin-mock-data';
+import { useApp } from '@/context/app-context';
+import { useRouter } from 'next/navigation';
+import { Tenant } from '@/lib/types';
 
 interface SystemsTableProps {
   systems: SystemData[];
@@ -13,6 +16,23 @@ interface SystemsTableProps {
 }
 
 export function SystemsTable({ systems, searchTerm }: SystemsTableProps) {
+  const { setTenant } = useApp();
+  const router = useRouter();
+
+  const handleEnterSystem = (system: SystemData) => {
+    const mockSelectedTenant: Tenant = {
+      id: system.id.toString(),
+      name: system.name,
+      slug: system.name.toLowerCase().replace(/\s+/g, '-'),
+      plan: 'PROFESIONAL',
+      active: true,
+      createdAt: new Date(),
+    };
+    
+    setTenant(mockSelectedTenant);
+    router.push('/dashboard');
+  };
+
   const filteredSystems = useMemo(() => {
     if (!searchTerm) return systems;
     const lowerTerm = searchTerm.toLowerCase();
@@ -94,9 +114,20 @@ export function SystemsTable({ systems, searchTerm }: SystemsTableProps) {
                     </td>
                     <td className="py-4 text-sm text-slate-400 font-bold">{system.users}</td>
                     <td className="py-4 pr-4 text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 text-[10px] font-bold uppercase tracking-widest text-blue-400 hover:text-white hover:bg-blue-600/20 gap-2 border border-blue-600/20 rounded-lg px-3"
+                          onClick={() => handleEnterSystem(system)}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Ingresar
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))

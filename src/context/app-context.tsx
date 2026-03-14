@@ -9,6 +9,7 @@ interface AppContextType {
     currentUser: User | null;
     tenant: Tenant;
     setCurrentUser: (user: User | null) => void;
+    setTenant: (tenant: Tenant) => void;
     sidebarCollapsed: boolean;
     toggleSidebar: () => void;
     logout: () => void;
@@ -19,6 +20,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const [currentUser, setCurrentUser] = useState<User | null>(mockCurrentUser);
+    const [tenant, setTenant] = useState<Tenant>(mockTenant);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     const toggleSidebar = useCallback(() => {
@@ -33,8 +35,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return (
         <AppContext.Provider value={{
             currentUser,
-            tenant: mockTenant,
+            tenant,
             setCurrentUser,
+            setTenant,
             sidebarCollapsed,
             toggleSidebar,
             logout,
