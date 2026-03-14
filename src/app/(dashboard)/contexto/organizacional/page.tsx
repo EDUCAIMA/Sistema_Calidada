@@ -6,7 +6,7 @@ import {
     Plus, Edit, Trash2, Save, Lightbulb, ShieldCheck,
     AlertTriangle, TrendingUp as ChartLine, Eye,
     ShieldAlert, User, Clock, CheckCircle, Info,
-    Download, ArrowRight
+    Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +15,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { mockDOFAItems } from '@/lib/mock-data';
 import type { DOFAItem, DOFACategory } from '@/lib/types';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
@@ -53,7 +52,7 @@ const categoryConfig: Record<DOFACategory, {
     },
 };
 
-const categories: DOFACategory[] = ['FORTALEZA', 'DEBILIDAD', 'OPORTUNIDAD', 'AMENAZA']; // Ordered for 2x2 (Top: Internal, Bottom: External)
+const categories: DOFACategory[] = ['FORTALEZA', 'DEBILIDAD', 'OPORTUNIDAD', 'AMENAZA'];
 
 export default function ContextoOrganizacionalPage() {
     const { tenant } = useApp();
@@ -85,9 +84,8 @@ export default function ContextoOrganizacionalPage() {
         const doc = new jsPDF();
         const now = new Date().toLocaleDateString();
 
-        // Header
         doc.setFontSize(22);
-        doc.setTextColor(0, 113, 197); // Intel Blue
+        doc.setTextColor(0, 113, 197);
         doc.text('QualityLink QMS', 20, 20);
 
         doc.setFontSize(10);
@@ -141,7 +139,6 @@ export default function ContextoOrganizacionalPage() {
 
                 currentY = (doc as any).lastAutoTable.finalY + 15;
 
-                // Add new page if needed
                 if (currentY > 250 && cat !== categories[categories.length - 1]) {
                     doc.addPage();
                     currentY = 20;
@@ -203,126 +200,173 @@ export default function ContextoOrganizacionalPage() {
         }
     };
 
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-20">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+        );
+    }
+
     return (
-        <div className="min-h-screen bg-[#f3f6fa] -m-6 p-10 font-[sans-serif] text-slate-900 pb-20">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 relative">
-                <div>
-                    <h1 className="text-[2.5rem] font-black tracking-tighter uppercase italic leading-none flex gap-3">
-                        ANÁLISIS DE <span className="text-blue-600">CONTEXTO</span>
-                    </h1>
-                    <div className="flex items-center gap-4 mt-3">
-                        <Badge className="bg-slate-900 text-white rounded-full font-bold text-[10px] uppercase tracking-widest px-4 py-1.5 shadow-md">
-                            ISO 9001:2015
-                        </Badge>
-                        <span className="text-xs text-slate-400 font-bold uppercase tracking-[0.2em]">
-                            DOFA | CLÁUSULA 4.1
-                        </span>
+        <div className="min-h-screen bg-[#f8fafc] -m-6 p-8 font-sans text-slate-900 pb-20">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Análisis de Contexto</h1>
+                    <div className="flex items-center gap-3">
+                        <span className="bg-[#136dec]/10 text-[#136dec] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 4.1</span>
+                        <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">Metodología DOFA</span>
                     </div>
                 </div>
-                <div className="flex items-center gap-4">
-                    <Button
-                        onClick={handleDownloadPDF}
-                        variant="outline"
-                        className="bg-white border-transparent text-slate-500 text-xs font-bold uppercase tracking-widest rounded-full h-12 px-6 shadow-[0_4px_15px_-4px_rgba(0,0,0,0.05)] hover:bg-slate-50"
+                <div className="flex items-center gap-3">
+                    <Button 
+                        variant="outline" 
+                        className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10"
                     >
-                        <Download className="w-4 h-4 mr-2" /> PDF
+                        <Clock className="w-4 h-4" />
+                        HISTORIAL
                     </Button>
-                    <Button variant="outline" className="bg-white border-transparent text-slate-500 text-xs font-bold uppercase tracking-widest rounded-full h-12 px-6 shadow-[0_4px_15px_-4px_rgba(0,0,0,0.05)] hover:bg-slate-50">
-                        <Clock className="w-4 h-4 mr-2" /> Historial
+                    <Button 
+                        onClick={handleDownloadPDF}
+                        variant="outline" 
+                        className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10"
+                    >
+                        <Download className="w-4 h-4 text-red-500" />
+                        PDF
                     </Button>
-                    <Button onClick={() => { setSelectedItem(null); setNewItem({ category: 'FORTALEZA' }); setShowNew(true); }} className="bg-slate-950 text-white rounded-full h-12 px-8 font-black uppercase text-xs tracking-widest hover:bg-black shadow-[0_8px_20px_-5px_rgba(0,0,0,0.3)] transition-all hover:-translate-y-0.5 active:scale-95">
-                        <Plus className="w-4 h-4 mr-2" /> Agregar Factor
+                    <Button 
+                        onClick={() => { setSelectedItem(null); setNewItem({ category: 'FORTALEZA' }); setShowNew(true); }}
+                        className="flex items-center gap-2 px-5 py-2 bg-[#136dec] text-white rounded-lg hover:bg-blue-600 font-bold text-xs shadow-lg shadow-blue-600/20 transition-all h-10 uppercase tracking-wider"
+                    >
+                        <Plus className="w-4 h-4" />
+                        AGREGAR FACTOR
                     </Button>
-                </div>
-                {/* Separator / Progress Line */}
-                <div className="absolute -bottom-6 w-full h-px bg-slate-200">
-                    <div className="absolute left-0 top-0 h-1 bg-slate-800 w-32 rounded-full -translate-y-1/2" />
                 </div>
             </div>
 
-            {/* Data Tables Grouped by Category - Image Reference Style */}
-            <div className="bg-white rounded-[2.5rem] shadow-[0_15px_40px_-15px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col pt-10 pb-12 px-10 mt-6 space-y-12">
+            {/* DOFA Sections Grid */}
+            <div className="space-y-12">
                 {categories.map(cat => {
                     const cfg = categoryConfig[cat];
                     const catItems = items.filter(i => i.category === cat);
+                    
+                    const sectionStyles: Record<DOFACategory, { headerBg: string, iconBg: string, iconColor: string, badgeBg: string, badgeText: string }> = {
+                        FORTALEZA: { headerBg: 'bg-emerald-50/50', iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', badgeBg: 'bg-emerald-100', badgeText: 'text-emerald-700' },
+                        OPORTUNIDAD: { headerBg: 'bg-blue-50/50', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', badgeBg: 'bg-blue-100', badgeText: 'text-blue-700' },
+                        DEBILIDAD: { headerBg: 'bg-amber-50/50', iconBg: 'bg-amber-100', iconColor: 'text-amber-600', badgeBg: 'bg-amber-100', badgeText: 'text-amber-700' },
+                        AMENAZA: { headerBg: 'bg-rose-50/50', iconBg: 'bg-rose-100', iconColor: 'text-rose-600', badgeBg: 'bg-rose-100', badgeText: 'text-rose-700' },
+                    };
 
-                    if (catItems.length === 0) return null;
+                    const style = sectionStyles[cat];
 
                     return (
-                        <div key={cat} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {/* Category Title */}
-                            <h2 className={cn("text-3xl font-black uppercase tracking-tighter mb-4 ml-1", cfg.color)}>
-                                {cfg.plural}
-                            </h2>
-
-                            <div className="overflow-hidden rounded-xl border border-slate-100 shadow-sm">
-                                {/* Table Header Row */}
-                                <div className={cn("grid grid-cols-[1fr_1.5fr_1.5fr_150px_100px] gap-4 p-4 text-[11px] font-black text-white uppercase tracking-widest", cfg.bg)}>
-                                    <div>Descripción</div>
-                                    <div>Impacto</div>
-                                    <div>Estrategia</div>
-                                    <div>Responsable</div>
-                                    <div className="text-right pr-4">Opciones</div>
+                        <section key={cat} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm transition-all hover:shadow-md">
+                            <div className={cn("px-6 py-4 border-b border-slate-100 flex items-center justify-between", style.headerBg)}>
+                                <div className="flex items-center gap-3">
+                                    <div className={cn("p-2 rounded-lg", style.iconBg, style.iconColor)}>
+                                        {cfg.icon}
+                                    </div>
+                                    <h3 className="font-bold text-slate-800 uppercase tracking-widest text-sm">{cfg.plural} Identificadas</h3>
                                 </div>
-
-                                {/* Data Rows */}
-                                <div className="divide-y divide-slate-50">
-                                    {catItems.map((item, index) => (
-                                        <div
-                                            key={item.id}
-                                            className={cn(
-                                                "grid grid-cols-[1fr_1.5fr_1.5fr_150px_100px] gap-4 p-5 items-center transition-all group",
-                                                index % 2 === 0 ? "bg-white" : "bg-slate-50/50"
-                                            )}
-                                        >
-                                            {/* Description */}
-                                            <div className="text-[13px] font-bold text-slate-700 leading-snug">
-                                                {item.description}
-                                            </div>
-                                            {/* Impact */}
-                                            <div className="text-[12px] text-slate-500 font-medium leading-relaxed italic">
-                                                {item.impact}
-                                            </div>
-                                            {/* Actions/Strategy */}
-                                            <div className="text-[12px] text-slate-700 font-bold italic border-l border-slate-100 pl-4">
-                                                "{item.actions}"
-                                            </div>
-                                            {/* Responsible */}
-                                            <div className="text-[11px] font-black text-slate-500 uppercase tracking-tight">
-                                                {item.responsible}
-                                            </div>
-                                            {/* Action Buttons */}
-                                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity pr-2">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg" onClick={() => { setSelectedItem(item); setShowDetail(true); }}><Eye className="h-4 w-4" /></Button>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-amber-600 hover:bg-white rounded-lg" onClick={() => { setSelectedItem(item); setNewItem(item); setShowNew(true); }}><Edit className="h-4 w-4" /></Button>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg" onClick={() => handleDelete(item.id)}><Trash2 className="h-4 w-4" /></Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                <span className={cn("text-[10px] font-bold px-3 py-1 rounded-full border border-current/20", style.badgeBg, style.badgeText)}>
+                                    {catItems.length} Factores
+                                </span>
                             </div>
-                        </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50/50">
+                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Descripción</th>
+                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Impacto</th>
+                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Estrategia</th>
+                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Responsable</th>
+                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100 text-right">Opciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {catItems.length > 0 ? catItems.map((item) => (
+                                            <tr key={item.id} className="hover:bg-slate-50 group transition-colors">
+                                                <td className="px-6 py-5 text-sm font-medium text-slate-700 max-w-md">
+                                                    {item.description}
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <span className={cn(
+                                                        "px-2 py-1 text-[10px] font-bold rounded uppercase border",
+                                                        item.category === 'FORTALEZA' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                        item.category === 'OPORTUNIDAD' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                        item.category === 'DEBILIDAD' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                        'bg-rose-50 text-rose-700 border-rose-200'
+                                                    )}>
+                                                        {item.impact || 'Nivel Medio'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-5 text-[13px] text-slate-600 font-medium max-w-sm italic leading-relaxed">
+                                                    "{item.actions}"
+                                                </td>
+                                                <td className="px-6 py-5 text-xs text-slate-500 font-bold uppercase">
+                                                    {item.responsible}
+                                                </td>
+                                                <td className="px-6 py-5 text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                            onClick={() => { setSelectedItem(item); setShowDetail(true); }}
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 text-slate-400 hover:text-[#136dec] hover:bg-blue-50 rounded-lg transition-all"
+                                                            onClick={() => { setSelectedItem(item); setNewItem(item); setShowNew(true); }}
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                            onClick={() => handleDelete(item.id)}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )) : (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-10 text-center text-slate-400 text-xs font-medium uppercase tracking-widest italic">
+                                                    No se han identificado {cfg.plural.toLowerCase()} aún
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
                     );
                 })}
-
-                {items.length === 0 && (
-                    <div className="p-32 text-center bg-slate-50/50 rounded-[2.5rem] border border-dashed border-slate-200">
-                        <Info className="w-20 h-20 text-slate-200 mx-auto mb-6" />
-                        <p className="text-[14px] text-slate-400 font-black uppercase tracking-[0.4em]">No hay factores registrados en el contexto</p>
-                        <p className="text-[11px] text-slate-300 font-bold uppercase tracking-widest mt-3 italic">Haga clic en 'Agregar Factor' para iniciar el análisis organizacional.</p>
-                    </div>
-                )}
             </div>
 
-            {/* Creation / Edit Form Dialog - CLEAN LIGHT ORGANIZED style */}
+            {items.length === 0 && (
+                <div className="mt-12 p-20 text-center bg-white rounded-xl border border-dashed border-slate-200 shadow-sm">
+                    <Info className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                    <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">No hay factores registrados en el contexto</p>
+                    <p className="text-xs text-slate-300 font-medium mt-2">Inicie su análisis haciendo clic en el botón 'Agregar Factor'.</p>
+                </div>
+            )}
+
+            {/* Creation / Edit Form Dialog */}
             <Dialog open={showNew} onOpenChange={setShowNew}>
                 <DialogContent className="max-w-4xl bg-white border-none p-0 overflow-hidden rounded-xl shadow-2xl font-sans">
-                    {/* Header */}
-                    <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                    <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
                         <div className="flex items-center gap-3">
-                            <div className="bg-blue-600 p-1.5 rounded-md shadow-lg shadow-blue-600/20">
-                                <ChartLine className="h-5 w-5 text-white" />
+                            <div className="bg-[#136dec] p-1.5 rounded-md shadow-lg shadow-blue-600/20">
+                                <Plus className="h-5 w-5 text-white" />
                             </div>
                             <div>
                                 <DialogTitle className="text-xl font-extrabold text-[#1e293b] tracking-tight uppercase leading-none">
@@ -335,244 +379,154 @@ export default function ContextoOrganizacionalPage() {
                         </div>
                     </div>
                     
-                    <div className="px-8 py-8 space-y-10 overflow-y-auto max-h-[80vh] scrollbar-hide bg-[#fcfdfe]">
-                        {/* 1. Selección de Cuadrante */}
+                    <div className="px-8 py-8 space-y-10 overflow-y-auto max-h-[70vh] bg-[#fcfdfe]">
+                        {/* Cuadrante Selection */}
                         <div className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center text-[11px] font-black text-blue-600 border border-blue-100 shadow-sm">
-                                    1
-                                </div>
-                                <Label className="text-[12px] font-black text-slate-700 uppercase tracking-widest">
-                                    SELECCIÓN DE CUADRANTE DOFA *
-                                </Label>
-                            </div>
-                            
+                            <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                <span className="h-4 w-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">1</span>
+                                SELECCIÓN DE CUADRANTE DOFA *
+                            </Label>
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                 {categories.map(cat => {
                                     const cfg = categoryConfig[cat];
                                     const isSelected = newItem.category === cat;
-                                    
-                                    // Colors based on category for selection
                                     const activeColors: Record<string, string> = {
-                                        FORTALEZA: 'border-emerald-500 bg-emerald-50/50 text-emerald-600',
-                                        DEBILIDAD: 'border-rose-500 bg-rose-50/50 text-rose-600',
-                                        OPORTUNIDAD: 'border-blue-500 bg-blue-50/50 text-blue-600',
-                                        AMENAZA: 'border-slate-500 bg-slate-50/50 text-slate-600'
+                                        FORTALEZA: 'border-emerald-500 bg-emerald-50 text-emerald-600',
+                                        DEBILIDAD: 'border-rose-500 bg-rose-50 text-rose-600',
+                                        OPORTUNIDAD: 'border-blue-500 bg-blue-50 text-blue-600',
+                                        AMENAZA: 'border-amber-500 bg-amber-50 text-amber-600'
                                     };
-
                                     return (
                                         <button
                                             key={cat}
                                             onClick={() => setNewItem({ ...newItem, category: cat })}
                                             className={cn(
-                                                "flex flex-col items-center justify-center p-6 rounded-xl border transition-all h-28 group",
-                                                isSelected
-                                                    ? activeColors[cat]
-                                                    : "border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50"
+                                                "flex flex-col items-center justify-center p-6 rounded-xl border transition-all h-24",
+                                                isSelected ? activeColors[cat] : "border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50 text-slate-400"
                                             )}
                                         >
-                                            <div className={cn(
-                                                "mb-3 transition-colors",
-                                                isSelected ? "" : "text-slate-300 group-hover:text-blue-400"
-                                            )}>
-                                                {cfg.icon}
-                                            </div>
-                                            <span className={cn(
-                                                "text-xs font-bold uppercase tracking-wide",
-                                                isSelected ? "" : "text-slate-500"
-                                            )}>
-                                                {cfg.label}
-                                            </span>
+                                            <div className="mb-2">{cfg.icon}</div>
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">{cfg.label}</span>
                                         </button>
                                     );
                                 })}
                             </div>
                         </div>
 
-                        {/* 2. Descripción */}
+                        {/* Description */}
                         <div className="space-y-3">
-                            <div className="flex items-center gap-3">
-                                <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center text-[11px] font-black text-blue-600 border border-blue-100 shadow-sm">
-                                    2
-                                </div>
-                                <Label className="text-[12px] font-black text-slate-700 uppercase tracking-widest">
-                                    DESCRIPCIÓN DEL FACTOR IDENTIFICADO *
-                                </Label>
-                            </div>
+                            <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                <span className="h-4 w-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">2</span>
+                                DESCRIPCIÓN DEL FACTOR *
+                            </Label>
                             <Textarea
-                                className="resize-none bg-white border-slate-200 rounded-xl p-5 focus-visible:ring-1 focus-visible:ring-blue-500 font-medium text-slate-700 min-h-[100px] shadow-sm placeholder:text-slate-300"
-                                placeholder="Especifique el hallazgo de forma clara y procesable..."
+                                className="resize-none bg-white border-slate-200 rounded-xl p-5 focus-visible:ring-1 focus-visible:ring-[#136dec] font-medium text-slate-700 min-h-[100px]"
+                                placeholder="Especifique el hallazgo de forma clara..."
                                 value={newItem.description || ''}
                                 onChange={e => setNewItem({ ...newItem, description: e.target.value })}
                             />
                         </div>
 
-                        {/* 3 & 4. Impacto y Estrategia */}
+                        {/* Impact & Strategy */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center text-[11px] font-black text-blue-600 border border-blue-100 shadow-sm">
-                                        3
-                                    </div>
-                                    <Label className="text-[12px] font-black text-slate-700 uppercase tracking-widest">
-                                        ANÁLISIS DE IMPACTO
-                                    </Label>
-                                </div>
+                                <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                    <span className="h-4 w-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">3</span>
+                                    IMPACTO
+                                </Label>
                                 <Textarea
-                                    className="resize-none bg-white border-slate-200 rounded-xl p-5 focus-visible:ring-1 focus-visible:ring-blue-500 font-medium text-slate-500 text-xs h-32 shadow-sm placeholder:text-slate-300"
-                                    placeholder="Consecuencias potenciales para el sistema..."
+                                    className="resize-none bg-white border-slate-200 rounded-xl p-5 focus-visible:ring-1 focus-visible:ring-[#136dec] text-xs h-32"
+                                    placeholder="Consecuencias potenciales..."
                                     value={newItem.impact || ''}
                                     onChange={e => setNewItem({ ...newItem, impact: e.target.value })}
                                 />
                             </div>
                             <div className="space-y-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center text-[11px] font-black text-blue-600 border border-blue-100 shadow-sm">
-                                        4
-                                    </div>
-                                    <Label className="text-[12px] font-black text-slate-700 uppercase tracking-widest">
-                                        ESTRATEGIA TÉCNICA / ACCIÓN
-                                    </Label>
-                                </div>
+                                <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                    <span className="h-4 w-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">4</span>
+                                    ESTRATEGIA / ACCIÓN
+                                </Label>
                                 <Textarea
-                                    className="resize-none bg-white border-slate-200 rounded-xl p-5 focus-visible:ring-1 focus-visible:ring-blue-500 font-medium text-slate-500 text-xs h-32 shadow-sm placeholder:text-slate-300 uppercase italic"
-                                    placeholder="PLAN TÁCTICO PARA ABORDAR EL FACTOR..."
+                                    className="resize-none bg-white border-slate-200 rounded-xl p-5 focus-visible:ring-1 focus-visible:ring-[#136dec] text-xs h-32 italic"
+                                    placeholder="Plan táctico para abordar el factor..."
                                     value={newItem.actions || ''}
                                     onChange={e => setNewItem({ ...newItem, actions: e.target.value })}
                                 />
                             </div>
                         </div>
 
-                        {/* 5. Responsable */}
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-3">
-                                <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center text-[11px] font-black text-blue-600 border border-blue-100 shadow-sm">
-                                    5
-                                </div>
-                                <Label className="text-[12px] font-black text-slate-700 uppercase tracking-widest">
-                                    RESPONSABLE DE GESTIÓN
-                                </Label>
-                            </div>
-                            <div className="relative group">
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
-                                <Input
-                                    className="bg-white border-slate-200 h-12 rounded-xl pl-11 focus-visible:ring-1 focus-visible:ring-blue-500 font-bold text-xs uppercase text-slate-700 shadow-sm placeholder:text-slate-300"
-                                    placeholder="EJ. DIRECCIÓN ESTRATÉGICA, COMITÉ DE CALIDAD..."
-                                    value={newItem.responsible || ''}
-                                    onChange={e => setNewItem({ ...newItem, responsible: e.target.value })}
-                                />
-                            </div>
+                        {/* Responsible */}
+                        <div className="space-y-3 pb-4">
+                            <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                <span className="h-4 w-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">5</span>
+                                RESPONSABLE
+                            </Label>
+                            <Input
+                                className="bg-white border-slate-200 h-11 rounded-xl focus-visible:ring-1 focus-visible:ring-[#136dec] text-xs font-bold uppercase"
+                                placeholder="EJ. GERENCIA GENERAL, COMITÉ QMS..."
+                                value={newItem.responsible || ''}
+                                onChange={e => setNewItem({ ...newItem, responsible: e.target.value })}
+                            />
                         </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="px-8 py-6 bg-slate-50 flex justify-end items-center gap-4">
-                        <Button 
-                            variant="ghost" 
-                            className="text-slate-500 font-bold uppercase text-[11px] tracking-widest h-11 px-6 px-10 rounded-lg hover:bg-slate-100" 
-                            onClick={() => setShowNew(false)}
-                        >
-                            DESCARTAR
-                        </Button>
-                        <Button 
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold uppercase text-[11px] tracking-widest flex items-center gap-2 h-11 px-8 rounded-lg shadow-lg shadow-blue-600/20 active:scale-95 transition-all" 
-                            onClick={handleCreate}
-                        >
-                            <Save className="h-4 w-4" />
-                            {selectedItem ? 'ACTUALIZAR FICHA' : 'GUARDAR HALLAZGO'}
+                    <div className="px-8 py-6 bg-slate-50 flex justify-end items-center gap-3">
+                        <Button variant="ghost" className="text-slate-500 font-bold uppercase text-[10px] tracking-widest h-11 px-8" onClick={() => setShowNew(false)}>Descartar</Button>
+                        <Button className="bg-[#136dec] hover:bg-blue-700 text-white font-bold uppercase text-[10px] tracking-widest h-11 px-10 shadow-lg shadow-blue-600/20" onClick={handleCreate}>
+                            <Save className="h-4 w-4 mr-2" />
+                            {selectedItem ? 'Actualizar Factor' : 'Guardar Factor'}
                         </Button>
                     </div>
                 </DialogContent>
             </Dialog>
 
-            {/* Read-only Detail Dialog - Bento Style Glass */}
+            {/* Read-only Detail Dialog */}
             <Dialog open={showDetail} onOpenChange={setShowDetail}>
-                {selectedItem && (
-                    <DialogContent className="max-w-2xl bg-[#0b1120]/95 backdrop-blur-2xl border border-white/10 p-0 overflow-hidden rounded-[2.5rem] shadow-2xl text-slate-100">
-                        <div className={cn("h-2 w-full", categoryConfig[selectedItem.category].bg)} />
-
-                        <div className="p-10 relative">
-                            {/* Ambient background light based on category */}
-                            <div className={cn(
-                                "absolute top-0 right-0 w-64 h-64 blur-[100px] rounded-full opacity-20 pointer-events-none",
-                                categoryConfig[selectedItem.category].bg
-                            )} />
-
-                            <div className="flex items-start gap-8 mb-10 relative z-10">
-                                <div className={cn(
-                                    "h-24 w-24 rounded-[2rem] flex items-center justify-center text-white shadow-2xl shrink-0 transform -rotate-3 transition-transform hover:rotate-0 duration-500",
-                                    categoryConfig[selectedItem.category].bg
-                                )}>
-                                    <div className="scale-[2]">
+                <DialogContent className="max-w-3xl bg-white border-none p-0 overflow-hidden rounded-2xl shadow-2xl">
+                    {selectedItem && (
+                        <>
+                            <div className={cn("h-1.5 w-full", categoryConfig[selectedItem.category].bg)} />
+                            <div className="p-10">
+                                <div className="flex items-start gap-6 mb-8">
+                                    <div className={cn("h-16 w-16 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg", categoryConfig[selectedItem.category].bg)}>
                                         {categoryConfig[selectedItem.category].icon}
                                     </div>
-                                </div>
-                                <div className="pt-2">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <Badge className={cn("border-none shadow-lg uppercase text-[9px] tracking-[0.3em] font-black px-4 py-1.5 rounded-full", categoryConfig[selectedItem.category].bg)}>
+                                    <div className="flex-1">
+                                        <Badge className={cn("mb-2 border-none uppercase text-[9px] tracking-widest font-black px-3 py-1", categoryConfig[selectedItem.category].bg)}>
                                             {categoryConfig[selectedItem.category].label}
                                         </Badge>
-                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                                            Ficha Técnica ID: {selectedItem.id.split('-')[1] || '---'}
-                                        </span>
+                                        <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">{selectedItem.description}</h2>
                                     </div>
-                                    <h2 className="text-[2.8rem] leading-[0.95] font-black text-white uppercase tracking-tighter italic">
-                                        {selectedItem.description}
-                                    </h2>
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6 mb-8 relative z-10">
-                                <div className="col-span-2 bg-white/5 rounded-3xl p-8 border border-white/5 backdrop-blur-sm group hover:bg-white/[0.08] transition-colors">
-                                    <p className="text-[10px] font-black text-blue-400/60 uppercase tracking-[0.3em] mb-4">Impacto Organizacional</p>
-                                    <p className="text-base font-medium text-slate-300 leading-relaxed italic border-l-2 border-blue-500/20 pl-6">
-                                        {selectedItem.impact || 'Sin análisis de impacto registrado.'}
-                                    </p>
-                                </div>
-
-                                <div className="col-span-2 bg-white/5 rounded-3xl p-8 border border-white/5 shadow-inner group hover:bg-white/[0.08] transition-colors">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] italic">Estrategia técnica / Acción de mejora</p>
-                                        <div className="h-1.5 w-12 rounded-full bg-blue-500/30" />
+                                
+                                <div className="space-y-8">
+                                    <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200/50">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Análisis de Impacto</p>
+                                        <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{selectedItem.impact || 'Sin análisis registrado.'}</p>
                                     </div>
-                                    <p className="text-2xl font-black uppercase tracking-tighter text-white leading-tight">
-                                        {selectedItem.actions || 'Pendiente de definición táctica.'}
-                                    </p>
-                                </div>
-
-                                <div className="col-span-2 flex items-center justify-between py-6 px-1 border-t border-white/5 mt-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 rounded-[1rem] bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center shadow-lg">
-                                            <User className="w-5 h-5 text-blue-400" />
-                                        </div>
+                                    <div className="bg-[#136dec]/5 rounded-2xl p-6 border border-blue-100/50">
+                                        <p className="text-[10px] font-black text-[#136dec] uppercase tracking-widest mb-3">Estrategia / Acción</p>
+                                        <p className="text-lg font-black text-slate-800 uppercase leading-snug tracking-tight italic">"{selectedItem.actions || 'Pendiente de definición.'}"</p>
+                                    </div>
+                                    <div className="flex items-center justify-between pt-6 border-t border-slate-100">
                                         <div>
-                                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] leading-none mb-1">Responsable de Gestión</p>
-                                            <p className="text-sm font-black text-white uppercase tracking-tight">{selectedItem.responsible}</p>
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Responsable</p>
+                                            <p className="text-sm font-bold text-slate-700 uppercase">{selectedItem.responsible}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Registro</p>
+                                            <p className="text-sm font-bold text-slate-500">{new Date(selectedItem.createdAt).toLocaleDateString()}</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] leading-none mb-1">Fecha Registro</p>
-                                        <p className="text-sm font-bold text-slate-400 tracking-tight">
-                                            {selectedItem.createdAt ? new Date(selectedItem.createdAt).toLocaleDateString() : 'N/A'}
-                                        </p>
-                                    </div>
+                                </div>
+                                <div className="mt-10 flex justify-end">
+                                    <Button onClick={() => setShowDetail(false)} className="bg-slate-900 hover:bg-black text-white px-8 h-12 font-bold uppercase text-[10px] tracking-widest rounded-xl">Cerrar Ficha</Button>
                                 </div>
                             </div>
-                        </div>
-
-                        <div className="px-10 py-8 bg-black/20 flex justify-end border-t border-white/5">
-                            <Button 
-                                onClick={() => setShowDetail(false)} 
-                                variant="outline" 
-                                className="font-black uppercase text-[10px] tracking-[0.3em] h-14 px-10 rounded-2xl bg-white/5 border-white/10 hover:bg-white/10 text-white transition-all active:scale-95"
-                            >
-                                Cerrar Ficha Téchnica
-                            </Button>
-                        </div>
-                    </DialogContent>
-                )}
+                        </>
+                    )}
+                </DialogContent>
             </Dialog>
-
         </div>
     );
 }
