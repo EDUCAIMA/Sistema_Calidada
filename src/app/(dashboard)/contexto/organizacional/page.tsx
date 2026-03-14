@@ -539,14 +539,14 @@ export default function ContextoOrganizacionalPage() {
             </Dialog>
             {/* ISO 9001:2015 Clause 4.1 Info Dialog - Professional Redesign */}
             <Dialog open={showISOInfo} onOpenChange={setShowISOInfo}>
-                <DialogContent className="max-w-4xl bg-white border border-gray-200 shadow-sm rounded-lg overflow-hidden flex flex-col p-0 gap-0 font-sans">
+                <DialogContent className="max-w-5xl bg-white border border-gray-200 shadow-sm rounded-lg overflow-hidden flex flex-col p-0 gap-0 font-sans">
                     {/* BEGIN: Header */}
-                    <header className="px-8 py-10 border-b border-gray-100 bg-white">
+                    <header className="px-12 py-12 border-b border-gray-50 bg-white">
                         <div className="flex flex-col gap-2">
-                            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
+                            <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
                                 4 Contexto de la organización
                             </h1>
-                            <h2 className="text-xl md:text-2xl font-medium text-[#1e3a8a]">
+                            <h2 className="text-2xl font-medium text-[#1e3a8a]">
                                 4.1 Conocimiento de la organización y de su contexto
                             </h2>
                         </div>
@@ -554,28 +554,28 @@ export default function ContextoOrganizacionalPage() {
                     {/* END: Header */}
 
                     {/* BEGIN: MainContent */}
-                    <div className="p-8 md:p-12 space-y-8 bg-white overflow-y-auto max-h-[60vh]">
+                    <div className="px-12 md:px-24 py-16 space-y-10 bg-white overflow-y-auto max-h-[60vh]">
                         {/* BEGIN: NormativeParagraphs */}
-                        <section className="space-y-4">
-                            <p className="text-lg text-gray-800 leading-relaxed italic">
+                        <section className="space-y-6">
+                            <p className="text-xl text-gray-800 leading-relaxed italic">
                                 La organización debe determinar las cuestiones externas e internas que son pertinentes para su propósito y su dirección estratégica y que afectan a su capacidad para lograr los resultados previstos de su sistema de gestión de la calidad.
                             </p>
-                            <p className="text-lg text-gray-800 leading-relaxed italic">
+                            <p className="text-xl text-gray-800 leading-relaxed italic">
                                 La organización debe realizar el seguimiento y la revisión de la información sobre estas cuestiones externas e internas.
                             </p>
                         </section>
                         {/* END: NormativeParagraphs */}
 
                         {/* BEGIN: Notes */}
-                        <section className="space-y-4">
-                            <div className="flex flex-col gap-4 text-gray-600 text-sm md:text-base leading-relaxed">
-                                <p className="italic md:ml-10">
+                        <section className="space-y-6">
+                            <div className="flex flex-col gap-6 text-gray-600 text-sm md:text-lg leading-relaxed">
+                                <p className="italic md:ml-12">
                                     <span className="font-bold text-gray-900">NOTA 1</span> Las cuestiones pueden incluir factores positivos y negativos o condiciones para su consideración.
                                 </p>
-                                <p className="italic md:ml-10">
+                                <p className="italic md:ml-12">
                                     <span className="font-bold text-gray-900">NOTA 2</span> La comprensión del contexto externo puede verse facilitado al considerar cuestiones que surgen de los entornos legal, tecnológico, competitivo, de mercado, cultural, social y económico, ya sea internacional, nacional, regional o local.
                                 </p>
-                                <p className="italic md:ml-10">
+                                <p className="italic md:ml-12">
                                     <span className="font-bold text-gray-900">NOTA 3</span> La comprensión del contexto interno puede verse facilitada al considerar cuestiones relativas a los valores, la cultura, los conocimientos y el desempeño de la organización.
                                 </p>
                             </div>
@@ -585,13 +585,13 @@ export default function ContextoOrganizacionalPage() {
                     {/* END: MainContent */}
 
                     {/* BEGIN: FooterActions */}
-                    <footer className="px-8 py-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-                        <div className="text-xs text-gray-400 font-medium tracking-tight uppercase">
+                    <footer className="px-12 py-8 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                        <div className="text-xs text-gray-400 font-bold tracking-tight uppercase">
                             SISTEMA DE GESTIÓN DE LA CALIDAD (SGC)
                         </div>
                         <Button 
                             onClick={() => setShowISOInfo(false)}
-                            className="bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-semibold py-2 px-8 rounded shadow-sm transition-all duration-200 ease-in-out active:scale-95 h-auto"
+                            className="bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-bold py-3 px-10 rounded shadow-md transition-all duration-200 ease-in-out active:scale-95 h-auto uppercase tracking-wider"
                         >
                             ENTENDIDO
                         </Button>
