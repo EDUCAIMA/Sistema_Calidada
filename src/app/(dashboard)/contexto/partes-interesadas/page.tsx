@@ -186,285 +186,321 @@ export default function PartesInteresadasPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#f3f6fa] -m-6 p-10 font-[sans-serif] text-slate-900 pb-20">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 relative">
-                <div>
-                    <h1 className="text-[2.5rem] font-black tracking-tighter uppercase italic leading-none flex gap-3">
-                        PARTES <span className="text-blue-600">INTERESADAS</span>
-                    </h1>
-                    <div className="flex items-center gap-4 mt-3">
-                        <Badge className="bg-slate-900 text-white rounded-full font-bold text-[10px] uppercase tracking-widest px-4 py-1.5 shadow-md">
-                            ISO 9001:2015
-                        </Badge>
-                        <span className="text-xs text-slate-400 font-bold uppercase tracking-[0.2em]">
-                            CLÁUSULA 4.2
-                        </span>
+        <div className="min-h-screen bg-[#f8fafc] -m-6 p-8 font-sans text-slate-900 pb-20">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Partes Interesadas</h1>
+                    <div className="flex items-center gap-3">
+                        <span className="bg-[#136dec]/10 text-[#136dec] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 4.2</span>
+                        <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">Requisitos y Expectativas</span>
                     </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                    <Button 
+                        variant="outline" 
+                        className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10"
+                    >
+                        <Clock className="w-4 h-4" />
+                        HISTORIAL
+                    </Button>
                     <Button 
                         onClick={handleDownloadPDF}
                         variant="outline" 
-                        className="bg-white border-transparent text-slate-500 text-xs font-bold uppercase tracking-widest rounded-full h-12 px-6 shadow-[0_4px_15px_-4px_rgba(0,0,0,0.05)] hover:bg-slate-50"
+                        className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10"
                     >
-                        <Download className="w-4 h-4 mr-2" /> PDF
+                        <Download className="w-4 h-4 text-red-500" />
+                        PDF
                     </Button>
-                    <Button variant="outline" className="bg-white border-transparent text-slate-500 text-xs font-bold uppercase tracking-widest rounded-full h-12 px-6 shadow-[0_4px_15px_-4px_rgba(0,0,0,0.05)] hover:bg-slate-50">
-                        <Clock className="w-4 h-4 mr-2" /> Historial
+                    <Button 
+                        onClick={() => { setSelectedItem(null); setNewItem({ type: 'EXTERNO', influence: 'MEDIA' }); setShowNew(true); }}
+                        className="flex items-center gap-2 px-5 py-2 bg-[#136dec] text-white rounded-lg hover:bg-blue-600 font-bold text-xs shadow-lg shadow-blue-600/20 transition-all h-10 uppercase tracking-wider"
+                    >
+                        <Plus className="w-4 h-4" />
+                        NUEVO REGISTRO
                     </Button>
-                    <Button onClick={() => { setSelectedItem(null); setNewItem({ type: 'EXTERNO', influence: 'MEDIA' }); setShowNew(true); }} className="bg-slate-950 text-white rounded-full h-12 px-8 font-black uppercase text-xs tracking-widest hover:bg-black shadow-[0_8px_20px_-5px_rgba(0,0,0,0.3)] transition-transform hover:-translate-y-0.5">
-                        <Plus className="w-4 h-4 mr-2" /> Nuevo Registro
-                    </Button>
-                </div>
-                {/* Separator / Progress Line */}
-                <div className="absolute -bottom-6 w-full h-px bg-slate-200">
-                    <div className="absolute left-0 top-0 h-1 bg-slate-800 w-32 rounded-full -translate-y-1/2" />
                 </div>
             </div>
 
             {/* Dash KPIs */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                 {[
-                    { label: 'Total Registros', value: stats.total, icon: <Users className="h-6 w-6" />, bg: 'bg-slate-900' },
-                    { label: 'Internos', value: stats.internos, icon: <Building2 className="h-6 w-6" />, bg: 'bg-indigo-600' },
-                    { label: 'Externos', value: stats.externos, icon: <Globe className="h-6 w-6" />, bg: 'bg-blue-600' },
-                    { label: 'Influencia Alta', value: stats.altaInfluencia, icon: <ShieldAlert className="h-6 w-6" />, bg: 'bg-rose-600' },
+                    { label: 'Total Entidades', value: stats.total, icon: <Users className="h-5 w-5" />, bg: 'bg-slate-100', color: 'text-slate-700' },
+                    { label: 'Contexto Interno', value: stats.internos, icon: <Building2 className="h-5 w-5" />, bg: 'bg-indigo-100', color: 'text-indigo-700' },
+                    { label: 'Contexto Externo', value: stats.externos, icon: <Globe className="h-5 w-5" />, bg: 'bg-blue-100', color: 'text-blue-700' },
+                    { label: 'Influencia Crítica', value: stats.altaInfluencia, icon: <ShieldAlert className="h-5 w-5" />, bg: 'bg-rose-100', color: 'text-rose-700' },
                 ].map((s, i) => (
-                    <div key={i} className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between group hover:border-blue-200 transition-colors">
+                    <div key={i} className="bg-white rounded-xl p-6 border-2 border-slate-200 shadow-sm flex items-center justify-between group hover:border-slate-300 transition-all">
                         <div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{s.label}</p>
-                            <p className="text-3xl font-black text-slate-900">{s.value}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
+                            <p className="text-3xl font-black text-slate-900 tracking-tight">{s.value}</p>
                         </div>
-                        <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-sm", s.bg)}>
+                        <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center shadow-inner", s.bg, s.color)}>
                             {s.icon}
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Unified Data Table - Organizational Style Sync */}
-            <div className="bg-white rounded-[2.5rem] shadow-[0_15px_40px_-15px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col pt-10 pb-12 px-10 mt-6">
-                <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-2xl font-black italic uppercase tracking-tighter text-slate-800">
-                        Registro Unificado de <span className="text-blue-600">Partes Interesadas</span>
-                    </h2>
-                    <Badge variant="outline" className="border-slate-200 text-slate-400 font-bold uppercase tracking-widest text-[9px] px-4 py-1.5 rounded-full">
-                        {stakeholders.length} Entidades Registradas
-                    </Badge>
-                </div>
+            {/* Stakeholder Sections Grid */}
+            <div className="space-y-12">
+                {(['INTERNO', 'EXTERNO'] as StakeholderType[]).map(type => {
+                    const cfg = typeConfig[type];
+                    const typeItems = stakeholders.filter(s => s.type === type);
+                    
+                    const sectionStyles: Record<StakeholderType, { headerBg: string, iconBg: string, iconColor: string, badgeBg: string, badgeText: string }> = {
+                        INTERNO: { headerBg: 'bg-indigo-100/80', iconBg: 'bg-indigo-200', iconColor: 'text-indigo-700', badgeBg: 'bg-indigo-200', badgeText: 'text-indigo-800' },
+                        EXTERNO: { headerBg: 'bg-blue-100/80', iconBg: 'bg-blue-200', iconColor: 'text-blue-700', badgeBg: 'bg-blue-200', badgeText: 'text-blue-800' },
+                    };
 
-                <div className="overflow-hidden rounded-xl border border-slate-100 shadow-sm">
-                    {/* Table Header Row */}
-                    <div className="grid grid-cols-[100px_1fr_1.5fr_1.5fr_120px_100px] gap-4 p-4 text-[11px] font-black text-white uppercase tracking-widest bg-slate-900">
-                        <div className="text-center">Contexto</div>
-                        <div>Parte Interesada</div>
-                        <div>Requisitos Técnicos</div>
-                        <div>Expectativas Documentadas</div>
-                        <div className="text-center">Influencia</div>
-                        <div className="text-right pr-4">Opciones</div>
-                    </div>
+                    const style = sectionStyles[type];
 
-                    {/* Data Rows */}
-                    <div className="divide-y divide-slate-50">
-                        {stakeholders.length > 0 ? stakeholders.map((item, index) => {
-                            const tCfg = typeConfig[item.type];
-                            return (
-                                <div 
-                                    key={item.id} 
-                                    className={cn(
-                                        "grid grid-cols-[100px_1fr_1.5fr_1.5fr_120px_100px] gap-4 p-5 items-center transition-all group",
-                                        index % 2 === 0 ? "bg-white" : "bg-slate-50/50"
-                                    )}
-                                >
-                                    {/* Context Column */}
-                                    <div className="flex justify-center">
-                                        <Badge className={cn("text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-md shadow-sm border-none text-white", tCfg.bg)}>
-                                            {tCfg.label}
-                                        </Badge>
+                    return (
+                        <section key={type} className="bg-white rounded-xl border-2 border-slate-200 overflow-hidden shadow-sm transition-all hover:shadow-md">
+                            <div className={cn("px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between", style.headerBg)}>
+                                <div className="flex items-center gap-3">
+                                    <div className={cn("p-2 rounded-lg", style.iconBg, style.iconColor)}>
+                                        {cfg.icon}
                                     </div>
-                                    {/* Parte Interesada */}
-                                    <div className="text-[14px] font-black text-slate-800 uppercase italic tracking-tight leading-tight">
-                                        {item.name}
-                                    </div>
-                                    {/* Requisitos */}
-                                    <div className="text-[12px] text-slate-600 font-medium leading-relaxed border-l border-slate-100 pl-4">
-                                        {item.needs || 'No se han registrado requerimientos específicos'}
-                                    </div>
-                                    {/* Expectativas */}
-                                    <div className="text-[12px] text-slate-800 font-bold italic leading-relaxed border-l border-slate-100 pl-4">
-                                        "{item.expectations || 'No se han relevado percepciones'}"
-                                    </div>
-                                    {/* Influencia */}
-                                    <div className="flex justify-center">
-                                        <div className={cn("inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg", influenceConfig[item.influence].bg, influenceConfig[item.influence].color)}>
-                                            {influenceConfig[item.influence].icon}
-                                            <span className="text-[9px] font-black uppercase tracking-widest">{item.influence}</span>
-                                        </div>
-                                    </div>
-                                    {/* Action Buttons */}
-                                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity pr-2">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg" onClick={() => { setSelectedItem(item); setShowDetail(true); }}><Eye className="h-4 w-4" /></Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-amber-600 hover:bg-white rounded-lg" onClick={() => { setSelectedItem(item); setNewItem(item); setShowNew(true); }}><Edit className="h-4 w-4" /></Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg" onClick={() => handleDelete(item.id)}><Trash2 className="h-4 w-4" /></Button>
-                                    </div>
+                                    <h3 className="font-bold text-slate-800 uppercase tracking-widest text-sm">Partes Interesadas - {cfg.label}as</h3>
                                 </div>
-                            );
-                        }) : (
-                            <div className="p-32 text-center bg-slate-50/50">
-                                <Users className="w-20 h-20 text-slate-200 mx-auto mb-6" />
-                                <p className="text-[14px] text-slate-400 font-black uppercase tracking-[0.4em]">No hay partes interesadas registradas</p>
-                                <p className="text-[11px] text-slate-300 font-bold uppercase tracking-widest mt-3 italic">Haga clic en 'Nuevo Registro' para iniciar la identificación.</p>
+                                <span className={cn("text-[10px] font-bold px-3 py-1 rounded-full border border-current/20", style.badgeBg, style.badgeText)}>
+                                    {typeItems.length} Registros
+                                </span>
                             </div>
-                        )}
-                    </div>
-                </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50/50">
+                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Interesado</th>
+                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Requisitos Técnicos</th>
+                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Expectativas</th>
+                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100 text-center">Influencia</th>
+                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100 text-right">Opciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {typeItems.length > 0 ? typeItems.map((item) => (
+                                            <tr key={item.id} className="hover:bg-slate-50 group transition-colors">
+                                                <td className="px-6 py-5 text-sm font-black text-slate-800 uppercase italic tracking-tight italic">
+                                                    {item.name}
+                                                </td>
+                                                <td className="px-6 py-5 text-[12px] text-slate-600 font-medium leading-relaxed max-w-sm">
+                                                    {item.needs || 'No registrados'}
+                                                </td>
+                                                <td className="px-6 py-5 text-[12px] text-slate-800 font-bold italic leading-relaxed max-w-sm">
+                                                    "{item.expectations || 'Sin definir'}"
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex justify-center">
+                                                        <div className={cn("inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border", influenceConfig[item.influence].bg, influenceConfig[item.influence].color, "border-current/10")}>
+                                                            {influenceConfig[item.influence].icon}
+                                                            <span className="text-[9px] font-black uppercase tracking-widest">{item.influence}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5 text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                            onClick={() => { setSelectedItem(item); setShowDetail(true); }}
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                                            onClick={() => { setSelectedItem(item); setNewItem(item); setShowNew(true); }}
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                            onClick={() => handleDelete(item.id)}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )) : (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-10 text-center text-slate-400 text-xs font-medium uppercase tracking-widest italic">
+                                                    No hay {cfg.label.toLowerCase()}s registrados aún
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    );
+                })}
             </div>
 
-            {/* Form Dialog for Create/Edit - CLEAN SHEET */}
+            {stakeholders.length === 0 && (
+                <div className="mt-12 p-20 text-center bg-white rounded-xl border-2 border-dashed border-slate-200 shadow-sm">
+                    <Users className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                    <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">No hay partes interesadas registradas</p>
+                    <p className="text-xs text-slate-300 font-medium mt-2 italic tracking-wide">Inicie la identificación para dar cumplimiento a la cláusula 4.2.</p>
+                </div>
+            )}
+
+            {/* Form Dialog for Create/Edit */}
             <Dialog open={showNew} onOpenChange={setShowNew}>
-                <DialogContent className="max-w-2xl bg-white border border-slate-200 p-0 overflow-hidden rounded-[2.5rem] shadow-2xl">
-                    <div className="h-3 w-full bg-slate-900" />
-                    <div className="px-10 pt-10 pb-6">
-                        <DialogTitle className="text-3xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">
-                            {selectedItem ? 'Modificar Entidad' : 'Registrar Parte Interesada'}
-                        </DialogTitle>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
-                            Cláusula 4.2 — Identificación y expectativas
-                        </p>
-                    </div>
-
-                    <div className="px-10 space-y-8 pb-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="md:col-span-2">
-                                <Label className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 block ml-1">Parte Interesada (Entidad) *</Label>
-                                <Input
-                                    className="bg-slate-50 border-none h-14 rounded-xl px-6 focus-visible:ring-1 focus-visible:ring-slate-300 font-black text-[13px] uppercase tracking-tight placeholder:font-bold placeholder:italic shadow-inner"
-                                    placeholder="Ej. Clientes VIP, Trabajadores, Entidad..."
-                                    value={newItem.name || ''}
-                                    onChange={e => setNewItem({ ...newItem, name: e.target.value })}
-                                />
+                <DialogContent className="max-w-4xl bg-white border-none p-0 overflow-hidden rounded-xl shadow-2xl font-sans">
+                    <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-[#136dec] p-1.5 rounded-md shadow-lg shadow-blue-600/20">
+                                <Plus className="h-5 w-5 text-white" />
                             </div>
                             <div>
-                                <Label className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 block ml-1">Categoría *</Label>
-                                <Select value={newItem.type} onValueChange={v => setNewItem({ ...newItem, type: v as StakeholderType })}>
-                                    <SelectTrigger className="bg-slate-50 border-none h-14 rounded-xl px-6 focus:ring-1 focus:ring-slate-300 font-black text-[11px] uppercase tracking-widest shadow-inner">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white border-slate-100 shadow-xl rounded-2xl">
-                                        <SelectItem value="INTERNO" className="font-bold text-[10px] uppercase cursor-pointer py-3 hover:bg-slate-50 rounded-xl">Contexto Interno</SelectItem>
-                                        <SelectItem value="EXTERNO" className="font-bold text-[10px] uppercase cursor-pointer py-3 hover:bg-slate-50 rounded-xl">Contexto Externo</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 block ml-1">Grado de Influencia *</Label>
-                                <Select value={newItem.influence} onValueChange={v => setNewItem({ ...newItem, influence: v as StakeholderInfluence })}>
-                                    <SelectTrigger className="bg-slate-50 border-none h-14 rounded-xl px-6 focus:ring-1 focus:ring-slate-300 font-black text-[11px] uppercase tracking-widest shadow-inner">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white border-slate-100 shadow-xl rounded-2xl">
-                                        <SelectItem value="ALTA" className="text-rose-600 font-bold text-[10px] uppercase cursor-pointer py-3 hover:bg-slate-50 rounded-xl">Alta Influencia</SelectItem>
-                                        <SelectItem value="MEDIA" className="text-amber-600 font-bold text-[10px] uppercase cursor-pointer py-3 hover:bg-slate-50 rounded-xl">Media Influencia</SelectItem>
-                                        <SelectItem value="BAJA" className="text-emerald-600 font-bold text-[10px] uppercase cursor-pointer py-3 hover:bg-slate-50 rounded-xl">Baja Influencia</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-6">
-                            <div>
-                                <Label className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 block ml-1">Requisitos Formales Identificados</Label>
-                                <Textarea
-                                    className="resize-none bg-slate-50 border-none h-24 rounded-xl p-4 focus-visible:ring-1 focus-visible:ring-slate-300 text-[12px] font-bold shadow-inner"
-                                    placeholder="Requisitos técnicos o legales que exige esta parte..."
-                                    value={newItem.needs || ''}
-                                    onChange={e => setNewItem({ ...newItem, needs: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <Label className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 block ml-1">Expectativas (Subjetivas)</Label>
-                                <Textarea
-                                    className="resize-none bg-slate-50 border-none h-24 rounded-xl p-4 focus-visible:ring-1 focus-visible:ring-slate-300 text-[12px] font-bold italic shadow-inner"
-                                    placeholder="Que esperan que se haga, aunque no lo exijan formalmente..."
-                                    value={newItem.expectations || ''}
-                                    onChange={e => setNewItem({ ...newItem, expectations: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <Label className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 block ml-1">Estrategia de Abordaje</Label>
-                                <Textarea
-                                    className="resize-none bg-slate-50 border-none h-24 rounded-xl p-4 focus-visible:ring-1 focus-visible:ring-slate-300 text-[12px] font-black uppercase tracking-tight shadow-inner"
-                                    placeholder="Definición de plan de acción para cumplir con esta parte interesada..."
-                                    value={newItem.strategy || ''}
-                                    onChange={e => setNewItem({ ...newItem, strategy: e.target.value })}
-                                />
+                                <DialogTitle className="text-xl font-extrabold text-[#1e293b] tracking-tight uppercase leading-none">
+                                    {selectedItem ? 'MODIFICAR INTERESADO' : 'REGISTRAR INTERESADO'}
+                                </DialogTitle>
+                                <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wide">
+                                    ISO 9001:2015 — Identificación de Partes Interesadas
+                                </p>
                             </div>
                         </div>
                     </div>
+                    
+                    <div className="px-8 py-8 space-y-8 overflow-y-auto max-h-[75vh] bg-[#fcfdfe]">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-slate-900 border-none">
+                            {/* Basics */}
+                            <div className="space-y-6">
+                                <div className="space-y-3">
+                                    <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Nombre de la Entidad / Persona *</Label>
+                                    <Input 
+                                        className="h-12 bg-white border-2 border-slate-100 focus:border-blue-500 rounded-xl font-bold transition-all shadow-sm"
+                                        placeholder="Ej: Proveedores de Materia Prima"
+                                        value={newItem.name || ''}
+                                        onChange={e => setNewItem({...newItem, name: e.target.value})}
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Categoría de Contexto *</Label>
+                                    <Select value={newItem.type} onValueChange={(v: StakeholderType) => setNewItem({...newItem, type: v})}>
+                                        <SelectTrigger className="h-12 bg-white border-2 border-slate-100 focus:border-blue-500 rounded-xl font-bold transition-all shadow-sm">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="INTERNO" className="font-bold">CONJUNTO INTERNO (Empleados, Socios)</SelectItem>
+                                            <SelectItem value="EXTERNO" className="font-bold">CONJUNTO EXTERNO (Clientes, Estado)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Nivel de Influencia *</Label>
+                                    <Select value={newItem.influence} onValueChange={(v: StakeholderInfluence) => setNewItem({...newItem, influence: v})}>
+                                        <SelectTrigger className="h-12 bg-white border-2 border-slate-100 focus:border-blue-500 rounded-xl font-bold transition-all shadow-sm">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALTA" className="font-bold text-rose-600 uppercase italic">Influencia Crítica / Alta</SelectItem>
+                                            <SelectItem value="MEDIA" className="font-bold text-amber-600 uppercase italic">Influencia Estándar / Media</SelectItem>
+                                            <SelectItem value="BAJA" className="font-bold text-emerald-600 uppercase italic">Influencia Referencial / Baja</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
 
-                    <div className="px-10 py-8 bg-slate-50 flex justify-end gap-4 border-t border-slate-100">
-                        <Button variant="ghost" className="hover:bg-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest h-14 px-8 rounded-xl" onClick={() => setShowNew(false)}>Descartar</Button>
-                        <Button className="bg-slate-900 hover:bg-black text-white font-black italic uppercase tracking-widest px-10 h-14 rounded-xl shadow-[0_8px_20px_-5px_rgba(0,0,0,0.3)] transition-all active:scale-95" onClick={handleCreate}>
-                            {selectedItem ? 'Actualizar Ficha' : 'Guardar Entidad'}
+                            {/* Requirements */}
+                            <div className="space-y-6">
+                                <div className="space-y-3">
+                                    <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Requisitos del Interesado (Necesidades)</Label>
+                                    <Textarea 
+                                        className="min-h-[100px] bg-white border-2 border-slate-100 focus:border-blue-500 rounded-xl font-medium transition-all shadow-sm resize-none"
+                                        placeholder="¿Qué requiere esta parte del sistema?"
+                                        value={newItem.needs || ''}
+                                        onChange={e => setNewItem({...newItem, needs: e.target.value})}
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Expectativas Futuras</Label>
+                                    <Textarea 
+                                        className="min-h-[100px] bg-white border-2 border-slate-100 focus:border-blue-500 rounded-xl font-medium transition-all shadow-sm resize-none"
+                                        placeholder="¿Qué espera de la organización?"
+                                        value={newItem.expectations || ''}
+                                        onChange={e => setNewItem({...newItem, expectations: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Estrategia de Gestión / Acciones</Label>
+                            <Input 
+                                className="h-14 bg-white border-2 border-slate-100 focus:border-blue-500 rounded-xl font-bold transition-all shadow-sm text-blue-600 placeholder:text-blue-200"
+                                placeholder="Estrategia principal para abordar este interesado..."
+                                value={newItem.strategy || ''}
+                                onChange={e => setNewItem({...newItem, strategy: e.target.value})}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="px-8 py-6 border-t border-slate-100 flex justify-end gap-3 bg-white">
+                        <Button variant="ghost" onClick={() => setShowNew(false)} className="font-bold uppercase text-xs tracking-widest h-12 px-6">Cancelar</Button>
+                        <Button onClick={handleCreate} className="bg-[#136dec] hover:bg-blue-600 text-white font-black uppercase text-xs tracking-widest h-12 px-8 rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
+                            Guardar Información
                         </Button>
                     </div>
                 </DialogContent>
             </Dialog>
 
-            {/* Read-only Detail Dialog - Bento Style */}
+            {/* Detail View Dialog */}
             <Dialog open={showDetail} onOpenChange={setShowDetail}>
-                {selectedItem && (
-                    <DialogContent className="max-w-2xl bg-white border border-slate-200 p-0 overflow-hidden rounded-[2.5rem] shadow-2xl">
-                        <div className={cn("h-4 w-full", typeConfig[selectedItem.type].bg)} />
-
-                        <div className="p-10">
-                            <div className="flex items-start gap-6 mb-8">
-                                <div className={cn("h-20 w-20 rounded-[1.5rem] flex items-center justify-center text-white shadow-xl shrink-0 transform -rotate-3", typeConfig[selectedItem.type].bg)}>
-                                    {typeConfig[selectedItem.type].icon}
-                                </div>
-                                <div className="pt-2">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mb-1">Entidad Documentada</p>
-                                    <h2 className="text-4xl font-black text-slate-900 leading-none uppercase tracking-tighter italic">{selectedItem.name}</h2>
-                                    <div className="flex items-center gap-2 mt-4">
-                                        <Badge className="bg-slate-100 text-slate-800 border-none shadow-sm uppercase text-[9px] tracking-widest font-black px-3 py-1">
-                                            {typeConfig[selectedItem.type].label}
-                                        </Badge>
-                                        <Badge className={cn("uppercase text-[9px] tracking-widest font-black px-3 py-1 border-none shadow-sm", influenceConfig[selectedItem.influence].bg, influenceConfig[selectedItem.influence].color)}>
-                                            INFL: {selectedItem.influence}
-                                        </Badge>
+                <DialogContent className="max-w-2xl bg-white border-none p-0 overflow-hidden rounded-xl shadow-2xl font-sans">
+                    {selectedItem && (
+                        <>
+                            <div className={cn("px-8 py-10 text-white relative", typeConfig[selectedItem.type].bg)}>
+                                <div className="absolute right-6 top-6 opacity-20"><Box className="h-24 w-24" /></div>
+                                <Badge className="bg-white/20 text-white border-none rounded-full px-4 py-1 font-black text-[9px] uppercase tracking-[0.2em] mb-4">
+                                    {selectedItem.type} / ISO 4.2
+                                </Badge>
+                                <h2 className="text-3xl font-black uppercase italic tracking-tighter leading-tight">{selectedItem.name}</h2>
+                            </div>
+                            <div className="p-8 space-y-8 bg-white">
+                                <div className="grid grid-cols-2 gap-8">
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Requisitos Técnicos</p>
+                                        <p className="text-sm font-medium text-slate-700 leading-relaxed italic border-l-2 border-slate-100 pl-4">
+                                            {selectedItem.needs || 'No se han documentado requisitos específicos'}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expectativas</p>
+                                        <p className="text-sm font-medium text-slate-700 leading-relaxed italic border-l-2 border-slate-100 pl-4">
+                                            "{selectedItem.expectations || 'Sin expectativas relevadas'}"
+                                        </p>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6 mb-6">
-                                <div className="col-span-2 bg-slate-50 rounded-2xl p-6 border border-slate-100 shadow-inner">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Requisitos Formales Identificados</p>
-                                    <p className="text-sm font-medium text-slate-700 leading-relaxed">{selectedItem.needs || 'No se han registrado requerimientos específicos'}</p>
-                                </div>
-
-                                <div className="col-span-2 md:col-span-1 bg-blue-50/50 rounded-2xl p-6 border border-blue-100 shadow-inner">
-                                    <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3">Expectativas Relevadas</p>
-                                    <p className="text-xs font-bold italic text-slate-800 leading-relaxed">"{selectedItem.expectations || 'No se han relevado percepciones'}"</p>
-                                </div>
-                                <div className="col-span-2 md:col-span-1 bg-slate-900 rounded-2xl p-6 shadow-xl">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Línea de Acción / Estrategia</p>
-                                    <p className="text-sm font-black uppercase tracking-tight text-white leading-tight">
-                                        {selectedItem.strategy || 'Pendiente de Definición Técnica'}
+                                <div className="bg-slate-50 p-6 rounded-2xl border-2 border-slate-100 shadow-inner">
+                                    <p className="text-[10px] font-black text-[#136dec] uppercase tracking-widest mb-3">Estrategia Organizacional</p>
+                                    <p className="text-lg font-black text-slate-800 uppercase italic tracking-tight italic">
+                                        {selectedItem.strategy || 'Estrategia pendiente de definición'}
                                     </p>
                                 </div>
+                                <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                                    <div className="flex items-center gap-4">
+                                        <div className={cn("px-4 py-1.5 rounded-lg border flex items-center gap-2", influenceConfig[selectedItem.influence].bg, influenceConfig[selectedItem.influence].color, "border-current/10")}>
+                                            {influenceConfig[selectedItem.influence].icon}
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Influencia {selectedItem.influence}</span>
+                                        </div>
+                                    </div>
+                                    <Button variant="ghost" onClick={() => setShowDetail(false)} className="text-slate-400 font-bold uppercase text-[10px]">Cerrar Detalle</Button>
+                                </div>
                             </div>
-                        </div>
-
-                        <div className="px-10 py-6 bg-slate-50 flex justify-end border-t border-slate-100">
-                            <Button onClick={() => setShowDetail(false)} variant="ghost" className="font-black uppercase text-[10px] tracking-widest h-12 px-8 rounded-xl bg-white shadow-sm border border-slate-200">
-                                Cerrar Reporte
-                            </Button>
-                        </div>
-                    </DialogContent>
-                )}
+                        </>
+                    )}
+                </DialogContent>
             </Dialog>
-
         </div>
     );
 }

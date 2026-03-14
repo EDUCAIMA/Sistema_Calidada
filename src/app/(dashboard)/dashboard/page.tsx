@@ -64,23 +64,31 @@ export default function DashboardPage() {
                 </p>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {stats.map((stat, i) => (
-                    <Link href={stat.href} key={stat.title} className="block group">
-                        <Card className="border-0 shadow-sm hover:shadow-md transition-all group-hover:-translate-y-1 h-full bg-white/50 backdrop-blur-sm dark:bg-slate-900/50" style={{ animationDelay: `${i * 50}ms` }}>
-                            <CardContent className="p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className={`h-9 w-9 rounded-lg ${stat.bg} flex items-center justify-center`}>
-                                        <stat.icon className={`h-4.5 w-4.5 ${stat.color}`} />
+                    <Link href={stat.href} key={stat.title} className="block group h-full">
+                        <Card className="relative border-0 shadow-sm hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1 h-full bg-white backdrop-blur-md dark:bg-slate-900 border border-slate-100 dark:border-slate-800 overflow-hidden" style={{ animationDelay: `${i * 50}ms` }}>
+                            {/* Reflection Effect */}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out" />
+                            
+                            <CardContent className="p-3.5 relative z-10 flex flex-col justify-between h-full">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className={`h-8 w-8 rounded-lg ${stat.bg} flex items-center justify-center shrink-0`}>
+                                        <stat.icon className={`h-4 w-4 ${stat.color}`} />
                                     </div>
-                                    <div className={`flex items-center gap-0.5 text-[10px] font-semibold ${stat.up ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                                    <div className={`flex items-center gap-0.5 text-[10px] font-bold ${stat.up ? 'text-emerald-500' : stat.trend === '0' ? 'text-slate-400' : 'text-rose-500'}`}>
                                         {stat.trend}
-                                        {stat.up ? <ArrowUpRight className="h-3 w-3" /> : stat.trend !== '0' ? <ArrowDownRight className="h-3 w-3" /> : null}
+                                        {stat.up ? <ArrowUpRight className="h-2.5 w-2.5" /> : stat.trend !== '0' ? <ArrowDownRight className="h-2.5 w-2.5" /> : null}
                                     </div>
                                 </div>
-                                <p className="text-2xl font-bold">{stat.value}</p>
-                                <p className="text-[11px] text-muted-foreground font-medium mt-0.5">{stat.title}</p>
+                                <div className="mt-auto">
+                                    <p className="text-3xl font-black tracking-tight text-slate-900 dark:text-white leading-none mb-1">
+                                        {stat.value}
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider line-clamp-1">
+                                        {stat.title}
+                                    </p>
+                                </div>
                             </CardContent>
                         </Card>
                     </Link>
