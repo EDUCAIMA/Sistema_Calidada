@@ -247,7 +247,7 @@ export function AppSidebar() {
     return (
         <aside
             className={cn(
-                "fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 z-40",
+                "fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 z-40 overflow-hidden",
                 sidebarCollapsed ? "w-16" : "w-64"
             )}
         >
@@ -278,7 +278,7 @@ export function AppSidebar() {
             )}
 
             {/* Navigation */}
-            <ScrollArea className="flex-1 py-3 px-2">
+            <ScrollArea className="flex-1 py-3 px-2 min-h-0">
                 <div className="space-y-1">
                     {navItems.map(item => (
                         item.children ? (

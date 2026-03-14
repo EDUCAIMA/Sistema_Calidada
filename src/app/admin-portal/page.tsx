@@ -97,7 +97,7 @@ export default function AdminPortal() {
           </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1">
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto min-h-0 custom-scrollbar">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider px-2 py-3">Menú Principal</div>
           <button 
             onClick={() => setActiveTab('dashboard')}
