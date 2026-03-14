@@ -252,10 +252,10 @@ export default function ContextoOrganizacionalPage() {
                     const catItems = items.filter(i => i.category === cat);
                     
                     const sectionStyles: Record<DOFACategory, { headerBg: string, iconBg: string, iconColor: string, badgeBg: string, badgeText: string }> = {
-                        FORTALEZA: { headerBg: 'bg-emerald-50/50', iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', badgeBg: 'bg-emerald-100', badgeText: 'text-emerald-700' },
-                        OPORTUNIDAD: { headerBg: 'bg-blue-50/50', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', badgeBg: 'bg-blue-100', badgeText: 'text-blue-700' },
-                        DEBILIDAD: { headerBg: 'bg-amber-50/50', iconBg: 'bg-amber-100', iconColor: 'text-amber-600', badgeBg: 'bg-amber-100', badgeText: 'text-amber-700' },
-                        AMENAZA: { headerBg: 'bg-rose-50/50', iconBg: 'bg-rose-100', iconColor: 'text-rose-600', badgeBg: 'bg-rose-100', badgeText: 'text-rose-700' },
+                        FORTALEZA: { headerBg: 'bg-emerald-100/80', iconBg: 'bg-emerald-200', iconColor: 'text-emerald-700', badgeBg: 'bg-emerald-200', badgeText: 'text-emerald-800' },
+                        OPORTUNIDAD: { headerBg: 'bg-blue-100/80', iconBg: 'bg-blue-200', iconColor: 'text-blue-700', badgeBg: 'bg-blue-200', badgeText: 'text-blue-800' },
+                        DEBILIDAD: { headerBg: 'bg-amber-100/80', iconBg: 'bg-amber-200', iconColor: 'text-amber-700', badgeBg: 'bg-amber-200', badgeText: 'text-amber-800' },
+                        AMENAZA: { headerBg: 'bg-rose-100/80', iconBg: 'bg-rose-200', iconColor: 'text-rose-700', badgeBg: 'bg-rose-200', badgeText: 'text-rose-800' },
                     };
 
                     const style = sectionStyles[cat];
@@ -294,10 +294,10 @@ export default function ContextoOrganizacionalPage() {
                                                 <td className="px-6 py-5">
                                                     <span className={cn(
                                                         "px-2 py-1 text-[10px] font-bold rounded uppercase border",
-                                                        item.category === 'FORTALEZA' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                        item.category === 'OPORTUNIDAD' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                        item.category === 'DEBILIDAD' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                        'bg-rose-50 text-rose-700 border-rose-200'
+                                                        item.category === 'FORTALEZA' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                                                        item.category === 'OPORTUNIDAD' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                                        item.category === 'DEBILIDAD' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                                                        'bg-rose-100 text-rose-800 border-rose-200'
                                                     )}>
                                                         {item.impact || 'Nivel Medio'}
                                                     </span>
