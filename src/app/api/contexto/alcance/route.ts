@@ -54,8 +54,8 @@ export async function POST(request: Request) {
         };
 
         let result;
-        if (id) {
-            // Update existing
+        if (id && !id.startsWith('scope-')) {
+            // Update existing using real ID
             result = await prisma.sGCScope.update({
                 where: { id },
                 data,

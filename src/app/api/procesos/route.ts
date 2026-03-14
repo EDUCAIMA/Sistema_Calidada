@@ -40,7 +40,34 @@ export async function POST(request: Request) {
         const { id, tenantId, name, code, category, objective, scope, responsibleId } = body;
 
         if (!tenantId || !name || !code || !category || !responsibleId) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+            return NextResponse.json({ error: 'Faltan campos obligatorios (tenantId, name, code, category, responsibleId)' }, { status: 400 });
+        }
+
+        // Asegurar que el tenant y el usuario existen (para evitar errores de FK con IDs de prueba)
+        const tenantExists = await prisma.tenant.findUnique({ where: { id: tenantId } });
+        if (!tenantExists) {
+            await prisma.tenant.create({
+                data: {
+                    id: tenantId,
+                    name: 'Empresa Demo',
+                    slug: `demo-${tenantId.slice(-4)}`,
+                    active: true,
+                }
+            });
+        }
+
+        const userExists = await prisma.user.findUnique({ where: { id: responsibleId } });
+        if (!userExists) {
+            await prisma.user.create({
+                data: {
+                    id: responsibleId,
+                    tenantId: tenantId,
+                    email: 'admin@empresa.com',
+                    name: 'Administrador Demo',
+                    role: 'ADMIN_EMPRESA',
+                    active: true,
+                }
+            });
         }
 
         const data = {
@@ -51,7 +78,7 @@ export async function POST(request: Request) {
             objective: objective || '',
             scope: scope || '',
             responsibleId,
-            order: 0, // Simplified for now
+            order: 0,
         };
 
         let result;
@@ -67,8 +94,11 @@ export async function POST(request: Request) {
         }
 
         return NextResponse.json(result);
-    } catch (error) {
-        console.error('Error saving process:', error);
-        return NextResponse.json({ error: 'Failed to save process' }, { status: 500 });
+    } catch (error: any) {
+        console.error('Error detallado en Procesos API:', error);
+        return NextResponse.json({ 
+            error: 'Error al procesar la solicitud en el servidor',
+            details: error.message 
+        }, { status: 500 });
     }
 }
