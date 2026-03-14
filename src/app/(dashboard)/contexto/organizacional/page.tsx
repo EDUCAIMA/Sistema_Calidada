@@ -261,8 +261,8 @@ export default function ContextoOrganizacionalPage() {
                     const style = sectionStyles[cat];
 
                     return (
-                        <section key={cat} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm transition-all hover:shadow-md">
-                            <div className={cn("px-6 py-4 border-b border-slate-100 flex items-center justify-between", style.headerBg)}>
+                        <section key={cat} className="bg-white rounded-xl border-2 border-slate-200 overflow-hidden shadow-sm transition-all hover:shadow-md">
+                            <div className={cn("px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between", style.headerBg)}>
                                 <div className="flex items-center gap-3">
                                     <div className={cn("p-2 rounded-lg", style.iconBg, style.iconColor)}>
                                         {cfg.icon}
