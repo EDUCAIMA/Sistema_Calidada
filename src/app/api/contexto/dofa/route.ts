@@ -26,21 +26,34 @@ export async function POST(request: Request) {
         const { id, tenantId, category, description, impact, actions, responsible } = body;
 
         if (!tenantId || !category || !description) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+            return NextResponse.json({ error: 'Faltan campos obligatorios (tenantId, category, description)' }, { status: 400 });
+        }
+
+        // Asegurar que el tenant existe (para evitar errores de FK con IDs de prueba)
+        const tenantExists = await prisma.tenant.findUnique({ where: { id: tenantId } });
+        if (!tenantExists) {
+            await prisma.tenant.create({
+                data: {
+                    id: tenantId,
+                    name: 'Empresa Demo',
+                    slug: `demo-${tenantId.slice(-4)}`,
+                    active: true,
+                }
+            });
         }
 
         const data = {
             tenantId,
             category,
             description,
-            impact,
-            actions,
-            responsible,
+            impact: impact || '',
+            actions: actions || '',
+            responsible: responsible || '',
         };
 
         let result;
         if (id && !id.startsWith('dofa-')) {
-            // Update existing
+            // Update existing using cuid
             result = await prisma.dOFAItem.update({
                 where: { id },
                 data,
@@ -53,9 +66,12 @@ export async function POST(request: Request) {
         }
 
         return NextResponse.json(result);
-    } catch (error) {
-        console.error('Error saving DOFA item:', error);
-        return NextResponse.json({ error: 'Failed to save DOFA item' }, { status: 500 });
+    } catch (error: any) {
+        console.error('Error detallado en DOFA API:', error);
+        return NextResponse.json({ 
+            error: 'Error al procesar la solicitud en el servidor',
+            details: error.message 
+        }, { status: 500 });
     }
 }
 

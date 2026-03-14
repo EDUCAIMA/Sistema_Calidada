@@ -26,7 +26,20 @@ export async function POST(request: Request) {
         const { id, tenantId, name, type, needs, expectations, influence, strategy, contactInfo } = body;
 
         if (!tenantId || !name || !type || !influence) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+            return NextResponse.json({ error: 'Faltan campos obligatorios (tenantId, name, type, influence)' }, { status: 400 });
+        }
+
+        // Asegurar que el tenant existe
+        const tenantExists = await prisma.tenant.findUnique({ where: { id: tenantId } });
+        if (!tenantExists) {
+            await prisma.tenant.create({
+                data: {
+                    id: tenantId,
+                    name: 'Empresa Demo',
+                    slug: `demo-${tenantId.slice(-4)}`,
+                    active: true,
+                }
+            });
         }
 
         const data = {
@@ -37,7 +50,7 @@ export async function POST(request: Request) {
             expectations: expectations || '',
             influence,
             strategy: strategy || '',
-            contactInfo,
+            contactInfo: contactInfo || '',
         };
 
         let result;
@@ -55,9 +68,12 @@ export async function POST(request: Request) {
         }
 
         return NextResponse.json(result);
-    } catch (error) {
-        console.error('Error saving stakeholder:', error);
-        return NextResponse.json({ error: 'Failed to save stakeholder' }, { status: 500 });
+    } catch (error: any) {
+        console.error('Error detallado en Stakeholders API:', error);
+        return NextResponse.json({ 
+            error: 'Error al procesar la solicitud en el servidor',
+            details: error.message 
+        }, { status: 500 });
     }
 }
 

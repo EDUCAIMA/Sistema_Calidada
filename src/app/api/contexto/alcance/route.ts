@@ -26,7 +26,20 @@ export async function POST(request: Request) {
         const { id, tenantId, scopeStatement, approvedBy } = body;
 
         if (!tenantId || !scopeStatement) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+            return NextResponse.json({ error: 'Faltan campos obligatorios (tenantId, scopeStatement)' }, { status: 400 });
+        }
+
+        // Asegurar que el tenant existe
+        const tenantExists = await prisma.tenant.findUnique({ where: { id: tenantId } });
+        if (!tenantExists) {
+            await prisma.tenant.create({
+                data: {
+                    id: tenantId,
+                    name: 'Empresa Demo',
+                    slug: `demo-${tenantId.slice(-4)}`,
+                    active: true,
+                }
+            });
         }
 
         const data = {
@@ -42,19 +55,24 @@ export async function POST(request: Request) {
 
         let result;
         if (id) {
+            // Update existing
             result = await prisma.sGCScope.update({
                 where: { id },
                 data,
             });
         } else {
+            // Create new
             result = await prisma.sGCScope.create({
                 data,
             });
         }
 
         return NextResponse.json(result);
-    } catch (error) {
-        console.error('Error saving scope:', error);
-        return NextResponse.json({ error: 'Failed to save scope' }, { status: 500 });
+    } catch (error: any) {
+        console.error('Error detallado en Alcance API:', error);
+        return NextResponse.json({ 
+            error: 'Error al procesar la solicitud en el servidor',
+            details: error.message 
+        }, { status: 500 });
     }
 }
