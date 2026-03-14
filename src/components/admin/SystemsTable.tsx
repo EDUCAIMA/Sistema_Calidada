@@ -1,46 +1,63 @@
-"use client";
-
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Download, Filter, MoreVertical, ExternalLink } from 'lucide-react';
-import { SystemData } from '@/lib/admin/admin-mock-data';
 import { useApp } from '@/context/app-context';
 import { useRouter } from 'next/navigation';
 import { Tenant } from '@/lib/types';
 
+interface TenantReal extends Tenant {
+  _count?: {
+    users: number;
+  };
+}
+
 interface SystemsTableProps {
-  systems: SystemData[];
   searchTerm: string;
 }
 
-export function SystemsTable({ systems, searchTerm }: SystemsTableProps) {
+export function SystemsTable({ searchTerm }: SystemsTableProps) {
   const { setTenant } = useApp();
   const router = useRouter();
+  const [tenants, setTenants] = useState<TenantReal[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleEnterSystem = (system: SystemData) => {
-    const mockSelectedTenant: Tenant = {
-      id: system.id.toString(),
-      name: system.name,
-      slug: system.name.toLowerCase().replace(/\s+/g, '-'),
-      plan: 'PROFESIONAL',
-      active: true,
-      createdAt: new Date(),
-    };
-    
-    setTenant(mockSelectedTenant);
+  useEffect(() => {
+    async function fetchTenants() {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/admin/tenants');
+        if (!response.ok) throw new Error('Error al cargar empresas');
+        const data = await response.json();
+        setTenants(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchTenants();
+  }, []);
+
+  const handleEnterSystem = (system: TenantReal) => {
+    setTenant(system);
     router.push('/dashboard');
   };
 
   const filteredSystems = useMemo(() => {
-    if (!searchTerm) return systems;
     const lowerTerm = searchTerm.toLowerCase();
-    return systems.filter(sys => 
+    return tenants.filter(sys => 
       sys.name.toLowerCase().includes(lowerTerm) || 
-      sys.industry.toLowerCase().includes(lowerTerm)
+      sys.slug.toLowerCase().includes(lowerTerm)
     );
-  }, [systems, searchTerm]);
+  }, [tenants, searchTerm]);
+
+  if (loading) return (
+    <div className="flex items-center justify-center p-20">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+    </div>
+  );
 
   return (
     <Card className="bg-[#111927]/60 backdrop-blur-md border-white/5 shadow-xl mb-8">
@@ -70,7 +87,7 @@ export function SystemsTable({ systems, searchTerm }: SystemsTableProps) {
             <thead>
               <tr className="border-b border-white/5 text-slate-500 text-[11px] uppercase tracking-widest font-bold">
                 <th className="text-left pb-4 pl-4 font-bold">Empresa / Sistema</th>
-                <th className="text-left pb-4 font-bold">Industria</th>
+                <th className="text-left pb-4 font-bold">Slug / Identificador</th>
                 <th className="text-left pb-4 font-bold">Estado</th>
                 <th className="text-left pb-4 font-bold">Implementación</th>
                 <th className="text-left pb-4 font-bold">Usuarios</th>
@@ -84,35 +101,31 @@ export function SystemsTable({ systems, searchTerm }: SystemsTableProps) {
                     <td className="py-4 pl-4">
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">{system.name}</span>
-                        <span className="text-[10px] text-slate-500 mt-0.5 uppercase">ID: QM-00{system.id}34</span>
+                        <span className="text-[10px] text-slate-500 mt-0.5 uppercase">ID: {system.id.slice(-8).toUpperCase()}</span>
                       </div>
                     </td>
-                    <td className="py-4 text-sm text-slate-400 font-medium">{system.industry}</td>
+                    <td className="py-4 text-sm text-slate-400 font-medium">{system.slug}</td>
                     <td className="py-4">
                       <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${  
-                        system.status === 'Active' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                        system.status === 'Warning' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                        system.active ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
                         'bg-red-500/10 text-red-500 border-red-500/20'
                       }`}>
                         <div className={`w-1 h-1 rounded-full ${
-                          system.status === 'Active' ? 'bg-emerald-500' :
-                          system.status === 'Warning' ? 'bg-amber-500' :
-                          'bg-red-500'
+                          system.active ? 'bg-emerald-500' : 'bg-red-500'
                         }`} />
-                        {system.status === 'Active' ? 'Estable' : 
-                         system.status === 'Warning' ? 'En Revisión' : 'Crítico'}
+                        {system.active ? 'Activo' : 'Inactivo'}
                       </div>
                     </td>
                     <td className="py-4">
                       <div className="w-32 flex flex-col gap-1.5">
                         <div className="flex justify-between items-center text-[10px] font-bold">
-                          <span className="text-slate-500">{system.implementation}%</span>
-                          <span className="text-white/60 italic">ISO 9001</span>
+                          <span className="text-slate-500">75%</span>
+                          <span className="text-white/60 italic">{system.plan}</span>
                         </div>
-                        <Progress value={system.implementation} className="h-1.5 bg-white/5" />
+                        <Progress value={75} className="h-1.5 bg-white/5" />
                       </div>
                     </td>
-                    <td className="py-4 text-sm text-slate-400 font-bold">{system.users}</td>
+                    <td className="py-4 text-sm text-slate-400 font-bold">{system._count?.users || 0}</td>
                     <td className="py-4 pr-4 text-right">
                       <div className="flex justify-end gap-2">
                         <Button 

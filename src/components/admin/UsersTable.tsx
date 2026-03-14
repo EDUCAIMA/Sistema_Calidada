@@ -151,7 +151,7 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-blue-400/80 uppercase tracking-tight flex items-center gap-1">
                           <Shield className="h-3 w-3" />
-                          {user.role.replace('_', ' ')}
+                          {user.role.replace(/_/g, ' ')}
                         </span>
                         <span className="text-[11px] text-slate-500">{user.position || 'No especificado'}</span>
                       </div>
@@ -177,7 +177,7 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
                     <td className="py-4 text-xs text-slate-500">
                       {new Date(user.createdAt).toLocaleDateString('es-ES', {
                         day: '2-digit',
-                        month: 'short',
+                        month: '2-digit',
                         year: 'numeric'
                       })}
                     </td>

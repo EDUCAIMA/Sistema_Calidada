@@ -42,11 +42,45 @@ import {
   systemsData
 } from '@/lib/admin/admin-mock-data';
 
+import { useApp } from '@/context/app-context';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
 export default function AdminPortal() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'systems' | 'logs'>('dashboard');
+  const [counts, setCounts] = useState({ users: 0, tenants: 0 });
+  const { logout, currentUser } = useApp();
+  const router = useRouter();
 
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const [usersRes, tenantsRes] = await Promise.all([
+          fetch('/api/admin/users'),
+          fetch('/api/admin/tenants')
+        ]);
+        
+        const users = await usersRes.json();
+        const tenants = await tenantsRes.json();
+        
+        setCounts({
+          users: Array.isArray(users) ? users.length : 0,
+          tenants: Array.isArray(tenants) ? tenants.length : 0
+        });
+      } catch (err) {
+        console.error('Error fetching admin stats:', err);
+      }
+    }
+    fetchStats();
+  }, []);
 
+  const realKpiData = [
+    { title: 'Sistemas Registrados', value: counts.tenants.toString(), icon: Building2, trend: '+1', color: 'blue' },
+    { title: 'Usuarios Activos', value: counts.users.toString(), icon: Users, trend: '+1', color: 'indigo' },
+    { title: 'Promedio Implementación', value: '75%', icon: Activity, trend: 'N/A', color: 'emerald' },
+    { title: 'Alertas de Sistema', value: '0', icon: Bell, trend: '0', color: 'amber' },
+  ];
   return (
     <div className="min-h-screen bg-[#000814] text-slate-200 font-sans flex overflow-hidden">
       {/* Sidebar */}
@@ -124,15 +158,20 @@ export default function AdminPortal() {
         <div className="p-4 border-t border-white/5">
           <div className="bg-white/5 rounded-2xl p-4 mb-4">
             <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold italic">
-                A
+              <div className="h-10 w-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold uppercase">
+                {currentUser?.name?.charAt(0) || 'A'}
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-semibold text-white">Super Admin</span>
-                <span className="text-[10px] text-slate-500">admin@qualitylink.com</span>
+                <span className="text-sm font-semibold text-white truncate max-w-[120px]">{currentUser?.name || 'Super Admin'}</span>
+                <span className="text-[10px] text-slate-500 truncate max-w-[120px]">{currentUser?.email || 'admin@calidad.com'}</span>
               </div>
             </div>
-            <Button variant="ghost" size="sm" className="w-full text-xs text-slate-400 hover:text-red-400 hover:bg-red-400/10 gap-2 h-8">
+            <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={logout}
+                className="w-full text-xs text-slate-400 hover:text-red-400 hover:bg-red-400/10 gap-2 h-8"
+            >
               <LogOut className="h-3.5 w-3.5" />
               Cerrar Sesión
             </Button>
@@ -196,7 +235,7 @@ export default function AdminPortal() {
             <>
               {/* KPI Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                {kpiData.map((kpi, idx) => (
+                {realKpiData.map((kpi, idx) => (
                   <StatCard key={idx} {...kpi} />
                 ))}
               </div>
@@ -262,7 +301,7 @@ export default function AdminPortal() {
               </div>
 
               {/* Table Area extracted into a component to separate concerns */}
-              <SystemsTable systems={systemsData} searchTerm={searchTerm} />
+              <SystemsTable searchTerm={searchTerm} />
             </>
           )}
 
@@ -271,7 +310,7 @@ export default function AdminPortal() {
           )}
 
           {activeTab === 'systems' && (
-            <SystemsTable systems={systemsData} searchTerm={searchTerm} />
+            <SystemsTable searchTerm={searchTerm} />
           )}
 
           {activeTab === 'logs' && (
