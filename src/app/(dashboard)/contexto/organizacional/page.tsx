@@ -6,7 +6,7 @@ import {
     Plus, Edit, Trash2, Save, Lightbulb, ShieldCheck,
     AlertTriangle, TrendingUp as ChartLine, Eye,
     ShieldAlert, User, Clock, CheckCircle, Info,
-    Download
+    Download, HelpCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,6 +61,7 @@ export default function ContextoOrganizacionalPage() {
     const [showNew, setShowNew] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [selectedItem, setSelectedItem] = useState<DOFAItem | null>(null);
+    const [showISOInfo, setShowISOInfo] = useState(false);
     const [newItem, setNewItem] = useState<Partial<DOFAItem>>({ category: 'FORTALEZA' });
 
     useEffect(() => {
@@ -213,7 +214,16 @@ export default function ContextoOrganizacionalPage() {
             {/* Page Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Análisis de Contexto</h1>
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Análisis de Contexto</h1>
+                        <button 
+                            onClick={() => setShowISOInfo(true)}
+                            className="p-1.5 rounded-full hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-all active:scale-95"
+                            title="Ver información normativa ISO 9001:2015"
+                        >
+                            <HelpCircle className="w-5 h-5" />
+                        </button>
+                    </div>
                     <div className="flex items-center gap-3">
                         <span className="bg-[#136dec]/10 text-[#136dec] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 4.1</span>
                         <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">Metodología DOFA</span>
@@ -525,6 +535,68 @@ export default function ContextoOrganizacionalPage() {
                             </div>
                         </>
                     )}
+                </DialogContent>
+            </Dialog>
+            {/* ISO 9001:2015 Clause 4.1 Info Dialog */}
+            <Dialog open={showISOInfo} onOpenChange={setShowISOInfo}>
+                <DialogContent className="max-w-2xl bg-white border-none p-0 overflow-hidden rounded-xl shadow-2xl font-sans">
+                    <div className="bg-[#136dec] px-8 py-10 text-white relative">
+                        <div className="absolute right-6 top-6 opacity-20"><ShieldCheck className="h-24 w-24" /></div>
+                        <Badge className="bg-white/20 text-white border-none rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-[0.2em] mb-4">
+                            ISO 9001:2015
+                        </Badge>
+                        <h2 className="text-3xl font-black uppercase italic tracking-tighter leading-tight">Cláusula 4.1</h2>
+                        <p className="text-blue-100 font-bold uppercase tracking-widest text-xs mt-2">Comprensión de la organización y su contexto</p>
+                    </div>
+                    
+                    <div className="p-8 space-y-6 bg-white">
+                        <div className="space-y-4">
+                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Requisito Normativo</h4>
+                            <p className="text-slate-700 font-medium leading-relaxed italic border-l-4 border-blue-500 pl-4 bg-blue-50/30 py-4 rounded-r-xl">
+                                &quot;La organización debe determinar las cuestiones externas e internas que son pertinentes para su propósito y su dirección estratégica, y que afectan a su capacidad para lograr los resultados previstos de su sistema de gestión de la calidad.&quot;
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
+                                    <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Cuestiones Internas</h5>
+                                </div>
+                                <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
+                                    Valores, cultura, conocimientos y desempeño de la organización. Análisis de procesos y recursos.
+                                </p>
+                            </div>
+                            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                                    <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Cuestiones Externas</h5>
+                                </div>
+                                <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
+                                    Entorno legal, tecnológico, competitivo, de mercado, cultural, social y económico.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 flex items-start gap-4">
+                            <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Nota de Implementación</p>
+                                <p className="text-[12px] text-amber-700 font-medium leading-relaxed">
+                                    La organización debe realizar el seguimiento y la revisión de la información sobre estas cuestiones externas e internas de forma periódica.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-4">
+                            <Button 
+                                onClick={() => setShowISOInfo(false)}
+                                className="bg-slate-900 hover:bg-black text-white font-black uppercase text-[10px] tracking-widest px-8 h-12 rounded-xl transition-all"
+                            >
+                                Entendido
+                            </Button>
+                        </div>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
