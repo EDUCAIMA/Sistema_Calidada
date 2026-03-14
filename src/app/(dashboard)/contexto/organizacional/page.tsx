@@ -537,66 +537,66 @@ export default function ContextoOrganizacionalPage() {
                     )}
                 </DialogContent>
             </Dialog>
-            {/* ISO 9001:2015 Clause 4.1 Info Dialog */}
+            {/* ISO 9001:2015 Clause 4.1 Info Dialog - Professional Redesign */}
             <Dialog open={showISOInfo} onOpenChange={setShowISOInfo}>
-                <DialogContent className="max-w-2xl bg-white border-none p-0 overflow-hidden rounded-xl shadow-2xl font-sans">
-                    <div className="bg-[#136dec] px-8 py-10 text-white relative">
-                        <div className="absolute right-6 top-6 opacity-20"><ShieldCheck className="h-24 w-24" /></div>
-                        <Badge className="bg-white/20 text-white border-none rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-[0.2em] mb-4">
-                            ISO 9001:2015
-                        </Badge>
-                        <h2 className="text-3xl font-black uppercase italic tracking-tighter leading-tight">Cláusula 4.1</h2>
-                        <p className="text-blue-100 font-bold uppercase tracking-widest text-xs mt-2">Comprensión de la organización y su contexto</p>
-                    </div>
-                    
-                    <div className="p-8 space-y-6 bg-white">
-                        <div className="space-y-4">
-                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Requisito Normativo</h4>
-                            <p className="text-slate-700 font-medium leading-relaxed italic border-l-4 border-blue-500 pl-4 bg-blue-50/30 py-4 rounded-r-xl">
-                                &quot;La organización debe determinar las cuestiones externas e internas que son pertinentes para su propósito y su dirección estratégica, y que afectan a su capacidad para lograr los resultados previstos de su sistema de gestión de la calidad.&quot;
+                <DialogContent className="max-w-4xl bg-white border border-gray-200 shadow-sm rounded-lg overflow-hidden flex flex-col p-0 gap-0 font-sans">
+                    {/* BEGIN: Header */}
+                    <header className="px-8 py-10 border-b border-gray-100 bg-white">
+                        <div className="flex flex-col gap-2">
+                            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
+                                4 Contexto de la organización
+                            </h1>
+                            <h2 className="text-xl md:text-2xl font-medium text-[#1e3a8a]">
+                                4.1 Conocimiento de la organización y de su contexto
+                            </h2>
+                        </div>
+                    </header>
+                    {/* END: Header */}
+
+                    {/* BEGIN: MainContent */}
+                    <div className="p-8 md:p-12 space-y-8 bg-white overflow-y-auto max-h-[60vh]">
+                        {/* BEGIN: NormativeParagraphs */}
+                        <section className="space-y-4">
+                            <p className="text-lg text-gray-800 leading-relaxed italic">
+                                La organización debe determinar las cuestiones externas e internas que son pertinentes para su propósito y su dirección estratégica y que afectan a su capacidad para lograr los resultados previstos de su sistema de gestión de la calidad.
                             </p>
-                        </div>
+                            <p className="text-lg text-gray-800 leading-relaxed italic">
+                                La organización debe realizar el seguimiento y la revisión de la información sobre estas cuestiones externas e internas.
+                            </p>
+                        </section>
+                        {/* END: NormativeParagraphs */}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
-                                    <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Cuestiones Internas</h5>
-                                </div>
-                                <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
-                                    Valores, cultura, conocimientos y desempeño de la organización. Análisis de procesos y recursos.
+                        {/* BEGIN: Notes */}
+                        <section className="space-y-4">
+                            <div className="flex flex-col gap-4 text-gray-600 text-sm md:text-base leading-relaxed">
+                                <p className="italic md:ml-10">
+                                    <span className="font-bold text-gray-900">NOTA 1</span> Las cuestiones pueden incluir factores positivos y negativos o condiciones para su consideración.
+                                </p>
+                                <p className="italic md:ml-10">
+                                    <span className="font-bold text-gray-900">NOTA 2</span> La comprensión del contexto externo puede verse facilitado al considerar cuestiones que surgen de los entornos legal, tecnológico, competitivo, de mercado, cultural, social y económico, ya sea internacional, nacional, regional o local.
+                                </p>
+                                <p className="italic md:ml-10">
+                                    <span className="font-bold text-gray-900">NOTA 3</span> La comprensión del contexto interno puede verse facilitada al considerar cuestiones relativas a los valores, la cultura, los conocimientos y el desempeño de la organización.
                                 </p>
                             </div>
-                            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                                    <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Cuestiones Externas</h5>
-                                </div>
-                                <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
-                                    Entorno legal, tecnológico, competitivo, de mercado, cultural, social y económico.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 flex items-start gap-4">
-                            <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Nota de Implementación</p>
-                                <p className="text-[12px] text-amber-700 font-medium leading-relaxed">
-                                    La organización debe realizar el seguimiento y la revisión de la información sobre estas cuestiones externas e internas de forma periódica.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end pt-4">
-                            <Button 
-                                onClick={() => setShowISOInfo(false)}
-                                className="bg-slate-900 hover:bg-black text-white font-black uppercase text-[10px] tracking-widest px-8 h-12 rounded-xl transition-all"
-                            >
-                                Entendido
-                            </Button>
-                        </div>
+                        </section>
+                        {/* END: Notes */}
                     </div>
+                    {/* END: MainContent */}
+
+                    {/* BEGIN: FooterActions */}
+                    <footer className="px-8 py-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                        <div className="text-xs text-gray-400 font-medium tracking-tight uppercase">
+                            SISTEMA DE GESTIÓN DE LA CALIDAD (SGC)
+                        </div>
+                        <Button 
+                            onClick={() => setShowISOInfo(false)}
+                            className="bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-semibold py-2 px-8 rounded shadow-sm transition-all duration-200 ease-in-out active:scale-95 h-auto"
+                        >
+                            ENTENDIDO
+                        </Button>
+                    </footer>
+                    {/* END: FooterActions */}
                 </DialogContent>
             </Dialog>
         </div>
