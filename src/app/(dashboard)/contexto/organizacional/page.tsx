@@ -315,65 +315,71 @@ export default function ContextoOrganizacionalPage() {
                 )}
             </div>
 
-            {/* Creation / Edit Form Dialog - PREMIUM DARK GLASS style */}
+            {/* Creation / Edit Form Dialog - CLEAN LIGHT ORGANIZED style */}
             <Dialog open={showNew} onOpenChange={setShowNew}>
-                <DialogContent className="max-w-3xl bg-[#0b1120]/95 backdrop-blur-2xl border border-white/10 p-0 overflow-hidden rounded-[2rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] text-slate-100">
-                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                        <div className="absolute -top-[10%] -right-[10%] w-[40%] h-[40%] bg-blue-600/10 blur-[80px] rounded-full" />
-                        <div className="absolute -bottom-[10%] -left-[10%] w-[40%] h-[40%] bg-indigo-600/5 blur-[80px] rounded-full" />
-                    </div>
-
-                    <div className="h-1.5 w-full bg-gradient-to-r from-blue-600 via-indigo-500 to-cyan-400" />
-                    
-                    <div className="px-10 pt-10 pb-6 relative z-10">
-                        <DialogTitle className="text-[2.2rem] font-black text-white italic uppercase tracking-tighter leading-none">
-                            {selectedItem ? 'Modificar Registro' : 'Registrar Nuevo Factor'}
-                        </DialogTitle>
-                        <div className="flex items-center gap-3 mt-3">
-                            <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full font-bold text-[9px] uppercase tracking-widest px-3 py-1">
-                                ISO 9001:2015
-                            </Badge>
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                                Cláusula 4.1 Análisis Contextual
-                            </span>
+                <DialogContent className="max-w-4xl bg-white border-none p-0 overflow-hidden rounded-xl shadow-2xl font-sans">
+                    {/* Header */}
+                    <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-blue-600 p-1.5 rounded-md shadow-lg shadow-blue-600/20">
+                                <ChartLine className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-xl font-extrabold text-[#1e293b] tracking-tight uppercase leading-none">
+                                    {selectedItem ? 'MODIFICAR FACTOR' : 'REGISTRAR NUEVO FACTOR'}
+                                </DialogTitle>
+                                <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wide">
+                                    ISO 9001:2015 — CLÁUSULA 4.1 ANÁLISIS CONTEXTUAL
+                                </p>
+                            </div>
                         </div>
                     </div>
-
-                    <div className="px-10 space-y-8 pb-8 overflow-y-auto max-h-[70vh] relative z-10 scrollbar-hide">
-                        <div>
-                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 block ml-1 flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                1. Selección de Cuadrante DOFA
-                            </Label>
+                    
+                    <div className="px-8 py-8 space-y-10 overflow-y-auto max-h-[80vh] scrollbar-hide bg-[#fcfdfe]">
+                        {/* 1. Selección de Cuadrante */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center text-[11px] font-black text-blue-600 border border-blue-100 shadow-sm">
+                                    1
+                                </div>
+                                <Label className="text-[12px] font-black text-slate-700 uppercase tracking-widest">
+                                    SELECCIÓN DE CUADRANTE DOFA *
+                                </Label>
+                            </div>
+                            
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                 {categories.map(cat => {
                                     const cfg = categoryConfig[cat];
                                     const isSelected = newItem.category === cat;
+                                    
+                                    // Colors based on category for selection
+                                    const activeColors: Record<string, string> = {
+                                        FORTALEZA: 'border-emerald-500 bg-emerald-50/50 text-emerald-600',
+                                        DEBILIDAD: 'border-rose-500 bg-rose-50/50 text-rose-600',
+                                        OPORTUNIDAD: 'border-blue-500 bg-blue-50/50 text-blue-600',
+                                        AMENAZA: 'border-slate-500 bg-slate-50/50 text-slate-600'
+                                    };
+
                                     return (
                                         <button
                                             key={cat}
                                             onClick={() => setNewItem({ ...newItem, category: cat })}
                                             className={cn(
-                                                "flex flex-col items-center justify-center p-5 rounded-2xl border transition-all duration-300 group relative overflow-hidden",
+                                                "flex flex-col items-center justify-center p-6 rounded-xl border transition-all h-28 group",
                                                 isSelected
-                                                    ? "border-blue-500/50 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.15)] scale-[1.02]"
-                                                    : "border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10"
+                                                    ? activeColors[cat]
+                                                    : "border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50"
                                             )}
                                         >
-                                            {isSelected && (
-                                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
-                                            )}
                                             <div className={cn(
-                                                "mb-3 p-3 rounded-xl transition-all duration-300",
-                                                isSelected 
-                                                    ? "bg-blue-500/20 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]" 
-                                                    : "bg-slate-800/50 text-slate-500 group-hover:text-slate-300"
+                                                "mb-3 transition-colors",
+                                                isSelected ? "" : "text-slate-300 group-hover:text-blue-400"
                                             )}>
                                                 {cfg.icon}
                                             </div>
                                             <span className={cn(
-                                                "text-[10px] font-bold uppercase tracking-widest transition-colors",
-                                                isSelected ? "text-blue-400" : "text-slate-500 group-hover:text-slate-300"
+                                                "text-xs font-bold uppercase tracking-wide",
+                                                isSelected ? "" : "text-slate-500"
                                             )}>
                                                 {cfg.label}
                                             </span>
@@ -383,39 +389,53 @@ export default function ContextoOrganizacionalPage() {
                             </div>
                         </div>
 
-                        <div>
-                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1 flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                2. Descripción del Factor Identificado
-                            </Label>
+                        {/* 2. Descripción */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center text-[11px] font-black text-blue-600 border border-blue-100 shadow-sm">
+                                    2
+                                </div>
+                                <Label className="text-[12px] font-black text-slate-700 uppercase tracking-widest">
+                                    DESCRIPCIÓN DEL FACTOR IDENTIFICADO *
+                                </Label>
+                            </div>
                             <Textarea
-                                className="resize-none bg-white/5 border-white/5 rounded-2xl p-6 focus-visible:ring-1 focus-visible:ring-blue-500/50 font-bold text-[14px] text-white shadow-inner min-h-[120px] transition-all placeholder:text-slate-600 focus:bg-white/[0.08]"
+                                className="resize-none bg-white border-slate-200 rounded-xl p-5 focus-visible:ring-1 focus-visible:ring-blue-500 font-medium text-slate-700 min-h-[100px] shadow-sm placeholder:text-slate-300"
                                 placeholder="Especifique el hallazgo de forma clara y procesable..."
                                 value={newItem.description || ''}
                                 onChange={e => setNewItem({ ...newItem, description: e.target.value })}
                             />
                         </div>
 
+                        {/* 3 & 4. Impacto y Estrategia */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div>
-                                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1 flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                    3. Análisis de Impacto
-                                </Label>
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center text-[11px] font-black text-blue-600 border border-blue-100 shadow-sm">
+                                        3
+                                    </div>
+                                    <Label className="text-[12px] font-black text-slate-700 uppercase tracking-widest">
+                                        ANÁLISIS DE IMPACTO
+                                    </Label>
+                                </div>
                                 <Textarea
-                                    className="resize-none bg-white/5 border-white/5 rounded-2xl p-6 focus-visible:ring-1 focus-visible:ring-blue-500/50 font-medium text-[12px] text-slate-300 shadow-inner h-36 transition-all placeholder:text-slate-600 focus:bg-white/[0.08]"
+                                    className="resize-none bg-white border-slate-200 rounded-xl p-5 focus-visible:ring-1 focus-visible:ring-blue-500 font-medium text-slate-500 text-xs h-32 shadow-sm placeholder:text-slate-300"
                                     placeholder="Consecuencias potenciales para el sistema..."
                                     value={newItem.impact || ''}
                                     onChange={e => setNewItem({ ...newItem, impact: e.target.value })}
                                 />
                             </div>
-                            <div>
-                                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1 flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                    4. Estrategia Técnica / Acción
-                                </Label>
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center text-[11px] font-black text-blue-600 border border-blue-100 shadow-sm">
+                                        4
+                                    </div>
+                                    <Label className="text-[12px] font-black text-slate-700 uppercase tracking-widest">
+                                        ESTRATEGIA TÉCNICA / ACCIÓN
+                                    </Label>
+                                </div>
                                 <Textarea
-                                    className="resize-none bg-white/5 border-white/5 rounded-2xl p-6 focus-visible:ring-1 focus-visible:ring-blue-500/50 font-black italic uppercase tracking-tighter text-[12px] text-blue-400 shadow-inner h-36 border-l-2 border-l-blue-500/30 transition-all placeholder:text-slate-700/50 focus:bg-white/[0.08]"
+                                    className="resize-none bg-white border-slate-200 rounded-xl p-5 focus-visible:ring-1 focus-visible:ring-blue-500 font-medium text-slate-500 text-xs h-32 shadow-sm placeholder:text-slate-300 uppercase italic"
                                     placeholder="PLAN TÁCTICO PARA ABORDAR EL FACTOR..."
                                     value={newItem.actions || ''}
                                     onChange={e => setNewItem({ ...newItem, actions: e.target.value })}
@@ -423,15 +443,20 @@ export default function ContextoOrganizacionalPage() {
                             </div>
                         </div>
 
-                        <div>
-                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1 flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                5. Responsable de Gestión
-                            </Label>
+                        {/* 5. Responsable */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center text-[11px] font-black text-blue-600 border border-blue-100 shadow-sm">
+                                    5
+                                </div>
+                                <Label className="text-[12px] font-black text-slate-700 uppercase tracking-widest">
+                                    RESPONSABLE DE GESTIÓN
+                                </Label>
+                            </div>
                             <div className="relative group">
-                                <User className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                                 <Input
-                                    className="bg-white/5 border-white/5 h-14 rounded-2xl pl-12 pr-6 focus-visible:ring-1 focus-visible:ring-blue-500/50 font-black text-[13px] uppercase tracking-tight shadow-inner text-white transition-all placeholder:text-slate-600 focus:bg-white/[0.08]"
+                                    className="bg-white border-slate-200 h-12 rounded-xl pl-11 focus-visible:ring-1 focus-visible:ring-blue-500 font-bold text-xs uppercase text-slate-700 shadow-sm placeholder:text-slate-300"
                                     placeholder="EJ. DIRECCIÓN ESTRATÉGICA, COMITÉ DE CALIDAD..."
                                     value={newItem.responsible || ''}
                                     onChange={e => setNewItem({ ...newItem, responsible: e.target.value })}
@@ -440,20 +465,21 @@ export default function ContextoOrganizacionalPage() {
                         </div>
                     </div>
 
-                    <div className="px-10 py-8 bg-white/[0.02] flex justify-end gap-5 border-t border-white/5 relative z-10">
+                    {/* Footer */}
+                    <div className="px-8 py-6 bg-slate-50 flex justify-end items-center gap-4">
                         <Button 
                             variant="ghost" 
-                            className="hover:bg-white/5 text-slate-500 hover:text-slate-300 font-bold uppercase text-[10px] tracking-[0.2em] h-14 px-8 rounded-2xl transition-all" 
+                            className="text-slate-500 font-bold uppercase text-[11px] tracking-widest h-11 px-6 px-10 rounded-lg hover:bg-slate-100" 
                             onClick={() => setShowNew(false)}
                         >
-                            Descartar
+                            DESCARTAR
                         </Button>
                         <Button 
-                            className="bg-blue-600 hover:bg-blue-500 text-white font-black italic uppercase tracking-[0.15em] px-12 h-14 rounded-2xl shadow-[0_8px_25px_-5px_rgba(37,99,235,0.4)] transition-all hover:shadow-[0_12px_30px_-5px_rgba(37,99,235,0.5)] active:scale-95 group" 
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold uppercase text-[11px] tracking-widest flex items-center gap-2 h-11 px-8 rounded-lg shadow-lg shadow-blue-600/20 active:scale-95 transition-all" 
                             onClick={handleCreate}
                         >
-                            {selectedItem ? 'Actualizar Ficha' : 'Guardar Hallazgo'}
-                            <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                            <Save className="h-4 w-4" />
+                            {selectedItem ? 'ACTUALIZAR FICHA' : 'GUARDAR HALLAZGO'}
                         </Button>
                     </div>
                 </DialogContent>

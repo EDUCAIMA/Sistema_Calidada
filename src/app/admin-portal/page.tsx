@@ -31,6 +31,8 @@ import Link from 'next/link';
 import { StatCard } from '@/components/admin/StatCard';
 import { ActivityFeed } from '@/components/admin/ActivityFeed';
 import { SystemsTable } from '@/components/admin/SystemsTable';
+import { UsersTable } from '@/components/admin/UsersTable';
+
 
 // Import mock data
 import {
@@ -42,6 +44,8 @@ import {
 
 export default function AdminPortal() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'systems' | 'logs'>('dashboard');
+
 
   return (
     <div className="min-h-screen bg-[#000814] text-slate-200 font-sans flex overflow-hidden">
@@ -61,22 +65,54 @@ export default function AdminPortal() {
 
         <nav className="flex-1 px-4 space-y-1">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider px-2 py-3">Menú Principal</div>
-          <Link href="#" className="flex items-center gap-3 px-3 py-2.5 bg-blue-600/10 text-blue-400 rounded-xl border border-blue-600/20 group">
+          <button 
+            onClick={() => setActiveTab('dashboard')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
+              activeTab === 'dashboard' 
+                ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' 
+                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+            }`}
+          >
             <LayoutDashboard className="h-5 w-5" />
             <span className="font-medium">Panel de Control</span>
-          </Link>
-          <Link href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all group">
+          </button>
+          
+          <button 
+            onClick={() => setActiveTab('systems')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
+              activeTab === 'systems' 
+                ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' 
+                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+            }`}
+          >
             <Building2 className="h-5 w-5" />
             <span className="font-medium">Sistemas QMS</span>
-          </Link>
-          <Link href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all group">
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('users')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
+              activeTab === 'users' 
+                ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' 
+                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+            }`}
+          >
             <Users className="h-5 w-5" />
             <span className="font-medium">Usuarios Globales</span>
-          </Link>
-          <Link href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all group">
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('logs')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
+              activeTab === 'logs' 
+                ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' 
+                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+            }`}
+          >
             <Activity className="h-5 w-5" />
             <span className="font-medium">Logs de Actividad</span>
-          </Link>
+          </button>
+
 
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider px-2 py-3 mt-4">Configuración</div>
           <Link href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all group">
@@ -142,81 +178,111 @@ export default function AdminPortal() {
         {/* Dashboard Content */}
         <div className="flex-1 overflow-y-auto p-8 z-10 custom-scrollbar">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Consola de Administración</h1>
-            <p className="text-slate-400">Monitorización global de sistemas registrados y estados de implementación.</p>
+            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
+              {activeTab === 'dashboard' && "Consola de Administración"}
+              {activeTab === 'users' && "Gestión de Usuarios"}
+              {activeTab === 'systems' && "Sistemas QMS Globales"}
+              {activeTab === 'logs' && "Registro de Actividad"}
+            </h1>
+            <p className="text-slate-400">
+              {activeTab === 'dashboard' && "Monitorización global de sistemas registrados y estados de implementación."}
+              {activeTab === 'users' && "Listado completo de todos los usuarios registrados en el ecosistema QualityLink."}
+              {activeTab === 'systems' && "Directorio de todas las empresas y sistemas de gestión de calidad activos."}
+              {activeTab === 'logs' && "Historial detallado de operaciones y cambios críticos en la plataforma."}
+            </p>
           </div>
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {kpiData.map((kpi, idx) => (
-              <StatCard key={idx} {...kpi} />
-            ))}
-          </div>
+          {activeTab === 'dashboard' && (
+            <>
+              {/* KPI Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                {kpiData.map((kpi, idx) => (
+                  <StatCard key={idx} {...kpi} />
+                ))}
+              </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-            {/* Chart Area */}
-            <Card className="lg:col-span-2 bg-[#111927]/60 backdrop-blur-md border-white/5 shadow-xl">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-bold text-white">Progreso Global de Implementación</CardTitle>
-                  <CardDescription className="text-slate-500 text-xs">Histórico de avance porcentual en los últimos 6 meses</CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="bg-white/5 border-white/5 text-xs">Mensual</Button>
-                  <Button variant="outline" size="sm" className="bg-white/5 border-white/5 text-xs">Semanal</Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px] w-full pt-4">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                      <defs>
-                        <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#0071c5" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#0071c5" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                      <XAxis
-                        dataKey="name"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: '#64748b', fontSize: 11 }}
-                        dy={10}
-                      />
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: '#64748b', fontSize: 11 }}
-                        dx={-10}
-                        tickFormatter={(val) => `${val}%`}
-                      />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#111927', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
-                        itemStyle={{ color: '#00c7fd' }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="valor"
-                        stroke="#0071c5"
-                        strokeWidth={3}
-                        fillOpacity={1}
-                        fill="url(#colorVal)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                {/* Chart Area */}
+                <Card className="lg:col-span-2 bg-[#111927]/60 backdrop-blur-md border-white/5 shadow-xl">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg font-bold text-white">Progreso Global de Implementación</CardTitle>
+                      <CardDescription className="text-slate-500 text-xs">Histórico de avance porcentual en los últimos 6 meses</CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="bg-white/5 border-white/5 text-xs">Mensual</Button>
+                      <Button variant="outline" size="sm" className="bg-white/5 border-white/5 text-xs">Semanal</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px] w-full pt-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <defs>
+                            <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#0071c5" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#0071c5" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                          <XAxis
+                            dataKey="name"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#64748b', fontSize: 11 }}
+                            dy={10}
+                          />
+                          <YAxis
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#64748b', fontSize: 11 }}
+                            dx={-10}
+                            tickFormatter={(val) => `${val}%`}
+                          />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: '#111927', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
+                            itemStyle={{ color: '#00c7fd' }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="valor"
+                            stroke="#0071c5"
+                            strokeWidth={3}
+                            fillOpacity={1}
+                            fill="url(#colorVal)"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            {/* Notifications/Activity Area */}
-            <ActivityFeed activities={recentActivityData} />
-          </div>
+                {/* Notifications/Activity Area */}
+                <ActivityFeed activities={recentActivityData} />
+              </div>
 
-          {/* Table Area extracted into a component to separate concerns */}
-          <SystemsTable systems={systemsData} searchTerm={searchTerm} />
+              {/* Table Area extracted into a component to separate concerns */}
+              <SystemsTable systems={systemsData} searchTerm={searchTerm} />
+            </>
+          )}
 
+          {activeTab === 'users' && (
+            <UsersTable searchTerm={searchTerm} />
+          )}
+
+          {activeTab === 'systems' && (
+            <SystemsTable systems={systemsData} searchTerm={searchTerm} />
+          )}
+
+          {activeTab === 'logs' && (
+            <div className="p-12 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
+              <Activity className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+              <h3 className="text-lg font-bold text-white mb-1">Módulo de Logs en Desarrollo</h3>
+              <p className="text-slate-500 max-w-sm mx-auto">Próximamente podrá visualizar todos los eventos de auditoría y cambios en los sistemas.</p>
+            </div>
+          )}
         </div>
+
       </main>
 
       <style jsx global>{`
