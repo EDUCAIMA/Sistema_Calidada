@@ -97,10 +97,6 @@ export default function LoginPage() {
           </div>
           <span className="text-xl font-bold tracking-tight text-white">QualityLink</span>
         </div>
-        <Button variant="ghost" className="text-slate-400 hover:text-white hover:bg-white/5 gap-2">
-          <LifeBuoy className="h-4 w-4" />
-          Soporte
-        </Button>
       </header>
 
       {/* Main Content */}
@@ -224,9 +220,12 @@ export default function LoginPage() {
 
       {/* Footer Navigation */}
       <footer className="p-8 text-center z-10">
-        <div className="flex justify-center gap-8">
-          {['Política de Privacidad', 'Términos de Servicio', 'Estado del Sistema'].map((link) => (
-            <button key={link} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+        <div className="flex flex-wrap justify-center gap-3">
+          {['Política de Privacidad', 'Términos de Servicio', 'Estado del Sistema', 'Soporte'].map((link) => (
+            <button 
+              key={link} 
+              className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-white/5 border border-white/10 rounded-xl hover:bg-blue-600/20 hover:border-blue-500/40 hover:text-white transition-all duration-300"
+            >
               {link}
             </button>
           ))}
