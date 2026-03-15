@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import { 
     Plus, Eye, Edit, ChevronRight, ArrowRight, X, Save, HelpCircle, 
     Box, ShieldCheck, TrendingUp, History, Settings2, CheckCircle2,
-    Download 
+    Download, Trash2
 } from 'lucide-react';
 import { domToPng } from 'modern-screenshot';
 import { jsPDF } from 'jspdf';
@@ -419,10 +419,12 @@ export default function ProcessMapPage() {
         }
         
         try {
+            const isEditing = !!newProcess.id;
             const res = await fetch('/api/procesos', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    id: newProcess.id,
                     tenantId: tenant.id,
                     name: newProcess.name,
                     code: newProcess.code,
@@ -435,12 +437,34 @@ export default function ProcessMapPage() {
             const data = await res.json();
             if (data.error) throw new Error(data.error);
 
-            setProcesses([...processes, { ...data, responsibleName: currentUser?.name || '—' }]);
+            if (isEditing) {
+                setProcesses(processes.map(p => p.id === data.id ? { ...data, responsibleName: p.responsibleName } : p));
+                toast.success(`Proceso "${data.name}" actualizado`);
+            } else {
+                setProcesses([...processes, { ...data, responsibleName: currentUser?.name || '—' }]);
+                toast.success(`Proceso "${data.name}" guardado exitosamente`);
+            }
             setShowNewProcess(false);
             setNewProcess({ category: 'MISIONAL' });
-            toast.success(`Proceso "${data.name}" guardado exitosamente`);
         } catch (error) {
             toast.error('Error al guardar el proceso');
+        }
+    };
+
+    const handleDeleteProcess = async (id: string, name: string) => {
+        if (!confirm(`¿Estás seguro de eliminar el proceso "${name}"? Esta acción no se puede deshacer.`)) return;
+
+        try {
+            const res = await fetch(`/api/procesos?id=${id}`, {
+                method: 'DELETE',
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            setProcesses(processes.filter(p => p.id !== id));
+            toast.success('Proceso eliminado correctamente');
+        } catch (error) {
+            toast.error('Error al eliminar el proceso');
         }
     };
 
@@ -516,7 +540,7 @@ export default function ProcessMapPage() {
                         Descargar Mapa
                     </Button>
                     <Button 
-                        onClick={() => setShowNewProcess(true)} 
+                        onClick={() => { setNewProcess({ category: 'MISIONAL' }); setShowNewProcess(true); }} 
                         className="bg-[#136dec] hover:bg-blue-700 h-11 px-6 rounded-2xl font-bold uppercase tracking-tight shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2 text-white"
                     >
                         <Plus className="w-5 h-5" />
@@ -580,10 +604,20 @@ export default function ProcessMapPage() {
                                             className="w-full max-w-[220px] px-4 py-2.5 bg-white/80 backdrop-blur-sm border-2 border-emerald-100 rounded-xl shadow-sm hover:border-emerald-500 hover:shadow-md hover:scale-105 transition-all cursor-pointer group flex items-center justify-end gap-3"
                                             onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
                                         >
-                                            <span className="text-[13px] font-black uppercase text-slate-700 group-hover:text-emerald-900 tracking-tighter text-right">
-                                                {p.name.toUpperCase()}
-                                            </span>
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                            <div className="flex-1 flex items-center justify-end gap-3" onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}>
+                                                <span className="text-[13px] font-black uppercase text-slate-700 group-hover:text-emerald-900 tracking-tighter text-right">
+                                                    {p.name.toUpperCase()}
+                                                </span>
+                                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                            </div>
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-1 hover:text-emerald-600">
+                                                    <Edit className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteProcess(p.id, p.name); }} className="p-1 hover:text-red-600">
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>
@@ -605,10 +639,20 @@ export default function ProcessMapPage() {
                                             className="w-full max-w-[220px] px-4 py-2.5 bg-white/80 backdrop-blur-sm border-2 border-sky-100 rounded-xl shadow-sm hover:border-sky-500 hover:shadow-md hover:scale-105 transition-all cursor-pointer group flex items-center gap-3"
                                             onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
                                         >
-                                            <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
-                                            <span className="text-[13px] font-black uppercase text-slate-700 group-hover:text-sky-900 tracking-tighter text-left">
-                                                {p.name.toUpperCase()}
-                                            </span>
+                                            <div className="flex-1 flex items-center gap-3" onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}>
+                                                <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+                                                <span className="text-[13px] font-black uppercase text-slate-700 group-hover:text-sky-900 tracking-tighter text-left">
+                                                    {p.name.toUpperCase()}
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-1 hover:text-sky-600">
+                                                    <Edit className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteProcess(p.id, p.name); }} className="p-1 hover:text-red-600">
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>
@@ -653,10 +697,20 @@ export default function ProcessMapPage() {
                                             className="px-5 py-2.5 bg-white shadow-sm border-2 border-yellow-100 rounded-2xl hover:border-yellow-500 hover:shadow-md hover:scale-105 transition-all cursor-pointer group flex items-center gap-2" 
                                             onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
                                         >
-                                            <div className="w-2 h-2 rounded-full bg-yellow-400" />
-                                            <span className="text-[13px] font-black uppercase text-slate-700 group-hover:text-yellow-700 tracking-tighter">
-                                                {p.name.toUpperCase()}
-                                            </span>
+                                            <div className="flex-1 flex items-center gap-2" onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}>
+                                                <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                                                <span className="text-[13px] font-black uppercase text-slate-700 group-hover:text-yellow-700 tracking-tighter">
+                                                    {p.name.toUpperCase()}
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-1 hover:text-yellow-700">
+                                                    <Edit className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteProcess(p.id, p.name); }} className="p-1 hover:text-red-600">
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>
@@ -698,10 +752,12 @@ export default function ProcessMapPage() {
                 <DialogContent className="w-[40vw] sm:max-w-[40vw] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans">
                     <div className="px-6 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
                         <div className="flex items-center gap-3">
-                            <div className="bg-[#136dec] p-1.5 rounded-md shadow-lg shadow-blue-600/20">
-                                <Plus className="h-5 w-5 text-white" />
+                            <div className={cn("p-1.5 rounded-md shadow-lg", newProcess.id ? "bg-amber-500 shadow-amber-600/20" : "bg-[#136dec] shadow-blue-600/20")}>
+                                {newProcess.id ? <Edit className="h-5 w-5 text-white" /> : <Plus className="h-5 w-5 text-white" />}
                             </div>
-                            <DialogTitle className="text-xl font-black uppercase italic tracking-tighter text-slate-900">Nuevo Proceso</DialogTitle>
+                            <DialogTitle className="text-xl font-black uppercase italic tracking-tighter text-slate-900">
+                                {newProcess.id ? 'Editar Proceso' : 'Nuevo Proceso'}
+                            </DialogTitle>
                         </div>
                     </div>
                     
@@ -753,8 +809,8 @@ export default function ProcessMapPage() {
 
                     <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
                         <Button variant="ghost" className="font-bold uppercase text-xs tracking-widest h-12 px-6" onClick={() => setShowNewProcess(false)}>Cancelar</Button>
-                        <Button onClick={handleCreateProcess} className="bg-[#136dec] hover:bg-blue-600 text-white font-black uppercase text-xs tracking-widest h-12 px-8 rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
-                            Guardar Proceso
+                        <Button onClick={handleCreateProcess} className={cn("text-white font-black uppercase text-xs tracking-widest h-12 px-8 rounded-xl shadow-lg active:scale-95 transition-all", newProcess.id ? "bg-amber-500 hover:bg-amber-600 shadow-amber-600/20" : "bg-[#136dec] hover:bg-blue-600 shadow-blue-600/20")}>
+                            {newProcess.id ? 'Actualizar Proceso' : 'Guardar Proceso'}
                         </Button>
                     </div>
                 </DialogContent>

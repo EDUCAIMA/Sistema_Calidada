@@ -102,3 +102,22 @@ export async function POST(request: Request) {
         }, { status: 500 });
     }
 }
+
+export async function DELETE(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+        return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+    }
+
+    try {
+        await prisma.process.delete({
+            where: { id }
+        });
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting process:', error);
+        return NextResponse.json({ error: 'Failed to delete process' }, { status: 500 });
+    }
+}
