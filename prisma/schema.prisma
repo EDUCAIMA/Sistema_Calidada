@@ -29,6 +29,7 @@ enum DocumentType {
   INSTRUCTIVO
   FORMATO
   POLITICA
+  GUIA
   REGISTRO
   OTRO
 }
@@ -37,6 +38,7 @@ enum ProcessCategory {
   ESTRATEGICO
   MISIONAL
   APOYO
+  EVALUACION
 }
 
 enum RiskType {
@@ -198,6 +200,7 @@ model Document {
   createdByName  String?
   approvedBy     String?
   approvedDate   DateTime?
+  nextReviewDate DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 

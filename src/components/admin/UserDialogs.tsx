@@ -165,21 +165,21 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
   if (type === 'delete') {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="bg-[#0a1120] border-white/10 text-white">
+        <DialogContent className="bg-white border-slate-200 text-slate-900">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-400">
+            <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
               Confirmar Eliminación
             </DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-slate-600">
               ¿Estás seguro de que deseas eliminar al usuario <strong>{user?.name}</strong>? Esta acción no se puede deshacer.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="ghost" onClick={onClose} disabled={loading} className="text-slate-400 hover:text-white hover:bg-white/5">
+            <Button variant="ghost" onClick={onClose} disabled={loading} className="text-slate-500 hover:text-slate-900 hover:bg-slate-100">
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={loading} className="gap-2">
+            <Button variant="destructive" onClick={handleDelete} disabled={loading} className="gap-2 bg-red-600 hover:bg-red-700">
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Eliminar Permanentemente
             </Button>
@@ -191,12 +191,12 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-[#0a1120] border-white/10 text-white max-w-2xl backdrop-blur-xl">
+      <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-2xl shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold tracking-tight">
+          <DialogTitle className="text-2xl font-bold tracking-tight text-slate-900">
             {type === 'create' ? 'Nuevo Usuario Global' : 'Editar Usuario'}
           </DialogTitle>
-          <DialogDescription className="text-slate-400">
+          <DialogDescription className="text-slate-500">
             {type === 'create' 
               ? 'Complete la información para registrar un nuevo usuario en QualityLink.' 
               : 'Actualice los datos del usuario seleccionado.'}
@@ -211,9 +211,9 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-300">Nombre Completo</FormLabel>
+                    <FormLabel className="text-slate-700 font-medium">Nombre Completo</FormLabel>
                     <FormControl>
-                      <Input {...field} className="bg-white/5 border-white/10 focus:ring-blue-500/50" placeholder="Ej. Juan Pérez" />
+                      <Input {...field} className="bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20" placeholder="Ej. Juan Pérez" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -225,9 +225,9 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-300">Correo Electrónico</FormLabel>
+                    <FormLabel className="text-slate-700 font-medium">Correo Electrónico</FormLabel>
                     <FormControl>
-                      <Input {...field} type="email" className="bg-white/5 border-white/10 focus:ring-blue-500/50" placeholder="usuario@ejemplo.com" />
+                      <Input {...field} type="email" className="bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20" placeholder="usuario@ejemplo.com" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -239,11 +239,11 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-300">
-                      Contraseña {type === 'edit' && <span className="text-[10px] text-blue-400 ml-1">(Dejar vacío para mantener actual)</span>}
+                    <FormLabel className="text-slate-700 font-medium">
+                      Contraseña {type === 'edit' && <span className="text-[10px] text-blue-600 ml-1">(Dejar vacío para mantener actual)</span>}
                     </FormLabel>
                     <FormControl>
-                      <Input {...field} type="password" className="bg-white/5 border-white/10 focus:ring-blue-500/50" placeholder="••••••••" />
+                      <Input {...field} type="password" className="bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20" placeholder="••••••••" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -255,14 +255,14 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
                 name="tenantId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-300">Empresa / Sistema</FormLabel>
+                    <FormLabel className="text-slate-700 font-medium">Empresa / Sistema</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                       <FormControl>
-                        <SelectTrigger className="bg-white/5 border-white/10 focus:ring-blue-500/50 text-slate-200">
+                        <SelectTrigger className="bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 text-slate-900">
                           <SelectValue placeholder="Seleccionar empresa" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent className="bg-[#111927] border-white/10 text-slate-200">
+                      <SelectContent className="bg-white border-slate-200 text-slate-900">
                         {tenants.map((t) => (
                           <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                         ))}
@@ -278,14 +278,14 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
                 name="role"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-300">Rol de Usuario</FormLabel>
+                    <FormLabel className="text-slate-700 font-medium">Rol de Usuario</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                       <FormControl>
-                        <SelectTrigger className="bg-white/5 border-white/10 focus:ring-blue-500/50 text-slate-200">
+                        <SelectTrigger className="bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 text-slate-900">
                           <SelectValue placeholder="Seleccionar rol" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent className="bg-[#111927] border-white/10 text-slate-200">
+                      <SelectContent className="bg-white border-slate-200 text-slate-900">
                         <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
                         <SelectItem value="ADMIN_EMPRESA">Admin Empresa</SelectItem>
                         <SelectItem value="USUARIO">Usuario Estándar</SelectItem>
@@ -303,9 +303,9 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
                 name="position"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-300">Cargo / Posición</FormLabel>
+                    <FormLabel className="text-slate-700 font-medium">Cargo / Posición</FormLabel>
                     <FormControl>
-                      <Input {...field} className="bg-white/5 border-white/10 focus:ring-blue-500/50" placeholder="Ej. Gerente de Calidad" />
+                      <Input {...field} className="bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20" placeholder="Ej. Gerente de Calidad" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -316,9 +316,9 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
                 control={form.control}
                 name="active"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-xl border border-white/5 p-4 bg-white/[0.02]">
+                  <FormItem className="flex flex-row items-center justify-between rounded-xl border border-slate-100 p-4 bg-slate-50/50">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-base text-slate-200">Estado de Cuenta</FormLabel>
+                      <FormLabel className="text-base text-slate-900 font-medium">Estado de Cuenta</FormLabel>
                       <div className="text-[12px] text-slate-500">Permitir el acceso al sistema</div>
                     </div>
                     <FormControl>
@@ -332,11 +332,11 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
               />
             </div>
 
-            <DialogFooter className="pt-6 border-t border-white/5">
-              <Button type="button" variant="ghost" onClick={onClose} disabled={loading} className="text-slate-400 hover:text-white hover:bg-white/5">
+            <DialogFooter className="pt-6 border-t border-slate-100">
+              <Button type="button" variant="ghost" onClick={onClose} disabled={loading} className="text-slate-500 hover:text-slate-900 hover:bg-slate-100">
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-500 text-white min-w-[120px] gap-2">
+              <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 min-w-[120px] gap-2">
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 {type === 'create' ? 'Crear Usuario' : 'Guardar Cambios'}
               </Button>

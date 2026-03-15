@@ -153,7 +153,7 @@ export default function ContextoOrganizacionalPage() {
 
     const handleCreate = async () => {
         if (!newItem.description) { toast.error('La descripción es requerida'); return; }
-        
+
         try {
             const res = await fetch('/api/contexto/dofa', {
                 method: 'POST',
@@ -216,7 +216,7 @@ export default function ContextoOrganizacionalPage() {
                 <div className="space-y-1">
                     <div className="flex items-center gap-3">
                         <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Análisis de Contexto</h1>
-                        <button 
+                        <button
                             onClick={() => setShowISOInfo(true)}
                             className="p-1.5 rounded-full hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-all active:scale-95"
                             title="Ver información normativa ISO 9001:2015"
@@ -230,22 +230,22 @@ export default function ContextoOrganizacionalPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Button 
-                        variant="outline" 
+                    <Button
+                        variant="outline"
                         className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10"
                     >
                         <Clock className="w-4 h-4" />
                         HISTORIAL
                     </Button>
-                    <Button 
+                    <Button
                         onClick={handleDownloadPDF}
-                        variant="outline" 
+                        variant="outline"
                         className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10"
                     >
                         <Download className="w-4 h-4 text-red-500" />
                         PDF
                     </Button>
-                    <Button 
+                    <Button
                         onClick={() => { setSelectedItem(null); setNewItem({ category: 'FORTALEZA' }); setShowNew(true); }}
                         className="flex items-center gap-2 px-5 py-2 bg-[#136dec] text-white rounded-lg hover:bg-blue-600 font-bold text-xs shadow-lg shadow-blue-600/20 transition-all h-10 uppercase tracking-wider"
                     >
@@ -260,7 +260,7 @@ export default function ContextoOrganizacionalPage() {
                 {categories.map(cat => {
                     const cfg = categoryConfig[cat];
                     const catItems = items.filter(i => i.category === cat);
-                    
+
                     const sectionStyles: Record<DOFACategory, { headerBg: string, iconBg: string, iconColor: string, badgeBg: string, badgeText: string }> = {
                         FORTALEZA: { headerBg: 'bg-emerald-100/80', iconBg: 'bg-emerald-200', iconColor: 'text-emerald-700', badgeBg: 'bg-emerald-200', badgeText: 'text-emerald-800' },
                         OPORTUNIDAD: { headerBg: 'bg-blue-100/80', iconBg: 'bg-blue-200', iconColor: 'text-blue-700', badgeBg: 'bg-blue-200', badgeText: 'text-blue-800' },
@@ -305,9 +305,9 @@ export default function ContextoOrganizacionalPage() {
                                                     <span className={cn(
                                                         "px-2 py-1 text-[10px] font-bold rounded uppercase border",
                                                         item.category === 'FORTALEZA' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-                                                        item.category === 'OPORTUNIDAD' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                                                        item.category === 'DEBILIDAD' ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                                                        'bg-rose-100 text-rose-800 border-rose-200'
+                                                            item.category === 'OPORTUNIDAD' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                                                item.category === 'DEBILIDAD' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                                                                    'bg-rose-100 text-rose-800 border-rose-200'
                                                     )}>
                                                         {item.impact || 'Nivel Medio'}
                                                     </span>
@@ -320,25 +320,25 @@ export default function ContextoOrganizacionalPage() {
                                                 </td>
                                                 <td className="px-6 py-5 text-right">
                                                     <div className="flex justify-end gap-1">
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
                                                             className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
                                                             onClick={() => { setSelectedItem(item); setShowDetail(true); }}
                                                         >
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
                                                             className="h-8 w-8 text-slate-400 hover:text-[#136dec] hover:bg-blue-50 rounded-lg transition-all"
                                                             onClick={() => { setSelectedItem(item); setNewItem(item); setShowNew(true); }}
                                                         >
                                                             <Edit className="h-4 w-4" />
                                                         </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
                                                             className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                                             onClick={() => handleDelete(item.id)}
                                                         >
@@ -372,8 +372,8 @@ export default function ContextoOrganizacionalPage() {
 
             {/* Creation / Edit Form Dialog */}
             <Dialog open={showNew} onOpenChange={setShowNew}>
-                <DialogContent className="max-w-4xl bg-white border-none p-0 overflow-hidden rounded-xl shadow-2xl font-sans">
-                    <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
+                <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans">
+                    <div className="px-6 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
                         <div className="flex items-center gap-3">
                             <div className="bg-[#136dec] p-1.5 rounded-md shadow-lg shadow-blue-600/20">
                                 <Plus className="h-5 w-5 text-white" />
@@ -388,8 +388,8 @@ export default function ContextoOrganizacionalPage() {
                             </div>
                         </div>
                     </div>
-                    
-                    <div className="px-8 py-8 space-y-10 overflow-y-auto max-h-[70vh] bg-[#fcfdfe]">
+
+                    <div className="px-6 py-8 space-y-10 overflow-y-auto max-h-[70vh] bg-[#fcfdfe]">
                         {/* Cuadrante Selection */}
                         <div className="space-y-4">
                             <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
@@ -480,7 +480,7 @@ export default function ContextoOrganizacionalPage() {
                         </div>
                     </div>
 
-                    <div className="px-8 py-6 bg-slate-50 flex justify-end items-center gap-3">
+                    <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex justify-end items-center gap-3">
                         <Button variant="ghost" className="text-slate-500 font-bold uppercase text-[10px] tracking-widest h-11 px-8" onClick={() => setShowNew(false)}>Descartar</Button>
                         <Button className="bg-[#136dec] hover:bg-blue-700 text-white font-bold uppercase text-[10px] tracking-widest h-11 px-10 shadow-lg shadow-blue-600/20" onClick={handleCreate}>
                             <Save className="h-4 w-4 mr-2" />
@@ -492,11 +492,11 @@ export default function ContextoOrganizacionalPage() {
 
             {/* Read-only Detail Dialog */}
             <Dialog open={showDetail} onOpenChange={setShowDetail}>
-                <DialogContent className="max-w-3xl bg-white border-none p-0 overflow-hidden rounded-2xl shadow-2xl">
+                <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans">
                     {selectedItem && (
                         <>
                             <div className={cn("h-1.5 w-full", categoryConfig[selectedItem.category].bg)} />
-                            <div className="p-10">
+                            <div className="p-6">
                                 <div className="flex items-start gap-6 mb-8">
                                     <div className={cn("h-16 w-16 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg", categoryConfig[selectedItem.category].bg)}>
                                         {categoryConfig[selectedItem.category].icon}
@@ -508,7 +508,7 @@ export default function ContextoOrganizacionalPage() {
                                         <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">{selectedItem.description}</h2>
                                     </div>
                                 </div>
-                                
+
                                 <div className="space-y-8">
                                     <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200/50">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Análisis de Impacto</p>
@@ -539,14 +539,14 @@ export default function ContextoOrganizacionalPage() {
             </Dialog>
             {/* ISO 9001:2015 Clause 4.1 Info Dialog - Professional Redesign */}
             <Dialog open={showISOInfo} onOpenChange={setShowISOInfo}>
-                <DialogContent className="max-w-5xl bg-white border border-gray-200 shadow-sm rounded-lg overflow-hidden flex flex-col p-0 gap-0 font-sans">
+                <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border border-gray-200 shadow-sm rounded-3xl overflow-hidden flex flex-col p-0 gap-0 font-sans">
                     {/* BEGIN: Header */}
-                    <header className="px-12 py-12 border-b border-gray-50 bg-white">
+                    <header className="px-6 pt-8 pb-4 border-b border-gray-50 bg-white">
                         <div className="flex flex-col gap-2">
-                            <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
+                            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
                                 4 Contexto de la organización
                             </h1>
-                            <h2 className="text-2xl font-medium text-[#1e3a8a]">
+                            <h2 className="text-xl font-medium text-[#1e3a8a]">
                                 4.1 Conocimiento de la organización y de su contexto
                             </h2>
                         </div>
@@ -554,42 +554,41 @@ export default function ContextoOrganizacionalPage() {
                     {/* END: Header */}
 
                     {/* BEGIN: MainContent */}
-                    <div className="px-12 md:px-24 py-16 space-y-10 bg-white overflow-y-auto max-h-[60vh]">
-                        {/* BEGIN: NormativeParagraphs */}
-                        <section className="space-y-6">
-                            <p className="text-xl text-gray-800 leading-relaxed italic">
-                                La organización debe determinar las cuestiones externas e internas que son pertinentes para su propósito y su dirección estratégica y que afectan a su capacidad para lograr los resultados previstos de su sistema de gestión de la calidad.
-                            </p>
-                            <p className="text-xl text-gray-800 leading-relaxed italic">
-                                La organización debe realizar el seguimiento y la revisión de la información sobre estas cuestiones externas e internas.
-                            </p>
-                        </section>
-                        {/* END: NormativeParagraphs */}
+                    <div className="px-6 pt-4 pb-8 space-y-8 bg-white overflow-y-auto max-h-[60vh]">
+                        {/* BEGIN: NormativeParagraphs Container */}
+                        <div className="bg-slate-100/80 border border-slate-200 rounded-2xl p-5 space-y-4">
+                            <section className="space-y-6">
+                                <p className="text-lg text-gray-800 leading-relaxed italic">
+                                    La organización <strong className="font-black text-gray-900 not-italic">debe</strong> determinar las cuestiones externas e internas que son pertinentes para su propósito y su dirección estratégica y que afectan a su capacidad para lograr los resultados previstos de su sistema de gestión de la calidad.
+                                </p>
+                                <p className="text-lg text-gray-800 leading-relaxed italic">
+                                    La organización <strong className="font-black text-gray-900 not-italic">debe</strong> realizar el seguimiento y la revisión de la información sobre estas cuestiones externas e internas.
+                                </p>
+                            </section>
 
-                        {/* BEGIN: Notes */}
-                        <section className="space-y-6">
-                            <div className="flex flex-col gap-6 text-gray-600 text-sm md:text-lg leading-relaxed">
-                                <p className="italic md:ml-12">
-                                    <span className="font-bold text-gray-900">NOTA 1</span> Las cuestiones pueden incluir factores positivos y negativos o condiciones para su consideración.
-                                </p>
-                                <p className="italic md:ml-12">
-                                    <span className="font-bold text-gray-900">NOTA 2</span> La comprensión del contexto externo puede verse facilitado al considerar cuestiones que surgen de los entornos legal, tecnológico, competitivo, de mercado, cultural, social y económico, ya sea internacional, nacional, regional o local.
-                                </p>
-                                <p className="italic md:ml-12">
-                                    <span className="font-bold text-gray-900">NOTA 3</span> La comprensión del contexto interno puede verse facilitada al considerar cuestiones relativas a los valores, la cultura, los conocimientos y el desempeño de la organización.
-                                </p>
-                            </div>
-                        </section>
-                        {/* END: Notes */}
+                            <section className="space-y-6">
+                                <div className="flex flex-col gap-6 text-gray-600 text-sm md:text-lg leading-relaxed">
+                                    <p className="italic md:ml-12">
+                                        <span className="font-bold text-gray-900">NOTA 1</span> Las cuestiones pueden incluir factores positivos y negativos o condiciones para su consideración.
+                                    </p>
+                                    <p className="italic md:ml-12">
+                                        <span className="font-bold text-gray-900">NOTA 2</span> La comprensión del contexto externo puede verse facilitado al considerar cuestiones que surgen de los entornos legal, tecnológico, competitivo, de mercado, cultural, social y económico, ya sea internacional, nacional, regional o local.
+                                    </p>
+                                    <p className="italic md:ml-12">
+                                        <span className="font-bold text-gray-900">NOTA 3</span> La comprensión del contexto interno puede verse facilitada al considerar cuestiones relativas a los valores, la cultura, los conocimientos y el desempeño de la organización.
+                                    </p>
+                                </div>
+                            </section>
+                        </div>
                     </div>
                     {/* END: MainContent */}
 
                     {/* BEGIN: FooterActions */}
-                    <footer className="px-12 py-8 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                    <footer className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
                         <div className="text-xs text-gray-400 font-bold tracking-tight uppercase">
                             SISTEMA DE GESTIÓN DE LA CALIDAD (SGC)
                         </div>
-                        <Button 
+                        <Button
                             onClick={() => setShowISOInfo(false)}
                             className="bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-bold py-3 px-10 rounded shadow-md transition-all duration-200 ease-in-out active:scale-95 h-auto uppercase tracking-wider"
                         >

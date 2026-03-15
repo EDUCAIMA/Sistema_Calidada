@@ -119,11 +119,11 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
 
   return (
     <>
-      <Card className="bg-[#111927]/60 backdrop-blur-md border-white/5 shadow-xl mb-8 overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-white/5 pb-6">
+      <Card className="bg-white border-slate-200 shadow-sm mb-8 overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-slate-50 pb-6">
           <div>
-            <CardTitle className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <Users className="h-5 w-5 text-blue-400" />
+            <CardTitle className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" />
               Usuarios Globales
             </CardTitle>
             <CardDescription className="text-slate-500 text-xs">
@@ -138,11 +138,11 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
                 <Plus className="h-3.5 w-3.5" />
                 Agregar Usuario
             </Button>
-            <Button variant="outline" size="sm" className="bg-white/5 border-white/5 h-9 rounded-xl text-xs gap-2">
+            <Button variant="outline" size="sm" className="bg-white border-slate-200 hover:bg-slate-50 h-9 rounded-xl text-xs gap-2">
               <Filter className="h-3.5 w-3.5" />
               Filtrar
             </Button>
-            <Button variant="outline" size="sm" className="bg-white/5 border-white/5 h-9 rounded-xl text-xs gap-2">
+            <Button variant="outline" size="sm" className="bg-white border-slate-200 hover:bg-slate-50 h-9 rounded-xl text-xs gap-2">
               <Download className="h-3.5 w-3.5" />
               Exportar
             </Button>
@@ -152,7 +152,7 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-white/[0.02] text-slate-500 text-[11px] uppercase tracking-widest font-bold">
+                <tr className="bg-slate-50/50 text-slate-500 text-[11px] uppercase tracking-widest font-bold border-b border-slate-100">
                   <th className="text-left py-4 pl-6">Usuario</th>
                   <th className="text-left py-4">Empresa / Tenant</th>
                   <th className="text-left py-4">Rol / Cargo</th>
@@ -161,17 +161,17 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
                   <th className="text-right py-4 pr-6">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100">
                 {filteredUsers.length > 0 ? (
                   filteredUsers.map((user) => (
-                    <tr key={user.id} className="group hover:bg-white/[0.02] transition-colors">
+                    <tr key={user.id} className="group hover:bg-slate-50/50 transition-colors">
                       <td className="py-4 pl-6">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-bold uppercase transition-transform group-hover:scale-105">
+                          <div className="h-10 w-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold uppercase transition-transform group-hover:scale-105">
                             {user.name.charAt(0)}
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">{user.name}</span>
+                            <span className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{user.name}</span>
                             <span className="text-xs text-slate-500 flex items-center gap-1">
                               <Mail className="h-3 w-3" />
                               {user.email}
@@ -180,17 +180,17 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
                         </div>
                       </td>
                       <td className="py-4">
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                          <Building2 className="h-4 w-4 text-slate-500" />
+                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                          <Building2 className="h-4 w-4 text-slate-400" />
                           <div className="flex flex-col">
-                            <span className="font-medium text-slate-300">{user.tenant.name}</span>
+                            <span className="font-medium text-slate-900">{user.tenant.name}</span>
                             <span className="text-[10px] text-slate-500 uppercase">{user.tenant.slug}</span>
                           </div>
                         </div>
                       </td>
                       <td className="py-4">
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold text-blue-400/80 uppercase tracking-tight flex items-center gap-1">
+                          <span className="text-xs font-bold text-blue-600 uppercase tracking-tight flex items-center gap-1">
                             <Shield className="h-3 w-3" />
                             {user.role.replace(/_/g, ' ')}
                           </span>
@@ -199,8 +199,8 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
                       </td>
                       <td className="py-4">
                         <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${  
-                          user.active ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                          'bg-red-500/10 text-red-500 border-red-500/20'
+                          user.active ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                          'bg-red-50 text-red-600 border-red-100'
                         }`}>
                           {user.active ? (
                             <>
@@ -225,21 +225,21 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
                       <td className="py-4 pr-6 text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-[#111927] border-white/10 text-slate-200">
+                          <DropdownMenuContent align="end" className="bg-white border-slate-200 text-slate-800">
                             <DropdownMenuItem 
                                 onClick={() => handleEdit(user)}
-                                className="gap-2 focus:bg-white/5 focus:text-blue-400 cursor-pointer"
+                                className="gap-2 focus:bg-slate-50 focus:text-blue-600 cursor-pointer"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                               Editar Usuario
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                                 onClick={() => handleDelete(user)}
-                                className="gap-2 focus:bg-red-500/10 focus:text-red-500 cursor-pointer text-red-400"
+                                className="gap-2 focus:bg-red-50 focus:text-red-600 cursor-pointer text-red-600"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                               Eliminar Usuario
@@ -251,7 +251,7 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-500 text-sm">
+                    <td colSpan={6} className="py-12 text-center text-slate-400 text-sm">
                       No se encontraron usuarios que coincidan con la búsqueda.
                     </td>
                   </tr>

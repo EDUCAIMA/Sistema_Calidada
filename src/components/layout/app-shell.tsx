@@ -41,6 +41,7 @@ const navItems: NavItem[] = [
             { title: 'Contexto Organizacional', href: '/contexto/organizacional' },
             { title: 'Partes Interesadas', href: '/contexto/partes-interesadas' },
             { title: 'Alcance del SGC', href: '/contexto/alcance' },
+            { title: 'Mapa de Procesos', href: '/contexto/procesos' },
         ],
     },
     {
@@ -64,14 +65,15 @@ const navItems: NavItem[] = [
     },
     {
         title: 'Apoyo',
+        href: '/apoyo',
         icon: <BookOpen className="h-4.5 w-4.5" />,
         clause: '7',
         children: [
-            { title: 'Listado Maestro', href: '/apoyo/documentos' },
-            { title: 'Recursos', href: '/apoyo/recursos' },
-            { title: 'Competencias', href: '/apoyo/competencias' },
-            { title: 'Conocimiento Organizacional', href: '/apoyo/conocimiento' },
-            { title: 'Matriz de Comunicaciones', href: '/apoyo/comunicaciones' },
+            { title: '7.1 Recursos', href: '/apoyo/recursos' },
+            { title: '7.2 Competencia', href: '/apoyo/competencias' },
+            { title: '7.3 Toma de conciencia', href: '/apoyo/conciencia' },
+            { title: '7.4 Comunicación', href: '/apoyo/comunicacion' },
+            { title: '7.5 Info. Documentada', href: '/apoyo/documentos' },
         ],
     },
     {
@@ -79,7 +81,6 @@ const navItems: NavItem[] = [
         icon: <Briefcase className="h-4.5 w-4.5" />,
         clause: '8',
         children: [
-            { title: 'Mapa de Procesos', href: '/operacion/procesos' },
             { title: 'Control Operacional', href: '/operacion/control' },
             { title: 'Control de Proveedores', href: '/operacion/proveedores' },
             { title: 'Salidas No Conformes', href: '/operacion/pnc' },
@@ -195,32 +196,55 @@ function NavGroup({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
 
     return (
         <Collapsible open={open} onOpenChange={setOpen}>
-            <CollapsibleTrigger asChild>
-                <button
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full",
-                        isChildActive
-                            ? "text-sidebar-foreground bg-sidebar-accent"
-                            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            <div className="flex items-center gap-1">
+                <CollapsibleTrigger asChild>
+                    {item.href ? (
+                        <Link
+                            href={item.href}
+                            className={cn(
+                                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex-1",
+                                isChildActive || pathname === item.href
+                                    ? "text-sidebar-foreground bg-sidebar-accent"
+                                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                            )}
+                        >
+                            {item.icon}
+                            <span className="flex-1 text-left">
+                                {item.clause && (
+                                    <span className="text-[10px] font-bold opacity-50 mr-1.5">{item.clause}.</span>
+                                )}
+                                {item.title}
+                            </span>
+                            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200 ml-auto", open && "rotate-180")} />
+                        </Link>
+                    ) : (
+                        <button
+                            className={cn(
+                                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full",
+                                isChildActive
+                                    ? "text-sidebar-foreground bg-sidebar-accent"
+                                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                            )}
+                        >
+                            {item.icon}
+                            <span className="flex-1 text-left">
+                                {item.clause && (
+                                    <span className="text-[10px] font-bold opacity-50 mr-1.5">{item.clause}.</span>
+                                )}
+                                {item.title}
+                            </span>
+                            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-180")} />
+                        </button>
                     )}
-                >
-                    {item.icon}
-                    <span className="flex-1 text-left">
-                        {item.clause && (
-                            <span className="text-[10px] font-bold opacity-50 mr-1.5">{item.clause}.</span>
-                        )}
-                        {item.title}
-                    </span>
-                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-180")} />
-                </button>
-            </CollapsibleTrigger>
+                </CollapsibleTrigger>
+            </div>
             <CollapsibleContent className="overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-up data-[state=open]:slide-down">
                 <div className="ml-4 pl-4 border-l border-sidebar-border/50 mt-1 mb-1 space-y-0.5">
                     {item.children?.map(child => {
                         const isActive = pathname === child.href || pathname.startsWith(child.href + '/');
                         return (
                             <Link
-                                key={child.href}
+                                key={child.title}
                                 href={child.href}
                                 className={cn(
                                     "block px-3 py-2 rounded-md text-xs font-medium transition-all duration-200",

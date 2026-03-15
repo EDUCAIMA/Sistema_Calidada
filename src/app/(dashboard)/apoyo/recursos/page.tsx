@@ -3,43 +3,45 @@
 import React, { useState } from 'react';
 import {
     Building2, Plus, Search, Filter, MoreVertical,
-    Edit, Trash2, Eye, Wrench, CheckCircle2, AlertCircle
+    Edit, Trash2, Eye, Wrench, CheckCircle2, AlertCircle,
+    Users as UsersIcon, Thermometer, Ruler, PenTool, BookOpen,
+    Info, LayoutGrid
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
     DropdownMenuTrigger, DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-// Mock data for resources
+// Mock data for infrastructure
 const mockInfra = [
     { id: 'INF-001', name: 'Servidor Principal ERP', type: 'Tecnología', status: 'Operativo', maintenanceDate: '15/05/2026', responsible: 'Área TI' },
     { id: 'INF-002', name: 'Planta Eléctrica de Respaldo', type: 'Equipos', status: 'Mantenimiento Pendiente', maintenanceDate: '01/03/2026', responsible: 'Mantenimiento' },
     { id: 'INF-003', name: 'Vehículo de Reparto 01', type: 'Transporte', status: 'Operativo', maintenanceDate: '20/04/2026', responsible: 'Logística' },
-    { id: 'INF-004', name: 'Sistema de Refrigeración S1', type: 'Instalaciones', status: 'Fuera de Servicio', maintenanceDate: '10/02/2026', responsible: 'Mantenimiento' },
+];
+
+// Mock data for measurement
+const mockMeasurement = [
+    { id: 'CAL-001', name: 'Balanza Electrónica', brand: 'Mettler Toledo', nextCal: '12/10/2025', status: 'Certificado' },
+    { id: 'CAL-002', name: 'Calibrador Vernier', brand: 'Mitutoyo', nextCal: '05/06/2025', status: 'Vencido' },
 ];
 
 export default function RecursosPage() {
     const [searchTerm, setSearchTerm] = useState('');
 
-    const filteredInfra = mockInfra.filter(item =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.id.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'Operativo':
-                return <Badge variant="default" className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20 pointer-events-none gap-1"><CheckCircle2 className="w-3 h-3" /> Operativo</Badge>;
+            case 'Certificado':
+                return <Badge variant="default" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1"><CheckCircle2 className="w-3 h-3" /> {status}</Badge>;
             case 'Mantenimiento Pendiente':
-                return <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 pointer-events-none gap-1"><AlertCircle className="w-3 h-3" /> Pendiente</Badge>;
-            case 'Fuera de Servicio':
-                return <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 pointer-events-none gap-1"><AlertCircle className="w-3 h-3" /> Fuera de Servicio</Badge>;
+                return <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-amber-500/20 gap-1"><AlertCircle className="w-3 h-3" /> Pendiente</Badge>;
+            case 'Vencido':
+                return <Badge variant="destructive" className="bg-red-500/10 text-red-600 border-red-500/20 gap-1"><AlertCircle className="w-3 h-3" /> Vencido</Badge>;
             default:
                 return <Badge variant="outline">{status}</Badge>;
         }
@@ -49,129 +51,223 @@ export default function RecursosPage() {
         <div className="flex-1 space-y-6 p-8 pt-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Recursos e Infraestructura</h2>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-800">7.1 Recursos</h1>
                     <p className="text-muted-foreground mt-1">
-                        Gestión de instalaciones, equipos, tecnología y ambiente de trabajo.
+                        Determinación y provisión de los recursos necesarios para el SGC.
                     </p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Button variant="outline" className="gap-2 shadow-sm">
-                        <Wrench className="w-4 h-4" />
-                        <span className="hidden sm:inline">Plan de Mantenimiento</span>
-                    </Button>
-                    <Button className="gap-2 shadow-md">
-                        <Plus className="w-4 h-4" />
-                        <span>Nuevo Recurso</span>
-                    </Button>
                 </div>
             </div>
 
-            <Tabs defaultValue="infraestructura" className="space-y-6">
-                <TabsList className="bg-slate-100/50 dark:bg-slate-800/50 border shadow-sm">
-                    <TabsTrigger value="infraestructura" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Infraestructura y Equipos</TabsTrigger>
-                    <TabsTrigger value="ambiente" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Ambiente de Operación</TabsTrigger>
-                    <TabsTrigger value="seguimiento" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Recursos de Medición</TabsTrigger>
+            <Tabs defaultValue="generalidades" className="space-y-6">
+                <TabsList className="bg-slate-100/50 p-1 border h-auto flex flex-wrap gap-1 justify-start">
+                    <TabsTrigger value="generalidades" className="gap-2 px-3 py-2 text-xs"><Info className="w-3.5 h-3.5" /> 7.1.1 Generalidades</TabsTrigger>
+                    <TabsTrigger value="personas" className="gap-2 px-3 py-2 text-xs"><UsersIcon className="w-3.5 h-3.5" /> 7.1.2 Personas</TabsTrigger>
+                    <TabsTrigger value="infraestructura" className="gap-2 px-3 py-2 text-xs"><Building2 className="w-3.5 h-3.5" /> 7.1.3 Infraestructura</TabsTrigger>
+                    <TabsTrigger value="ambiente" className="gap-2 px-3 py-2 text-xs"><Thermometer className="w-3.5 h-3.5" /> 7.1.4 Ambiente</TabsTrigger>
+                    <TabsTrigger value="medicion" className="gap-2 px-3 py-2 text-xs"><Ruler className="w-3.5 h-3.5" /> 7.1.5 Seguimiento y Medición</TabsTrigger>
+                    <TabsTrigger value="conocimientos" className="gap-2 px-3 py-2 text-xs"><BookOpen className="w-3.5 h-3.5" /> 7.1.6 Conocimientos</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="infraestructura" className="space-y-4 m-0">
-                    <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
-                        <CardHeader className="pb-4">
-                            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                                <CardTitle className="text-lg font-medium flex items-center gap-2">
-                                    <Building2 className="w-5 h-5 text-primary" />
-                                    Inventario de Infraestructura
-                                </CardTitle>
-                                <div className="flex items-center gap-2 w-full sm:w-auto">
-                                    <div className="relative flex-1 sm:w-64">
-                                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            type="text"
-                                            placeholder="Buscar equipo o recurso..."
-                                            className="pl-9 bg-white dark:bg-slate-950"
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                        />
-                                    </div>
-                                    <Button variant="outline" size="icon" className="shrink-0">
-                                        <Filter className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>
+                {/* 7.1.1 GENERALIDADES */}
+                <TabsContent value="generalidades" className="space-y-4">
+                    <Card className="border-none shadow-sm bg-white/60">
+                        <CardHeader>
+                            <CardTitle className="text-lg">7.1.1 Generalidades de los Recursos</CardTitle>
+                            <CardDescription>Resumen de la capacidad y limitaciones de los recursos existentes.</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <div className="rounded-md border bg-white dark:bg-slate-950/50 overflow-hidden">
-                                <div className="grid grid-cols-12 gap-4 p-4 border-b bg-muted/40 text-sm font-medium text-muted-foreground">
-                                    <div className="col-span-2">Código</div>
-                                    <div className="col-span-3">Nombre del Recurso</div>
-                                    <div className="col-span-2">Tipo</div>
-                                    <div className="col-span-2">Estado</div>
-                                    <div className="col-span-2">Próx. Mantenimiento</div>
-                                    <div className="col-span-1 text-right">Acciones</div>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="p-4 bg-slate-50 border rounded-xl">
+                                    <h4 className="font-bold text-sm mb-2 text-slate-700">Capacidades Internas</h4>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                        Análisis de lo que se puede obtener internamente vs lo que se necesita de proveedores externos.
+                                    </p>
                                 </div>
-
-                                <div className="divide-y">
-                                    {filteredInfra.length > 0 ? (
-                                        filteredInfra.map((item) => (
-                                            <div key={item.id} className="grid grid-cols-12 gap-4 p-4 items-center text-sm hover:bg-muted/30 transition-colors">
-                                                <div className="col-span-2 font-medium text-slate-700 dark:text-slate-300">
-                                                    {item.id}
-                                                </div>
-                                                <div className="col-span-3 font-medium">
-                                                    {item.name}
-                                                    <div className="text-xs text-muted-foreground font-normal mt-0.5">
-                                                        Responsable: {item.responsible}
-                                                    </div>
-                                                </div>
-                                                <div className="col-span-2">
-                                                    <Badge variant="outline" className="font-normal">{item.type}</Badge>
-                                                </div>
-                                                <div className="col-span-2">
-                                                    {getStatusBadge(item.status)}
-                                                </div>
-                                                <div className="col-span-2 text-slate-500">
-                                                    {item.maintenanceDate}
-                                                </div>
-                                                <div className="col-span-1 text-right">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" className="h-8 w-8 p-0">
-                                                                <span className="sr-only">Abrir menú</span>
-                                                                <MoreVertical className="h-4 w-4 text-slate-500" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end" className="w-[160px]">
-                                                            <DropdownMenuItem className="gap-2 cursor-pointer text-slate-600 dark:text-slate-300">
-                                                                <Eye className="h-4 w-4" /> Ficha Técnica
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem className="gap-2 cursor-pointer text-slate-600 dark:text-slate-300">
-                                                                <Wrench className="h-4 w-4" /> Reg. Mantenimiento
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem className="gap-2 cursor-pointer text-slate-600 dark:text-slate-300">
-                                                                <Edit className="h-4 w-4" /> Editar
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem className="gap-2 cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50">
-                                                                <Trash2 className="h-4 w-4" /> Eliminar
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center">
-                                            <Building2 className="h-10 w-10 text-slate-300 mb-3" />
-                                            <p>No se encontraron recursos que coincidan con la búsqueda.</p>
-                                        </div>
-                                    )}
+                                <div className="p-4 bg-slate-50 border rounded-xl">
+                                    <h4 className="font-bold text-sm mb-2 text-slate-700">Estado de Recursos Externos</h4>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                        Monitoreo de la provisión de recursos por parte de terceros para asegurar la continuidad.
+                                    </p>
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
-                {/* Placeholder tabs for other content */}
-                <TabsContent value="ambiente"></TabsContent>
-                <TabsContent value="seguimiento"></TabsContent>
+
+                {/* 7.1.2 PERSONAS */}
+                <TabsContent value="personas" className="space-y-4">
+                    <Card className="border-none shadow-sm bg-white/60">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-lg">7.1.2 Plantilla de Personal</CardTitle>
+                            <Button size="sm" className="gap-2"><Plus className="w-4 h-4" /> Agregar Personal</Button>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="rounded-xl border border-slate-100 overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-50 text-slate-500 font-medium">
+                                        <tr>
+                                            <th className="text-left p-4">Nombre</th>
+                                            <th className="text-left p-4">Cargo</th>
+                                            <th className="text-left p-4">Proceso</th>
+                                            <th className="text-left p-4">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        <tr>
+                                            <td className="p-4 font-medium">Juan Perez</td>
+                                            <td className="p-4">Gerente de Calidad</td>
+                                            <td className="p-4">Estratégico</td>
+                                            <td className="p-4"><Badge className="bg-emerald-50 text-emerald-600 border-none">Activo</Badge></td>
+                                        </tr>
+                                        <tr>
+                                            <td className="p-4 font-medium">Maria Garcia</td>
+                                            <td className="p-4">Analista de Laboratorio</td>
+                                            <td className="p-4">Misional</td>
+                                            <td className="p-4"><Badge className="bg-emerald-50 text-emerald-600 border-none">Activo</Badge></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* 7.1.3 INFRAESTRUCTURA */}
+                <TabsContent value="infraestructura" className="space-y-4">
+                    <Card className="border-none shadow-sm bg-white/60">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-lg">7.1.3 Inventario de Infraestructura</CardTitle>
+                            <Button size="sm" className="gap-2"><Plus className="w-4 h-4" /> Nuevo Activo</Button>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="rounded-xl border border-slate-100 overflow-hidden">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-slate-50 text-slate-500 font-medium">
+                                        <tr>
+                                            <th className="p-4">Código</th>
+                                            <th className="p-4">Nombre</th>
+                                            <th className="p-4">Tipo</th>
+                                            <th className="p-4">Estado</th>
+                                            <th className="p-4">Mantenimiento</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {mockInfra.map((item) => (
+                                            <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="p-4 font-bold text-slate-500">{item.id}</td>
+                                                <td className="p-4 font-medium">{item.name}</td>
+                                                <td className="p-4">{item.type}</td>
+                                                <td className="p-4">{getStatusBadge(item.status)}</td>
+                                                <td className="p-4 font-medium text-slate-600">{item.maintenanceDate}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* 7.1.4 AMBIENTE */}
+                <TabsContent value="ambiente" className="space-y-4">
+                    <Card className="border-none shadow-sm bg-white/60">
+                        <CardHeader>
+                            <CardTitle className="text-lg">7.1.4 Ambiente para la operación de los procesos</CardTitle>
+                            <CardDescription>Factores sociales, psicológicos y físicos.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-xl flex justify-between items-center">
+                                        <div>
+                                            <p className="text-xs font-bold text-blue-600 uppercase">Físico: Iluminación</p>
+                                            <p className="text-2xl font-black text-blue-900">450 Lux</p>
+                                        </div>
+                                        <CheckCircle2 className="text-blue-500 h-8 w-8" />
+                                    </div>
+                                    <div className="p-4 bg-amber-50/50 border border-amber-100 rounded-xl flex justify-between items-center">
+                                        <div>
+                                            <p className="text-xs font-bold text-amber-600 uppercase">Físico: Ruido</p>
+                                            <p className="text-2xl font-black text-amber-900">65 dB</p>
+                                        </div>
+                                        <AlertCircle className="text-amber-500 h-8 w-8" />
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-slate-50 border rounded-xl">
+                                    <h4 className="font-bold text-sm mb-2 text-slate-700">Factores Humanos</h4>
+                                    <ul className="text-xs space-y-2 text-muted-foreground list-disc pl-4 italic">
+                                        <li>Social: Ambiente no discriminatorio, tranquilo, libre de conflictos.</li>
+                                        <li>Psicológico: Reducción de estrés, prevención del agotamiento emocional.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* 7.1.5 SEGUIMIENTO Y MEDICIÓN */}
+                <TabsContent value="medicion" className="space-y-4">
+                    <Card className="border-none shadow-sm bg-white/60">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-lg">7.1.5 Recursos de seguimiento y medición</CardTitle>
+                            <Button size="sm" variant="outline" className="gap-2"><Ruler className="w-4 h-4" /> Plan de Calibración</Button>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="rounded-xl border border-slate-100 overflow-hidden">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-slate-50 text-slate-500 font-medium">
+                                        <tr>
+                                            <th className="p-4">ID Equipo</th>
+                                            <th className="p-4">Instrumento</th>
+                                            <th className="p-4">Marca/Modelo</th>
+                                            <th className="p-4">Próx. Calibración</th>
+                                            <th className="p-4">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {mockMeasurement.map((eq) => (
+                                            <tr key={eq.id}>
+                                                <td className="p-4 font-bold text-slate-500">{eq.id}</td>
+                                                <td className="p-4 font-medium">{eq.name}</td>
+                                                <td className="p-4">{eq.brand}</td>
+                                                <td className="p-4 font-medium">{eq.nextCal}</td>
+                                                <td className="p-4">{getStatusBadge(eq.status)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* 7.1.6 CONOCIMIENTOS */}
+                <TabsContent value="conocimientos" className="space-y-4">
+                    <Card className="border-none shadow-sm bg-white/60">
+                        <CardHeader>
+                            <CardTitle className="text-lg">7.1.6 Conocimientos de la organización</CardTitle>
+                            <CardDescription>Gestión del capital intelectual y lecciones aprendidas.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="p-5 border rounded-2xl bg-indigo-50/30 flex items-start gap-4">
+                                    <div className="p-3 bg-indigo-100 rounded-xl"><BookOpen className="h-6 w-6 text-indigo-600" /></div>
+                                    <div>
+                                        <h4 className="font-bold text-indigo-900">Lecciones Aprendidas</h4>
+                                        <p className="text-xs text-indigo-700 mt-1">Base de datos de experiencias de proyectos y fallos anteriores.</p>
+                                    </div>
+                                </div>
+                                <div className="p-5 border rounded-2xl bg-blue-50/30 flex items-start gap-4">
+                                    <div className="p-3 bg-blue-100 rounded-xl"><LayoutGrid className="h-6 w-6 text-blue-600" /></div>
+                                    <div>
+                                        <h4 className="font-bold text-blue-900">Propiedad Intelectual</h4>
+                                        <p className="text-xs text-blue-700 mt-1">Patentes, derechos de autor y software desarrollado.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
             </Tabs>
         </div>
     );

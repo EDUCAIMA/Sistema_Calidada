@@ -1,8 +1,8 @@
 // ==================== ENUMS ====================
 export type Role = 'SUPER_ADMIN' | 'ADMIN_EMPRESA' | 'USUARIO' | 'AUDITOR_INTERNO' | 'AUDITOR_EXTERNO';
 export type DocumentStatus = 'BORRADOR' | 'EN_REVISION' | 'APROBADO' | 'OBSOLETO';
-export type DocumentType = 'MANUAL' | 'PROCEDIMIENTO' | 'INSTRUCTIVO' | 'FORMATO' | 'POLITICA' | 'REGISTRO' | 'OTRO';
-export type ProcessCategory = 'ESTRATEGICO' | 'MISIONAL' | 'APOYO';
+export type DocumentType = 'MANUAL' | 'PROCEDIMIENTO' | 'INSTRUCTIVO' | 'FORMATO' | 'POLITICA' | 'GUIA' | 'REGISTRO' | 'OTRO';
+export type ProcessCategory = 'ESTRATEGICO' | 'MISIONAL' | 'APOYO' | 'EVALUACION';
 export type RiskType = 'OPERACIONAL' | 'CALIDAD' | 'SST' | 'AMBIENTAL' | 'OTRO';
 export type RiskLevel = 'BAJO' | 'MEDIO' | 'ALTO' | 'CRITICO';
 export type AuditStatus = 'PROGRAMADA' | 'EN_PROGRESO' | 'COMPLETADA' | 'CANCELADA';
@@ -100,6 +100,7 @@ export interface Document {
   createdByName?: string;
   approvedBy?: string;
   approvedDate?: Date;
+  nextReviewDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

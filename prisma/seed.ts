@@ -1,6 +1,6 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import 'dotenv/config'
+import prisma from '../src/lib/db'
+import bcrypt from 'bcryptjs'
 
 async function main() {
   console.log('Iniciando el proceso de seed...')
@@ -16,15 +16,18 @@ async function main() {
     },
   })
 
+  // Hash the admin password
+  const hashedPassword = await bcrypt.hash('admin123', 10)
+
   // 2. Crear Usuario Administrador inicial
   const admin = await prisma.user.upsert({
     where: { email: 'admin@calidad.com' },
     update: {
-      password: 'admin123', // Contraseña inicial
+      password: hashedPassword,
     },
     create: {
       email: 'admin@calidad.com',
-      password: 'admin123',
+      password: hashedPassword,
       name: 'Administrador Sistema',
       role: 'SUPER_ADMIN',
       tenantId: tenant.id,

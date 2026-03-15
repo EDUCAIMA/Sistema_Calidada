@@ -10,9 +10,9 @@ interface ActivityFeedProps {
 
 export function ActivityFeed({ activities }: ActivityFeedProps) {
   return (
-    <Card className="bg-[#111927]/60 backdrop-blur-md border-white/5 shadow-xl h-full flex flex-col">
+    <Card className="bg-white border-slate-200 shadow-sm h-full flex flex-col">
       <CardHeader>
-        <CardTitle className="text-lg font-bold text-white">Actividad Reciente</CardTitle>
+        <CardTitle className="text-lg font-bold text-slate-900">Actividad Reciente</CardTitle>
         <CardDescription className="text-slate-500 text-xs">Alertas y cambios de sistemas</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col flex-1">
@@ -21,19 +21,19 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
             const Icon = item.icon;
             return (
               <div key={i} className="flex gap-4 items-center">
-                <div className={`h-10 w-10 shrink-0 rounded-xl ${item.bg} flex items-center justify-center`}>
-                  <Icon className={`h-5 w-5 ${item.iconColor}`} />
+                <div className={`h-10 w-10 shrink-0 rounded-xl ${item.bg.replace('500/10', '50').replace('600/10', '50')} flex items-center justify-center`}>
+                  <Icon className={`h-5 w-5 ${item.iconColor.replace('500', '600')}`} />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-sm font-bold text-white leading-tight">{item.company}</span>
-                  <span className="text-xs text-slate-400 mt-1">{item.action}</span>
-                  <span className="text-[10px] text-slate-500 font-medium mt-1 uppercase">{item.time}</span>
+                  <span className="text-sm font-bold text-slate-900 leading-tight">{item.company}</span>
+                  <span className="text-xs text-slate-600 mt-1">{item.action}</span>
+                  <span className="text-[10px] text-slate-400 font-medium mt-1 uppercase">{item.time}</span>
                 </div>
               </div>
             );
           })}
         </div>
-        <Button variant="ghost" className="w-full mt-4 text-xs text-slate-400 hover:text-blue-400 hover:bg-blue-400/5 group border border-white/5 rounded-xl">
+        <Button variant="ghost" className="w-full mt-4 text-xs text-slate-500 hover:text-blue-600 hover:bg-blue-50 group border border-slate-100 rounded-xl">
           Ver todo el historial
           <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-0.5 transition-transform" />
         </Button>

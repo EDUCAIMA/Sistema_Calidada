@@ -1,7 +1,13 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Plus, Eye, Edit, ChevronRight, ArrowRight, X, Save } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { 
+    Plus, Eye, Edit, ChevronRight, ArrowRight, X, Save, HelpCircle, 
+    Box, ShieldCheck, TrendingUp, History, Settings2, CheckCircle2,
+    Download 
+} from 'lucide-react';
+import { domToPng } from 'modern-screenshot';
+import { jsPDF } from 'jspdf';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,11 +28,13 @@ const categoryLabels: Record<ProcessCategory, string> = {
     ESTRATEGICO: 'Estratégicos',
     MISIONAL: 'Misionales',
     APOYO: 'De Apoyo',
+    EVALUACION: 'Evaluación',
 };
 const categoryColors: Record<ProcessCategory, { bg: string; border: string; text: string; accent: string }> = {
     ESTRATEGICO: { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', accent: 'bg-indigo-600' },
     MISIONAL: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', accent: 'bg-emerald-600' },
     APOYO: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', accent: 'bg-amber-600' },
+    EVALUACION: { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700', accent: 'bg-slate-600' },
 };
 
 function ProcessCard({ process, onView, onCharacterize }: { process: Process; onView: () => void; onCharacterize: () => void }) {
@@ -77,6 +85,9 @@ function CharacterizationView({ process, characterization, onClose }: { process:
 
     return (
         <DialogContent className="max-w-7xl sm:max-w-7xl w-[95vw] max-h-[92vh] p-0 gap-0 overflow-hidden">
+            <DialogHeader className="sr-only">
+                <DialogTitle>Caracterización del Proceso: {process.name}</DialogTitle>
+            </DialogHeader>
 
             {/* ═══════════ DOCUMENT HEADER (formal) ═══════════ */}
             <div className="border-b-2 border-border">
@@ -131,11 +142,11 @@ function CharacterizationView({ process, characterization, onClose }: { process:
                         <tbody>
                             <tr>
                                 <td className="w-[160px] bg-muted/50 border border-border/60 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
-                                    Tipo de Proceso
+                                    Macroproceso
                                 </td>
                                 <td className="border border-border/60 px-4 py-2.5 text-xs" colSpan={4}>
                                     <div className="flex items-center gap-6">
-                                        {(['ESTRATEGICO', 'MISIONAL', 'APOYO'] as ProcessCategory[]).map(cat => (
+                                        {(['ESTRATEGICO', 'MISIONAL', 'APOYO', 'EVALUACION'] as ProcessCategory[]).map(cat => (
                                             <label key={cat} className="flex items-center gap-1.5 cursor-default">
                                                 <div className={cn(
                                                     "h-3.5 w-3.5 rounded border-2 flex items-center justify-center",
@@ -381,6 +392,8 @@ export default function ProcessMapPage() {
     const [showCharacterization, setShowCharacterization] = useState(false);
     const [showNewProcess, setShowNewProcess] = useState(false);
     const [newProcess, setNewProcess] = useState<Partial<Process>>({ category: 'MISIONAL' });
+    const [showISOInfo, setShowISOInfo] = useState(false);
+    const mapRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const fetchProcesses = async () => {
@@ -431,170 +444,242 @@ export default function ProcessMapPage() {
         }
     };
 
+    const handleDownload = async () => {
+        if (!mapRef.current) return;
+        const toastId = toast.loading('Exportando mapa (V-MS)...');
+        try {
+            // Capturamos el mapa usando modern-screenshot que soporta lab/oklch
+            const dataUrl = await domToPng(mapRef.current, {
+                scale: 2,
+                backgroundColor: '#f8fafc',
+            });
+
+            // Creamos el PDF - Formato A4 Horizontal
+            const pdf = new jsPDF('l', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            
+            // Insertamos la imagen capturada
+            pdf.addImage(dataUrl, 'PNG', 0, 0, pageWidth, pageHeight);
+            
+            // Método de descarga robusto
+            const pdfBlob = pdf.output('blob');
+            const url = URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'Mapa_de_Procesos_Vexvel.pdf';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            toast.success('¡PDF descargado con éxito!', { id: toastId });
+
+        } catch (error) {
+            console.error('ERROR_DOWNLOADING_PDF:', error);
+            toast.error('No se pudo generar el PDF. Informe al soporte.', { id: toastId });
+        }
+    };
+
+    if (loading) return (
+        <div className="flex items-center justify-center p-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#136dec]"></div>
+        </div>
+    );
+
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Mapa de Procesos</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Cláusula 8 — Operación · Visualización y gestión de procesos organizacionales
-                    </p>
+        <div className="p-8 max-w-7xl mx-auto space-y-10 animate-fade-in font-sans">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-2">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Mapa de Procesos</h1>
+                        <button 
+                            onClick={() => setShowISOInfo(true)}
+                            className="p-1.5 rounded-full hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-all active:scale-95"
+                        >
+                            <HelpCircle className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <span className="bg-[#136dec]/10 text-[#136dec] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 4.4</span>
+                        <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">SGC y sus procesos</span>
+                    </div>
                 </div>
-                <Button onClick={() => setShowNewProcess(true)} className="shadow-md">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nuevo Proceso
-                </Button>
+                <div className="flex items-center gap-3">
+                    <Button 
+                        onClick={handleDownload}
+                        variant="outline"
+                        className="bg-white border-slate-200 h-11 px-6 rounded-2xl font-bold uppercase tracking-tight shadow-sm hover:shadow-md transition-all flex items-center gap-2 text-slate-600 hover:text-emerald-600 hover:border-emerald-100"
+                    >
+                        <Download className="w-5 h-5" />
+                        Descargar Mapa
+                    </Button>
+                    <Button 
+                        onClick={() => setShowNewProcess(true)} 
+                        className="bg-[#136dec] hover:bg-blue-700 h-11 px-6 rounded-2xl font-bold uppercase tracking-tight shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2 text-white"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Nuevo Proceso
+                    </Button>
+                </div>
             </div>
 
-            {/* ═══════════ VISUAL PROCESS MAP ═══════════ */}
-            <div className="relative bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-2xl border-2 border-slate-200/80 overflow-hidden" style={{ minHeight: '720px' }}>
+            {/* ═══════════ VISUAL PROCESS MAP (ORGANIZACIONAL STYLE) ═══════════ */}
+            <div ref={mapRef} className="relative bg-[#f8fafc] rounded-[3rem] border-2 border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden min-h-[900px] flex items-center justify-between px-12 group">
                 {/* Subtle background pattern */}
-                <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+                <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #64748b 1px, transparent 0)', backgroundSize: '24px 24px' }} />
 
-                {/* ═══ TOP ROW: Estratégicos (left) + Misionales (right) ═══ */}
-                <div className="relative grid grid-cols-2 gap-4 px-6 pt-6 pb-2 z-10">
-                    {/* Estratégicos panel */}
-                    <div className="rounded-xl border-2 border-orange-300 bg-white shadow-lg shadow-orange-100/50 overflow-hidden">
-                        <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2">
-                            <h3 className="text-[11px] font-bold uppercase tracking-wider text-white">Procesos Estratégicos</h3>
-                        </div>
-                        <div className="p-3 space-y-1">
-                            {processes.filter(p => p.category === 'ESTRATEGICO').map(process => (
-                                <button
-                                    key={process.id}
-                                    onClick={() => { setSelectedProcess(process); setShowCharacterization(true); }}
-                                    className="w-full text-left flex items-start gap-2 p-1.5 rounded-lg hover:bg-orange-50 transition-colors group"
-                                >
-                                    <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shrink-0 mt-1.5" />
-                                    <span className="text-xs text-slate-700 group-hover:text-orange-700 transition-colors">{process.name}</span>
-                                </button>
-                            ))}
-                        </div>
+                {/* ═══ LEFT PANEL: REQUERIMIENTOS ═══ */}
+                <div className="relative z-20 w-32 h-[600px] bg-white/90 backdrop-blur-md rounded-[2rem] border-2 border-white shadow-xl flex flex-col items-center justify-center p-4 transition-all hover:scale-105">
+                    <div className="absolute -left-6 top-1/2 -translate-y-1/2 bg-white p-3 rounded-2xl shadow-lg border border-slate-100">
+                        <History className="w-6 h-6 text-slate-400" />
                     </div>
-
-                    {/* Misionales panel */}
-                    <div className="rounded-xl border-2 border-sky-300 bg-white shadow-lg shadow-sky-100/50 overflow-hidden">
-                        <div className="bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-2">
-                            <h3 className="text-[11px] font-bold uppercase tracking-wider text-white">Procesos Misionales</h3>
-                        </div>
-                        <div className="p-3 space-y-1">
-                            {processes.filter(p => p.category === 'MISIONAL').map(process => (
-                                <button
-                                    key={process.id}
-                                    onClick={() => { setSelectedProcess(process); setShowCharacterization(true); }}
-                                    className="w-full text-left flex items-start gap-2 p-1.5 rounded-lg hover:bg-sky-50 transition-colors group"
-                                >
-                                    <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shrink-0 mt-1.5" />
-                                    <span className="text-xs text-slate-700 group-hover:text-sky-700 transition-colors">{process.name}</span>
-                                </button>
-                            ))}
-                        </div>
+                    <h2 className="[writing-mode:vertical-lr] rotate-180 text-xl font-black uppercase text-slate-800 tracking-tighter opacity-80 text-center">
+                        Partes interesadas <span className="text-[#136dec] italic leading-tight">(requerimientos)</span>
+                    </h2>
+                    <div className="absolute -right-12 top-1/2 -translate-y-1/2 space-y-2 opacity-20">
+                        <ArrowRight className="w-10 h-10 text-slate-400" />
+                        <ArrowRight className="w-10 h-10 text-slate-400" />
                     </div>
                 </div>
 
-                {/* ═══ CENTER ROW: Requisitos → WHEEL → Satisfacción ═══ */}
-                <div className="relative flex items-center justify-center px-6 py-2 z-10">
-                    {/* Requisitos Arrow (left) */}
-                    <div className="absolute left-6 top-1/2 -translate-y-1/2 flex items-center gap-2 bg-white/90 backdrop-blur rounded-xl border-2 border-slate-300 px-4 py-3 shadow-md z-20">
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Requisitos y</p>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Necesidades</p>
-                        </div>
-                        <ArrowRight className="h-5 w-5 text-slate-400" />
-                    </div>
-
-                    {/* Satisfacción Arrow (right) */}
-                    <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-2 bg-white/90 backdrop-blur rounded-xl border-2 border-emerald-300 px-4 py-3 shadow-md z-20">
-                        <ArrowRight className="h-5 w-5 text-emerald-500" />
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Satisfacción</p>
-                    </div>
-
-                    {/* CIRCULAR PHVA WHEEL */}
-                    <div className="relative flex items-center justify-center" style={{ width: '380px', height: '380px' }}>
-                        {/* Outer ring */}
-                        <div className="absolute inset-0 rounded-full border-[3px] border-slate-300/50" style={{ width: '380px', height: '380px' }} />
-
-                        {/* MAPA DE PROCESOS title */}
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-br from-slate-50 via-white to-slate-50 px-4 py-0.5 z-10">
-                            <p className="text-base font-extrabold tracking-tight text-slate-700 text-center">MAPA</p>
-                            <p className="text-[9px] font-bold tracking-widest text-slate-500 text-center -mt-0.5">DE PROCESOS</p>
+                {/* ═══ CENTRAL HUB ═══ */}
+                <div className="relative flex-1 flex flex-col items-center justify-center z-10 scale-95 md:scale-100 transition-transform duration-700">
+                    
+                    {/* OUTER RING (ESTRATÉGICOS - GOBIERNO) - DIVIDIDO EN 3 SECTORES */}
+                    <div className="relative w-[750px] h-[750px] rounded-full border-[3px] border-slate-200 flex flex-col items-center justify-between p-12 bg-white/30 backdrop-blur-md overflow-hidden shadow-2xl">
+                        
+                        {/* THE 3 PIE SEGMENTS (BACKGROUND) */}
+                        <div className="absolute inset-0 opacity-[0.16]" style={{ 
+                            background: 'conic-gradient(from 0deg, #10b981 0deg 120deg, #0ea5e9 120deg 240deg, #f59e0b 240deg 360deg)' 
+                        }} />
+                        
+                        {/* RADIAL DIVIDERS (THE "Y" SHAPE) */}
+                        <div className="absolute inset-0 z-0">
+                            <div className="absolute top-1/2 left-1/2 w-[1px] h-[375px] bg-slate-200/50 origin-top rotate-0" />
+                            <div className="absolute top-1/2 left-1/2 w-[1px] h-[375px] bg-slate-200/50 origin-top rotate-[120deg]" />
+                            <div className="absolute top-1/2 left-1/2 w-[1px] h-[375px] bg-slate-200/50 origin-top rotate-[240deg]" />
                         </div>
 
-                        {/* Inner wheel SVG — 3 slices of 120° */}
-                        <div className="relative" style={{ width: '300px', height: '300px' }}>
-                            <svg viewBox="0 0 300 300" className="w-full h-full drop-shadow-xl">
-                                <defs>
-                                    <linearGradient id="grad-est" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stopColor="#f97316" />
-                                        <stop offset="100%" stopColor="#ea580c" />
-                                    </linearGradient>
-                                    <linearGradient id="grad-mis" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stopColor="#0ea5e9" />
-                                        <stop offset="100%" stopColor="#0284c7" />
-                                    </linearGradient>
-                                    <linearGradient id="grad-apo" x1="0%" y1="100%" x2="100%" y2="0%">
-                                        <stop offset="0%" stopColor="#8b5cf6" />
-                                        <stop offset="100%" stopColor="#7c3aed" />
-                                    </linearGradient>
-                                </defs>
 
-                                {/* 3 equal pie slices (120° each), center=(150,150), r=130 */}
-                                {/* Points: top=(150,20), bottom-right=(263,215), bottom-left=(37,215) */}
+                        <div className="w-full flex justify-between mt-4 z-10">
+                            {/* Panel Estratégicos */}
+                            <div className="w-[45%] text-right space-y-3">
+                                <div className="flex items-center justify-end gap-3 mb-4">
+                                    <div className="text-right">
+                                        <h4 className="text-sm font-black text-slate-800 uppercase italic">Estratégicos</h4>
+                                    </div>
+                                    <div className="w-12 h-12 rounded-full bg-emerald-500 shadow-lg shadow-emerald-200 flex items-center justify-center border-2 border-white">
+                                        <TrendingUp className="w-6 h-6 text-white" />
+                                    </div>
+                                </div>
+                                <ul className="flex flex-col items-end gap-3 pr-2 border-r-2 border-emerald-100/50">
+                                    {processes.filter(p => p.category === 'ESTRATEGICO').map(p => (
+                                        <li key={p.id} 
+                                            className="w-full max-w-[220px] px-4 py-2.5 bg-white/80 backdrop-blur-sm border-2 border-emerald-100 rounded-xl shadow-sm hover:border-emerald-500 hover:shadow-md hover:scale-105 transition-all cursor-pointer group flex items-center justify-end gap-3"
+                                            onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
+                                        >
+                                            <span className="text-[13px] font-black uppercase text-slate-700 group-hover:text-emerald-900 tracking-tighter text-right">
+                                                {p.name.toUpperCase()}
+                                            </span>
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
 
-                                {/* Estratégicos (orange) — top slice: center → top, arc CW to bottom-right, back to center */}
-                                <path d="M 150 150 L 150 20 A 130 130 0 0 1 263 215 Z" fill="url(#grad-est)" />
-                                {/* Misionales (blue) — bottom-right slice: center → bottom-right, arc CW to bottom-left */}
-                                <path d="M 150 150 L 263 215 A 130 130 0 0 1 37 215 Z" fill="url(#grad-mis)" />
-                                {/* Apoyo (violet) — bottom-left slice: center → bottom-left, arc CW to top */}
-                                <path d="M 150 150 L 37 215 A 130 130 0 0 1 150 20 Z" fill="url(#grad-apo)" />
-
-                                {/* Segment divider lines */}
-                                <line x1="150" y1="150" x2="150" y2="20" stroke="white" strokeWidth="3" />
-                                <line x1="150" y1="150" x2="263" y2="215" stroke="white" strokeWidth="3" />
-                                <line x1="150" y1="150" x2="37" y2="215" stroke="white" strokeWidth="3" />
-
-                                {/* Text labels — centered in each slice */}
-                                {/* Estratégicos (top) */}
-                                <text x="150" y="82" textAnchor="middle" fill="white" style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em' }}>PROCESOS</text>
-                                <text x="150" y="94" textAnchor="middle" fill="white" style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em' }}>ESTRATÉGICOS</text>
-
-                                {/* Misionales (bottom-right) */}
-                                <text x="215" y="195" textAnchor="middle" fill="white" style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em' }}>PROCESOS</text>
-                                <text x="215" y="207" textAnchor="middle" fill="white" style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em' }}>MISIONALES</text>
-
-                                {/* Apoyo (bottom-left) */}
-                                <text x="85" y="195" textAnchor="middle" fill="white" style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em' }}>PROCESOS</text>
-                                <text x="85" y="207" textAnchor="middle" fill="white" style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em' }}>DE APOYO</text>
-
-                                {/* Center circle */}
-                                <circle cx="150" cy="150" r="52" fill="white" stroke="#e2e8f0" strokeWidth="2" />
-                                <text x="150" y="142" textAnchor="middle" fill="#334155" style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.02em' }}>SISTEMA</text>
-                                <text x="150" y="158" textAnchor="middle" fill="#334155" style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.02em' }}>DE GESTIÓN</text>
-                            </svg>
+                            {/* Panel Misionales */}
+                            <div className="w-[45%] text-left space-y-3">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-12 h-12 rounded-full bg-sky-500 shadow-lg shadow-sky-200 flex items-center justify-center border-2 border-white">
+                                        <Box className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div className="text-left">
+                                        <h4 className="text-sm font-black text-slate-800 uppercase italic">Misionales</h4>
+                                    </div>
+                                </div>
+                                <ul className="flex flex-col items-start gap-3 pl-2 border-l-2 border-sky-100/50">
+                                    {processes.filter(p => p.category === 'MISIONAL').map(p => (
+                                        <li key={p.id} 
+                                            className="w-full max-w-[220px] px-4 py-2.5 bg-white/80 backdrop-blur-sm border-2 border-sky-100 rounded-xl shadow-sm hover:border-sky-500 hover:shadow-md hover:scale-105 transition-all cursor-pointer group flex items-center gap-3"
+                                            onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
+                                        >
+                                            <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+                                            <span className="text-[13px] font-black uppercase text-slate-700 group-hover:text-sky-900 tracking-tighter text-left">
+                                                {p.name.toUpperCase()}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
                         </div>
+
+                        {/* MIDDLE CORE: ESPACIO PARA LOGO/IMAGEN EMPRESA */}
+                        <div className="relative w-[420px] h-[420px] rounded-full border-[8px] border-emerald-500 bg-white shadow-inner flex flex-col items-center justify-center p-8 z-20 group transition-all duration-500 hover:border-emerald-400">
+                            <div className="absolute inset-2 border-[1px] border-emerald-100 rounded-full border-dashed animate-spin-slow opacity-30" />
+                            
+                            {/* PLACEHOLDER PARA IMAGEN CORPORATIVA */}
+                            <div className="z-10 text-center flex flex-col items-center justify-center space-y-4">
+                                <div className="w-48 h-48 bg-slate-50 rounded-full flex items-center justify-center border-2 border-dashed border-slate-200 group-hover:bg-white group-hover:border-emerald-200 transition-colors">
+                                    <div className="flex flex-col items-center text-slate-300 group-hover:text-emerald-300">
+                                        <Plus className="w-12 h-12 mb-2 opacity-20" />
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">Logo Empresa</p>
+                                    </div>
+                                </div>
+                                <div className="max-w-[180px]">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                                        Espacio para flujo de valor principal
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* BOTTOM SECTION: APOYO */}
+                        <div className="w-full flex justify-center mb-4 z-10">
+                            {/* Panel Administrativo/Apoyo (Centrado) */}
+                            <div className="w-[60%] text-center space-y-4">
+                                <div className="flex items-center justify-center gap-4 mb-4">
+                                    <div className="w-14 h-14 rounded-full bg-yellow-400 shadow-lg shadow-yellow-100 flex items-center justify-center border-2 border-white">
+                                        <Settings2 className="w-7 h-7 text-white" />
+                                    </div>
+                                    <div className="text-left">
+                                        <h4 className="text-lg font-black text-slate-800 uppercase italic tracking-tighter">Apoyo</h4>
+                                    </div>
+                                </div>
+                                <ul className="flex flex-wrap justify-center gap-x-4 gap-y-3">
+                                    {processes.filter(p => p.category === 'APOYO').map(p => (
+                                        <li key={p.id} 
+                                            className="px-5 py-2.5 bg-white shadow-sm border-2 border-yellow-100 rounded-2xl hover:border-yellow-500 hover:shadow-md hover:scale-105 transition-all cursor-pointer group flex items-center gap-2" 
+                                            onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
+                                        >
+                                            <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                                            <span className="text-[13px] font-black uppercase text-slate-700 group-hover:text-yellow-700 tracking-tighter">
+                                                {p.name.toUpperCase()}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
-                {/* ═══ BOTTOM ROW: Apoyo ═══ */}
-                <div className="relative flex justify-center px-6 pt-2 pb-6 z-10">
-                    <div className="w-full max-w-md rounded-xl border-2 border-violet-300 bg-white shadow-lg shadow-violet-100/50 overflow-hidden">
-                        <div className="bg-gradient-to-r from-violet-500 to-violet-600 px-4 py-2">
-                            <h3 className="text-[11px] font-bold uppercase tracking-wider text-white">Procesos de Apoyo</h3>
-                        </div>
-                        <div className="p-3 space-y-1">
-                            {processes.filter(p => p.category === 'APOYO').map(process => (
-                                <button
-                                    key={process.id}
-                                    onClick={() => { setSelectedProcess(process); setShowCharacterization(true); }}
-                                    className="w-full text-left flex items-start gap-2 p-1.5 rounded-lg hover:bg-violet-50 transition-colors group"
-                                >
-                                    <span className="h-1.5 w-1.5 rounded-full bg-violet-400 shrink-0 mt-1.5" />
-                                    <span className="text-xs text-slate-700 group-hover:text-violet-700 transition-colors">{process.name}</span>
-                                </button>
-                            ))}
-                        </div>
+                {/* ═══ RIGHT PANEL: SATISFACCIÓN ═══ */}
+                <div className="relative z-20 w-32 h-[600px] bg-white/90 backdrop-blur-md rounded-[2rem] border-2 border-white shadow-xl flex flex-col items-center justify-center p-4 transition-all hover:scale-105">
+                    <div className="absolute -right-6 top-1/2 -translate-y-1/2 bg-white p-3 rounded-2xl shadow-lg border border-slate-100">
+                        <CheckCircle2 className="w-6 h-6 text-emerald-400" />
                     </div>
+                    <div className="absolute -left-12 top-1/2 -translate-y-1/2 space-y-2 opacity-20">
+                        <ArrowRight className="w-10 h-10 text-slate-400" />
+                        <ArrowRight className="w-10 h-10 text-slate-400" />
+                    </div>
+                    <h2 className="[writing-mode:vertical-lr] text-xl font-black uppercase text-slate-800 tracking-tighter opacity-80 text-center">
+                        Partes interesadas <span className="text-emerald-600 italic leading-tight">(satisfacción)</span>
+                    </h2>
                 </div>
+
             </div>
 
             {/* Characterization Dialog */}
@@ -610,45 +695,111 @@ export default function ProcessMapPage() {
 
             {/* New Process Dialog */}
             <Dialog open={showNewProcess} onOpenChange={setShowNewProcess}>
-                <DialogContent className="max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle>Crear Nuevo Proceso</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold">Código *</Label>
-                                <Input placeholder="Ej: PR-02" value={newProcess.code || ''} onChange={e => setNewProcess({ ...newProcess, code: e.target.value })} />
+                <DialogContent className="w-[40vw] sm:max-w-[40vw] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans">
+                    <div className="px-6 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-[#136dec] p-1.5 rounded-md shadow-lg shadow-blue-600/20">
+                                <Plus className="h-5 w-5 text-white" />
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold">Categoría *</Label>
+                            <DialogTitle className="text-xl font-black uppercase italic tracking-tighter text-slate-900">Nuevo Proceso</DialogTitle>
+                        </div>
+                    </div>
+                    
+                    <div className="px-8 py-10 space-y-8 overflow-y-auto max-h-[75vh] bg-white">
+                        <div className="grid grid-cols-2 gap-8">
+                            <div className="space-y-4">
+                                <Label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Código del Proceso *</Label>
+                                <Input 
+                                    className="bg-slate-50/50 border-2 border-slate-100 h-14 rounded-2xl focus:bg-white transition-all font-bold uppercase" 
+                                    placeholder="Ej: PR-01" 
+                                    value={newProcess.code || ''} 
+                                    onChange={e => setNewProcess({ ...newProcess, code: e.target.value })} 
+                                />
+                            </div>
+                            <div className="space-y-4">
+                                <Label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Macroproceso *</Label>
                                 <Select value={newProcess.category} onValueChange={v => setNewProcess({ ...newProcess, category: v as ProcessCategory })}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectTrigger className="bg-slate-50/50 border-2 border-slate-100 h-14 rounded-2xl font-bold">
+                                        <SelectValue />
+                                    </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="ESTRATEGICO">Estratégico</SelectItem>
                                         <SelectItem value="MISIONAL">Misional</SelectItem>
                                         <SelectItem value="APOYO">Apoyo</SelectItem>
+                                        <SelectItem value="EVALUACION">Evaluación</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-xs font-semibold">Nombre del Proceso *</Label>
-                            <Input placeholder="Ej: Control de Calidad" value={newProcess.name || ''} onChange={e => setNewProcess({ ...newProcess, name: e.target.value })} />
+                        <div className="space-y-4">
+                            <Label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Nombre del Proceso *</Label>
+                            <Input 
+                                className="bg-slate-50/50 border-2 border-slate-100 h-14 rounded-2xl focus:bg-white transition-all font-black uppercase text-indigo-900" 
+                                placeholder="Ej: GESTIÓN COMERCIAL" 
+                                value={newProcess.name || ''} 
+                                onChange={e => setNewProcess({ ...newProcess, name: e.target.value.toUpperCase() })} 
+                            />
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-xs font-semibold">Objetivo</Label>
-                            <Textarea placeholder="Describir el objetivo del proceso..." value={newProcess.objective || ''} onChange={e => setNewProcess({ ...newProcess, objective: e.target.value })} rows={2} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-xs font-semibold">Alcance</Label>
-                            <Input placeholder="Ej: Toda la organización" value={newProcess.scope || ''} onChange={e => setNewProcess({ ...newProcess, scope: e.target.value })} />
+                        <div className="space-y-4">
+                            <Label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Objetivo del Proceso</Label>
+                            <Textarea 
+                                className="bg-slate-50/50 border-2 border-slate-100 rounded-2xl p-6 min-h-[100px] font-medium" 
+                                placeholder="Describa el propósito..." 
+                                value={newProcess.objective || ''} 
+                                onChange={e => setNewProcess({ ...newProcess, objective: e.target.value })} 
+                            />
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowNewProcess(false)}>Cancelar</Button>
-                        <Button onClick={handleCreateProcess}><Save className="h-4 w-4 mr-2" />Crear Proceso</Button>
-                    </DialogFooter>
+
+                    <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                        <Button variant="ghost" className="font-bold uppercase text-xs tracking-widest h-12 px-6" onClick={() => setShowNewProcess(false)}>Cancelar</Button>
+                        <Button onClick={handleCreateProcess} className="bg-[#136dec] hover:bg-blue-600 text-white font-black uppercase text-xs tracking-widest h-12 px-8 rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
+                            Guardar Proceso
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* ISO 9001:2015 Clause 4.4 Info Dialog */}
+            <Dialog open={showISOInfo} onOpenChange={setShowISOInfo}>
+                <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border border-gray-200 shadow-sm rounded-3xl overflow-hidden flex flex-col p-0 gap-0 font-sans">
+                    <DialogHeader className="px-6 pt-8 pb-4 border-b border-gray-50 bg-white">
+                        <div className="flex flex-col gap-2">
+                            <DialogTitle className="text-3xl font-bold text-gray-900 tracking-tight">
+                                4 Contexto de la organización
+                            </DialogTitle>
+                            <h2 className="text-xl font-medium text-[#1e3a8a]">
+                                4.4 Sistema de gestión de la calidad y sus procesos
+                            </h2>
+                        </div>
+                    </DialogHeader>
+                    <div className="px-6 pt-4 pb-8 space-y-6 bg-white overflow-y-auto max-h-[60vh]">
+                        <div className="bg-slate-100/80 border border-slate-200 rounded-2xl p-5 space-y-4">
+                            <section className="space-y-6">
+                                <p className="text-lg text-gray-800 leading-relaxed italic">
+                                    La organización <strong className="font-black text-gray-900 not-italic">debe</strong> establecer, implementar, mantener y mejorar continuamente un sistema de gestión de la calidad, incluidos los procesos necesarios y sus interacciones.
+                                </p>
+                                <p className="text-lg text-gray-800 leading-relaxed italic">
+                                    En la medida en que sea necesario, la organización <strong className="font-black text-gray-900 not-italic">debe</strong>:
+                                </p>
+                                <div className="flex flex-col gap-4 text-lg text-gray-800 leading-relaxed italic md:ml-6 text-left">
+                                    <p>a) mantener información documentada para apoyar la operación de sus procesos;</p>
+                                    <p>b) conservar la información documentada para tener la confianza de que los procesos se realizan según lo planificado.</p>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                    <footer className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                        <div className="text-xs text-gray-400 font-bold tracking-tight uppercase">
+                            SISTEMA DE GESTIÓN DE LA CALIDAD (SGC)
+                        </div>
+                        <Button 
+                            onClick={() => setShowISOInfo(false)}
+                            className="bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-bold py-3 px-10 rounded shadow-md transition-all duration-200 ease-in-out active:scale-95 h-auto uppercase tracking-wider"
+                        >
+                            ENTENDIDO
+                        </Button>
+                    </footer>
                 </DialogContent>
             </Dialog>
         </div>

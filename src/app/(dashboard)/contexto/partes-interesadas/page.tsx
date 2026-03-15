@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/context/app-context';
-import { Plus, Search, Edit, Trash2, Save, Eye, Users, Building2, Globe, ShieldAlert, ArrowUpRight, ArrowRight, ArrowDownRight, Clock, Box } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Save, Eye, Users, Building2, Globe, ShieldAlert, ArrowUpRight, ArrowRight, ArrowDownRight, Clock, Box, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -36,6 +36,7 @@ export default function PartesInteresadasPage() {
     const [showNew, setShowNew] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [selectedItem, setSelectedItem] = useState<Stakeholder | null>(null);
+    const [showISOInfo, setShowISOInfo] = useState(false);
     const [newItem, setNewItem] = useState<Partial<Stakeholder>>({ type: 'EXTERNO', influence: 'MEDIA' });
 
     useEffect(() => {
@@ -198,7 +199,16 @@ export default function PartesInteresadasPage() {
             {/* Page Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Partes Interesadas</h1>
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Partes Interesadas</h1>
+                        <button
+                            onClick={() => setShowISOInfo(true)}
+                            className="p-1.5 rounded-full hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-all active:scale-95"
+                            title="Ver información normativa ISO 9001:2015"
+                        >
+                            <HelpCircle className="w-5 h-5" />
+                        </button>
+                    </div>
                     <div className="flex items-center gap-3">
                         <span className="bg-[#136dec]/10 text-[#136dec] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 4.2</span>
                         <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">Requisitos y Expectativas</span>
@@ -362,8 +372,8 @@ export default function PartesInteresadasPage() {
 
             {/* Form Dialog for Create/Edit */}
             <Dialog open={showNew} onOpenChange={setShowNew}>
-                <DialogContent className="max-w-4xl bg-white border-none p-0 overflow-hidden rounded-xl shadow-2xl font-sans">
-                    <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
+                <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans">
+                    <div className="px-6 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
                         <div className="flex items-center gap-3">
                             <div className="bg-[#136dec] p-1.5 rounded-md shadow-lg shadow-blue-600/20">
                                 <Plus className="h-5 w-5 text-white" />
@@ -379,7 +389,7 @@ export default function PartesInteresadasPage() {
                         </div>
                     </div>
                     
-                    <div className="px-8 py-8 space-y-8 overflow-y-auto max-h-[75vh] bg-[#fcfdfe]">
+                    <div className="px-6 py-8 space-y-8 overflow-y-auto max-h-[75vh] bg-[#fcfdfe]">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-slate-900 border-none">
                             {/* Basics */}
                             <div className="space-y-6">
@@ -453,7 +463,7 @@ export default function PartesInteresadasPage() {
                         </div>
                     </div>
 
-                    <div className="px-8 py-6 border-t border-slate-100 flex justify-end gap-3 bg-white">
+                    <div className="px-6 py-3 border-t border-slate-100 flex justify-end gap-3 bg-white">
                         <Button variant="ghost" onClick={() => setShowNew(false)} className="font-bold uppercase text-xs tracking-widest h-12 px-6">Cancelar</Button>
                         <Button onClick={handleCreate} className="bg-[#136dec] hover:bg-blue-600 text-white font-black uppercase text-xs tracking-widest h-12 px-8 rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
                             Guardar Información
@@ -464,17 +474,17 @@ export default function PartesInteresadasPage() {
 
             {/* Detail View Dialog */}
             <Dialog open={showDetail} onOpenChange={setShowDetail}>
-                <DialogContent className="max-w-2xl bg-white border-none p-0 overflow-hidden rounded-xl shadow-2xl font-sans">
+                <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans">
                     {selectedItem && (
                         <>
-                            <div className={cn("px-8 py-10 text-white relative", typeConfig[selectedItem.type].bg)}>
+                            <div className={cn("px-6 py-8 text-white relative", typeConfig[selectedItem.type].bg)}>
                                 <div className="absolute right-6 top-6 opacity-20"><Box className="h-24 w-24" /></div>
                                 <Badge className="bg-white/20 text-white border-none rounded-full px-4 py-1 font-black text-[9px] uppercase tracking-[0.2em] mb-4">
                                     {selectedItem.type} / ISO 4.2
                                 </Badge>
                                 <h2 className="text-3xl font-black uppercase italic tracking-tighter leading-tight">{selectedItem.name}</h2>
                             </div>
-                            <div className="p-8 space-y-8 bg-white">
+                            <div className="p-6 space-y-8 bg-white">
                                 <div className="grid grid-cols-2 gap-8">
                                     <div className="space-y-2">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Requisitos Técnicos</p>
@@ -507,6 +517,55 @@ export default function PartesInteresadasPage() {
                             </div>
                         </>
                     )}
+                </DialogContent>
+            </Dialog>
+            {/* ISO 9001:2015 Clause 4.2 Info Dialog */}
+            <Dialog open={showISOInfo} onOpenChange={setShowISOInfo}>
+                <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border border-gray-200 shadow-sm rounded-3xl overflow-hidden flex flex-col p-0 gap-0 font-sans">
+                    {/* BEGIN: Header */}
+                    <header className="px-6 pt-8 pb-4 border-b border-gray-50 bg-white">
+                        <div className="flex flex-col gap-2">
+                            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+                                4 Contexto de la organización
+                            </h1>
+                            <h2 className="text-xl font-medium text-[#1e3a8a]">
+                                4.2 Comprensión de las necesidades y expectativas de las partes interesadas
+                            </h2>
+                        </div>
+                    </header>
+                    {/* END: Header */}
+
+                    {/* BEGIN: MainContent */}
+                    <div className="px-6 pt-4 pb-8 space-y-8 bg-white overflow-y-auto max-h-[60vh]">
+                        {/* BEGIN: NormativeParagraphs Container */}
+                        <div className="bg-slate-100/80 border border-slate-200 rounded-2xl p-5 space-y-4">
+                            <section className="space-y-6">
+                                <p className="text-lg text-gray-800 leading-relaxed italic">
+                                    Debido a su efecto o efecto potencial en la capacidad de la organización de proporcionar regularmente productos y servicios que satisfagan los requisitos del cliente y los legales y reglamentarios aplicables, la organización <strong className="font-black text-gray-900 not-italic">debe</strong> determinar:
+                                </p>
+                                <div className="flex flex-col gap-4 text-lg text-gray-800 leading-relaxed italic md:ml-6 text-left">
+                                    <p>a) las partes interesadas que son pertinentes al sistema de gestión de la calidad;</p>
+                                    <p>b) los requisitos pertinentes de estas partes interesadas para el sistema de gestión de la calidad.</p>
+                                </div>
+                                <p className="text-lg text-gray-800 leading-relaxed italic">
+                                    La organización <strong className="font-black text-gray-900 not-italic">debe</strong> realizar el seguimiento y la revisión de la información sobre estas partes interesadas y sus requisitos pertinentes.
+                                </p>
+                            </section>
+                        </div>
+                    </div>
+
+                    {/* BEGIN: FooterActions */}
+                    <footer className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                        <div className="text-xs text-gray-400 font-bold tracking-tight uppercase">
+                            SISTEMA DE GESTIÓN DE LA CALIDAD (SGC)
+                        </div>
+                        <Button
+                            onClick={() => setShowISOInfo(false)}
+                            className="bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-bold py-3 px-10 rounded shadow-md transition-all duration-200 ease-in-out active:scale-95 h-auto uppercase tracking-wider"
+                        >
+                            ENTENDIDO
+                        </Button>
+                    </footer>
                 </DialogContent>
             </Dialog>
         </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request: Request) {
   try {
@@ -28,8 +29,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validar contraseña (texto plano por ahora)
-    if (user.password !== password) {
+    // Validar contraseña usando bcrypt (antes era texto plano)
+    const isPasswordValid = user.password ? await bcrypt.compare(password, user.password) : false;
+
+    if (!isPasswordValid) {
       return NextResponse.json(
         { error: 'La contraseña es incorrecta' },
         { status: 401 }
