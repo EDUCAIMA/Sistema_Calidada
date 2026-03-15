@@ -549,191 +549,154 @@ export default function ProcessMapPage() {
                 </div>
             </div>
 
-            {/* ═══════════ VISUAL PROCESS MAP (ORGANIZACIONAL STYLE) ═══════════ */}
-            <div ref={mapRef} className="relative bg-[#f8fafc] rounded-[3rem] border-2 border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden min-h-[900px] flex items-center justify-between px-12 group">
+            {/* ═══════════ NEW PROCESS MAP DESIGN (LINEAR STYLE) ═══════════ */}
+            <div ref={mapRef} className="relative bg-[#f8fafc] rounded-[3rem] border-2 border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden min-h-[900px] flex flex-col items-center justify-center p-8 md:p-12 group">
                 {/* Subtle background pattern */}
                 <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #64748b 1px, transparent 0)', backgroundSize: '24px 24px' }} />
 
-                {/* ═══ LEFT PANEL: REQUERIMIENTOS ═══ */}
-                <div className="relative z-20 w-32 h-[600px] bg-white/90 backdrop-blur-md rounded-[2rem] border-2 border-white shadow-xl flex flex-col items-center justify-center p-4 transition-all hover:scale-105">
-                    <div className="absolute -left-6 top-1/2 -translate-y-1/2 bg-white p-3 rounded-2xl shadow-lg border border-slate-100">
-                        <History className="w-6 h-6 text-slate-400" />
+                <div className="flex flex-row items-stretch justify-center w-full gap-4 md:gap-8 z-10">
+                    {/* Left Bar: Requirements (Stakeholders) */}
+                    <div className="flex flex-col items-center justify-center w-20 md:w-32 bg-white rounded-3xl border-2 border-slate-100 py-12 relative overflow-hidden group/sidebar shadow-sm shrink-0 transition-all hover:border-blue-200 hover:shadow-md">
+                        <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover/sidebar:opacity-100 transition-opacity"></div>
+                        <span className="[writing-mode:vertical-lr] rotate-180 text-lg md:text-xl font-black tracking-[0.2em] text-slate-700 uppercase">Partes Interesadas</span>
+                        <p className="[writing-mode:vertical-lr] rotate-180 mt-12 text-[10px] font-bold text-blue-500 tracking-widest uppercase">Requerimientos</p>
                     </div>
-                    <h2 className="[writing-mode:vertical-lr] rotate-180 text-xl font-black uppercase text-slate-800 tracking-tighter opacity-80 text-center">
-                        Partes interesadas <span className="text-[#136dec] italic leading-tight">(requerimientos)</span>
-                    </h2>
-                    <div className="absolute -right-12 top-1/2 -translate-y-1/2 space-y-2 opacity-20">
-                        <ArrowRight className="w-10 h-10 text-slate-400" />
-                        <ArrowRight className="w-10 h-10 text-slate-400" />
-                    </div>
-                </div>
 
-                {/* ═══ CENTRAL HUB ═══ */}
-                <div className="relative flex-1 flex flex-col items-center justify-center z-10 scale-95 md:scale-100 transition-transform duration-700">
-                    
-                    {/* OUTER RING (ESTRATÉGICOS - GOBIERNO) - DIVIDIDO EN 3 SECTORES */}
-                    <div className="relative w-[750px] h-[750px] rounded-full border-[3px] border-slate-200 flex flex-col items-center justify-between p-12 bg-white/30 backdrop-blur-md overflow-hidden shadow-2xl">
-                        
-                        {/* THE 3 PIE SEGMENTS (BACKGROUND) */}
-                        <div className="absolute inset-0 opacity-[0.16]" style={{ 
-                            background: 'conic-gradient(from 0deg, #10b981 0deg 120deg, #0ea5e9 120deg 240deg, #f59e0b 240deg 360deg)' 
-                        }} />
-                        
-                        {/* RADIAL DIVIDERS (THE "Y" SHAPE) */}
-                        <div className="absolute inset-0 z-0">
-                            <div className="absolute top-1/2 left-1/2 w-[1px] h-[375px] bg-slate-200/50 origin-top rotate-0" />
-                            <div className="absolute top-1/2 left-1/2 w-[1px] h-[375px] bg-slate-200/50 origin-top rotate-[120deg]" />
-                            <div className="absolute top-1/2 left-1/2 w-[1px] h-[375px] bg-slate-200/50 origin-top rotate-[240deg]" />
+                    {/* Flow Arrow (Input) */}
+                    <div className="hidden lg:flex flex-col justify-center shrink-0">
+                        <div className="text-blue-600/20">
+                            <ArrowRight className="w-10 h-10" strokeWidth={3} />
                         </div>
+                    </div>
 
-
-                        <div className="w-full flex justify-between mt-4 z-10">
-                            {/* Panel Estratégicos */}
-                            <div className="w-[45%] text-right space-y-3">
-                                <div className="flex items-center justify-end gap-3 mb-4">
-                                    <div className="text-right">
-                                        <h4 className="text-sm font-black text-slate-800 uppercase italic">Estratégicos</h4>
-                                    </div>
-                                    <div className="w-12 h-12 rounded-full bg-emerald-500 shadow-lg shadow-emerald-200 flex items-center justify-center border-2 border-white">
-                                        <TrendingUp className="w-6 h-6 text-white" />
+                    {/* The Core Map: Main Flow */}
+                    <div className="flex-1 flex flex-col items-center gap-8 relative max-w-4xl">
+                        
+                        {/* 1. STRATEGIC PROCESSES */}
+                        <div className="w-full">
+                            <div className="bg-emerald-50/50 border-2 border-emerald-100 rounded-[2.5rem] p-8 shadow-sm transition-all hover:bg-emerald-50 hover:shadow-md">
+                                <div className="flex items-center justify-center mb-6">
+                                    <div className="flex items-center gap-3">
+                                        <TrendingUp className="w-5 h-5 text-emerald-600" />
+                                        <h3 className="text-emerald-700 text-xs font-black uppercase tracking-[0.2em]">Procesos Estratégicos</h3>
                                     </div>
                                 </div>
-                                <ul className="flex flex-col items-end gap-3 pr-2 border-r-2 border-emerald-100/50">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {processes.filter(p => p.category === 'ESTRATEGICO').map(p => (
-                                        <li key={p.id} 
-                                            className="w-full max-w-[220px] px-4 py-2.5 bg-white/80 backdrop-blur-sm border-2 border-emerald-100 rounded-xl shadow-sm hover:border-emerald-500 hover:shadow-md hover:scale-105 transition-all cursor-pointer group flex items-center justify-end gap-3"
-                                            onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
-                                        >
-                                            <div className="flex-1 flex items-center justify-end gap-3" onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}>
-                                                <span className="text-[13px] font-black uppercase text-slate-700 group-hover:text-emerald-900 tracking-tighter text-right">
-                                                    {p.name.toUpperCase()}
-                                                </span>
-                                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                        <div key={p.id} className="group/item relative">
+                                            <div 
+                                                onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
+                                                className="h-16 flex items-center justify-center bg-emerald-600 rounded-2xl border-2 border-emerald-500 shadow-sm hover:bg-emerald-700 hover:scale-[1.02] transition-all cursor-pointer p-4 text-center"
+                                            >
+                                                <p className="text-[11px] font-black text-white leading-tight uppercase tracking-tight">{p.name}</p>
                                             </div>
-                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-1 hover:text-emerald-600">
+                                            <div className="absolute top-[-8px] right-[-8px] flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity z-30">
+                                                <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-1.5 bg-white rounded-lg shadow-md border border-emerald-100 text-emerald-600 hover:bg-emerald-50">
                                                     <Edit className="w-3.5 h-3.5" />
                                                 </button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteProcess(p.id, p.name); }} className="p-1 hover:text-red-600">
+                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteProcess(p.id, p.name); }} className="p-1.5 bg-white rounded-lg shadow-md border border-red-100 text-red-600 hover:bg-red-50">
                                                     <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
                                             </div>
-                                        </li>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             </div>
+                        </div>
 
-                            {/* Panel Misionales */}
-                            <div className="w-[45%] text-left space-y-3">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-12 h-12 rounded-full bg-sky-500 shadow-lg shadow-sky-200 flex items-center justify-center border-2 border-white">
-                                        <Box className="w-6 h-6 text-white" />
-                                    </div>
-                                    <div className="text-left">
-                                        <h4 className="text-sm font-black text-slate-800 uppercase italic">Misionales</h4>
+                        {/* Flow Arrow (Strategic -> Misional) */}
+                        <div className="text-slate-200">
+                            <ArrowRight className="w-8 h-8 rotate-90" />
+                        </div>
+
+                        {/* 2. MISIONAL PROCESSES */}
+                        <div className="w-full">
+                            <div className="bg-white border-4 border-blue-600 rounded-[3rem] p-10 shadow-xl relative z-20">
+                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
+                                    Valor Agregado
+                                </div>
+                                <div className="flex items-center justify-center mb-8">
+                                    <div className="flex items-center gap-3">
+                                        <Box className="w-6 h-6 text-blue-600" />
+                                        <h3 className="text-blue-900 text-sm font-black uppercase tracking-[0.25em]">Procesos Misionales</h3>
                                     </div>
                                 </div>
-                                <ul className="flex flex-col items-start gap-3 pl-2 border-l-2 border-sky-100/50">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {processes.filter(p => p.category === 'MISIONAL').map(p => (
-                                        <li key={p.id} 
-                                            className="w-full max-w-[220px] px-4 py-2.5 bg-white/80 backdrop-blur-sm border-2 border-sky-100 rounded-xl shadow-sm hover:border-sky-500 hover:shadow-md hover:scale-105 transition-all cursor-pointer group flex items-center gap-3"
-                                            onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
-                                        >
-                                            <div className="flex-1 flex items-center gap-3" onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}>
-                                                <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
-                                                <span className="text-[13px] font-black uppercase text-slate-700 group-hover:text-sky-900 tracking-tighter text-left">
-                                                    {p.name.toUpperCase()}
-                                                </span>
+                                        <div key={p.id} className="group/item relative">
+                                            <div 
+                                                onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
+                                                className="h-20 flex items-center justify-center bg-blue-600 rounded-2xl border-2 border-blue-500 shadow-md hover:bg-blue-700 hover:scale-[1.05] transition-all cursor-pointer p-5 text-center"
+                                            >
+                                                <p className="text-xs font-black text-white leading-tight uppercase tracking-wide">{p.name}</p>
                                             </div>
-                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-1 hover:text-sky-600">
-                                                    <Edit className="w-3.5 h-3.5" />
+                                            <div className="absolute top-[-10px] right-[-10px] flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity z-30">
+                                                <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-2 bg-white rounded-xl shadow-lg border border-blue-100 text-blue-600 hover:bg-blue-50">
+                                                    <Edit className="w-4 h-4" />
                                                 </button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteProcess(p.id, p.name); }} className="p-1 hover:text-red-600">
-                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteProcess(p.id, p.name); }} className="p-2 bg-white rounded-xl shadow-lg border border-red-100 text-red-600 hover:bg-red-50">
+                                                    <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
-                                        </li>
+                                        </div>
                                     ))}
-                                </ul>
-                            </div>
-                        </div>
-
-                        {/* MIDDLE CORE: ESPACIO PARA LOGO/IMAGEN EMPRESA */}
-                        <div className="relative w-[420px] h-[420px] rounded-full border-[8px] border-emerald-500 bg-white shadow-inner flex flex-col items-center justify-center p-8 z-20 group transition-all duration-500 hover:border-emerald-400">
-                            <div className="absolute inset-2 border-[1px] border-emerald-100 rounded-full border-dashed animate-spin-slow opacity-30" />
-                            
-                            {/* PLACEHOLDER PARA IMAGEN CORPORATIVA */}
-                            <div className="z-10 text-center flex flex-col items-center justify-center space-y-4">
-                                <div className="w-48 h-48 bg-slate-50 rounded-full flex items-center justify-center border-2 border-dashed border-slate-200 group-hover:bg-white group-hover:border-emerald-200 transition-colors">
-                                    <div className="flex flex-col items-center text-slate-300 group-hover:text-emerald-300">
-                                        <Plus className="w-12 h-12 mb-2 opacity-20" />
-                                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">Logo Empresa</p>
-                                    </div>
-                                </div>
-                                <div className="max-w-[180px]">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
-                                        Espacio para flujo de valor principal
-                                    </p>
                                 </div>
                             </div>
                         </div>
 
-                        {/* BOTTOM SECTION: APOYO */}
-                        <div className="w-full flex justify-center mb-4 z-10">
-                            {/* Panel Administrativo/Apoyo (Centrado) */}
-                            <div className="w-[60%] text-center space-y-4">
-                                <div className="flex items-center justify-center gap-4 mb-4">
-                                    <div className="w-14 h-14 rounded-full bg-yellow-400 shadow-lg shadow-yellow-100 flex items-center justify-center border-2 border-white">
-                                        <Settings2 className="w-7 h-7 text-white" />
-                                    </div>
-                                    <div className="text-left">
-                                        <h4 className="text-lg font-black text-slate-800 uppercase italic tracking-tighter">Apoyo</h4>
+                        {/* Flow Arrow (Misional -> Support) */}
+                        <div className="text-slate-200">
+                            <ArrowRight className="w-8 h-8 rotate-90" />
+                        </div>
+
+                        {/* 3. SUPPORT PROCESSES */}
+                        <div className="w-full">
+                            <div className="bg-amber-50/50 border-2 border-amber-100 rounded-[2.5rem] p-8 shadow-sm transition-all hover:bg-amber-50 hover:shadow-md">
+                                <div className="flex items-center justify-center mb-6">
+                                    <div className="flex items-center gap-3">
+                                        <Settings2 className="w-5 h-5 text-amber-600" />
+                                        <h3 className="text-amber-700 text-xs font-black uppercase tracking-[0.2em]">Procesos de Apoyo</h3>
                                     </div>
                                 </div>
-                                <ul className="flex flex-wrap justify-center gap-x-4 gap-y-3">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                     {processes.filter(p => p.category === 'APOYO').map(p => (
-                                        <li key={p.id} 
-                                            className="px-5 py-2.5 bg-white shadow-sm border-2 border-yellow-100 rounded-2xl hover:border-yellow-500 hover:shadow-md hover:scale-105 transition-all cursor-pointer group flex items-center gap-2" 
-                                            onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
-                                        >
-                                            <div className="flex-1 flex items-center gap-2" onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}>
-                                                <div className="w-2 h-2 rounded-full bg-yellow-400" />
-                                                <span className="text-[13px] font-black uppercase text-slate-700 group-hover:text-yellow-700 tracking-tighter">
-                                                    {p.name.toUpperCase()}
-                                                </span>
+                                        <div key={p.id} className="group/item relative">
+                                            <div 
+                                                onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
+                                                className="h-16 flex items-center justify-center bg-amber-500 rounded-2xl border-2 border-amber-400 shadow-sm hover:bg-amber-600 hover:scale-[1.02] transition-all cursor-pointer p-4 text-center"
+                                            >
+                                                <p className="text-[10px] font-black text-white leading-tight uppercase tracking-tight">{p.name}</p>
                                             </div>
-                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-1 hover:text-yellow-700">
+                                            <div className="absolute top-[-8px] right-[-8px] flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity z-30">
+                                                <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-1.5 bg-white rounded-lg shadow-md border border-amber-100 text-amber-600 hover:bg-amber-50">
                                                     <Edit className="w-3.5 h-3.5" />
                                                 </button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteProcess(p.id, p.name); }} className="p-1 hover:text-red-600">
+                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteProcess(p.id, p.name); }} className="p-1.5 bg-white rounded-lg shadow-md border border-red-100 text-red-600 hover:bg-red-50">
                                                     <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
                                             </div>
-                                        </li>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             </div>
                         </div>
 
                     </div>
-                </div>
 
-                {/* ═══ RIGHT PANEL: SATISFACCIÓN ═══ */}
-                <div className="relative z-20 w-32 h-[600px] bg-white/90 backdrop-blur-md rounded-[2rem] border-2 border-white shadow-xl flex flex-col items-center justify-center p-4 transition-all hover:scale-105">
-                    <div className="absolute -right-6 top-1/2 -translate-y-1/2 bg-white p-3 rounded-2xl shadow-lg border border-slate-100">
-                        <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                    {/* Flow Arrow (Output) */}
+                    <div className="hidden lg:flex flex-col justify-center shrink-0">
+                        <div className="text-blue-600/20">
+                            <ArrowRight className="w-10 h-10" strokeWidth={3} />
+                        </div>
                     </div>
-                    <div className="absolute -left-12 top-1/2 -translate-y-1/2 space-y-2 opacity-20">
-                        <ArrowRight className="w-10 h-10 text-slate-400" />
-                        <ArrowRight className="w-10 h-10 text-slate-400" />
-                    </div>
-                    <h2 className="[writing-mode:vertical-lr] text-xl font-black uppercase text-slate-800 tracking-tighter opacity-80 text-center">
-                        Partes interesadas <span className="text-emerald-600 italic leading-tight">(satisfacción)</span>
-                    </h2>
-                </div>
 
+                    {/* Right Bar: Satisfaction (Stakeholders) */}
+                    <div className="flex flex-col items-center justify-center w-20 md:w-32 bg-blue-600 rounded-3xl border-2 border-blue-500 py-12 relative overflow-hidden group/sidebar shadow-xl shrink-0 transition-all hover:bg-blue-700">
+                        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/sidebar:opacity-100 transition-opacity"></div>
+                        <span className="[writing-mode:vertical-lr] text-lg md:text-xl font-black tracking-[0.2em] text-white uppercase">Partes Interesadas</span>
+                        <p className="[writing-mode:vertical-lr] mt-12 text-[10px] font-bold text-white/70 tracking-widest uppercase">Satisfacción</p>
+                    </div>
+                </div>
             </div>
 
             {/* Characterization Dialog */}
