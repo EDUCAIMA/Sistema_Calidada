@@ -5,14 +5,19 @@ import { useRouter } from 'next/navigation';
 import { AppProvider, useApp } from '@/context/app-context';
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useApp();
+  const { isAuthenticated, isLoading, currentUser } = useApp();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/');
+    if (!isLoading) {
+      if (!isAuthenticated) {
+        router.push('/');
+      } else if (currentUser?.email !== 'admin@calidad.com' && currentUser?.role !== 'SUPER_ADMIN') {
+        // Si está autenticado pero no es el super admin, redirigir al dashboard normal
+        router.push('/dashboard');
+      }
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, currentUser, router]);
 
   if (isLoading) {
     return (
@@ -28,7 +33,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated) return null;
+  if (!isAuthenticated || (currentUser?.email !== 'admin@calidad.com' && currentUser?.role !== 'SUPER_ADMIN')) return null;
 
   return <>{children}</>;
 }
