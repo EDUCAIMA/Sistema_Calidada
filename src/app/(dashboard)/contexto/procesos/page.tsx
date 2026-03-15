@@ -570,7 +570,7 @@ export default function ProcessMapPage() {
                     </div>
 
                     {/* The Core Map: Main Flow */}
-                    <div className="flex-1 flex flex-col items-center gap-8 relative max-w-4xl">
+                    <div className="flex-1 flex flex-col items-center gap-2 relative max-w-4xl">
                         
                         {/* 1. STRATEGIC PROCESSES */}
                         <div className="w-full">
@@ -646,7 +646,7 @@ export default function ProcessMapPage() {
 
                         {/* Flow Arrow (Misional -> Support) */}
                         <div className="text-slate-200">
-                            <ArrowRight className="w-8 h-8 rotate-90" />
+                            <ArrowRight className="w-8 h-8 -rotate-90" />
                         </div>
 
                         {/* 3. SUPPORT PROCESSES */}
@@ -658,7 +658,7 @@ export default function ProcessMapPage() {
                                         <h3 className="text-amber-700 text-xs font-black uppercase tracking-[0.2em]">Procesos de Apoyo</h3>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {processes.filter(p => p.category === 'APOYO').map(p => (
                                         <div key={p.id} className="group/item relative">
                                             <div 
