@@ -46,6 +46,7 @@ export interface Process {
   responsibleName?: string;
   order: number;
   active: boolean;
+  characterization?: ProcessCharacterization;
 }
 
 export interface ProcessCharacterization {

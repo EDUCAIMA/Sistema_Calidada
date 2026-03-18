@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import { 
     Plus, Eye, Edit, ChevronRight, ArrowRight, X, Save, HelpCircle, 
     Box, ShieldCheck, TrendingUp, History, Settings2, CheckCircle2,
-    Download, Trash2
+    Download, Trash2, Printer, FileEdit, Check
 } from 'lucide-react';
 import { domToPng } from 'modern-screenshot';
 import { jsPDF } from 'jspdf';
@@ -70,8 +70,33 @@ function ProcessCard({ process, onView, onCharacterize }: { process: Process; on
     );
 }
 
-function CharacterizationView({ process, characterization, onClose }: { process: Process; characterization: ProcessCharacterization; onClose: () => void }) {
+function CharacterizationView({ process, characterization: initialChar, onClose, onRefresh }: { process: Process; characterization: ProcessCharacterization | null; onClose: () => void; onRefresh: () => void }) {
     const colors = categoryColors[process.category];
+    const [isEditing, setIsEditing] = useState(false);
+    
+    // Default characterization if none exists
+    const defaultChar: Partial<ProcessCharacterization> = {
+        version: '1',
+        date: new Date().toLocaleDateString(),
+        planear: [],
+        hacer: [],
+        verificar: [],
+        actuar: [],
+        resources: [],
+        indicators: [],
+        documents: [],
+        risks: [],
+    };
+
+    const [formData, setFormData] = useState<any>({
+        ...(initialChar || defaultChar),
+        objective: process.objective || '',
+        scope: process.scope || '',
+        responsibleId: process.responsibleId || ''
+    });
+
+    const [saving, setSaving] = useState(false);
+    const componentRef = useRef<HTMLDivElement>(null);
 
     const phaseConfig = {
         planear: { label: 'PLANEAR', color: 'bg-blue-600', headerBg: 'bg-blue-600', text: 'text-white' },
@@ -83,298 +108,419 @@ function CharacterizationView({ process, characterization, onClose }: { process:
     const cellClass = "px-3 py-2.5 text-xs border border-border/60 align-top";
     const headerCellClass = "px-3 py-2 text-[10px] font-bold uppercase tracking-wider border border-border/60 text-center";
 
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch('/api/procesos/caracterizacion', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...formData,
+                    processId: process.id
+                }),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            
+            toast.success('Caracterización guardada correctamente');
+            setIsEditing(false);
+            onRefresh();
+        } catch (error) {
+            console.error('Error saving:', error);
+            toast.error('Error al guardar la caracterización');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handlePrint = async () => {
+        if (!componentRef.current) return;
+        const toastId = toast.loading('Generando PDF de caracterización...');
+        try {
+            const dataUrl = await domToPng(componentRef.current, {
+                scale: 2,
+                backgroundColor: '#ffffff',
+            });
+            const pdf = new jsPDF('l', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            pdf.addImage(dataUrl, 'PNG', 0, 0, pageWidth, pageHeight);
+            pdf.save(`Caracterizacion_${process.code}.pdf`);
+            toast.success('PDF generado con éxito', { id: toastId });
+        } catch (error) {
+            toast.error('Error al generar PDF', { id: toastId });
+        }
+    };
+
+    const addPHVARow = (phase: keyof typeof phaseConfig) => {
+        const newRow: PHVARow = {
+            id: `new-${Date.now()}`,
+            providers: [],
+            inputs: [],
+            activity: '',
+            outputs: [],
+            clients: []
+        };
+        setFormData({ ...formData, [phase]: [...formData[phase], newRow] });
+    };
+
+    const updatePHVARow = (phase: string, rowId: string, field: string, value: any) => {
+        const updatedPhase = formData[phase].map((row: any) => 
+            row.id === rowId ? { ...row, [field]: value } : row
+        );
+        setFormData({ ...formData, [phase]: updatedPhase });
+    };
+
+    const removePHVARow = (phase: string, rowId: string) => {
+        setFormData({ ...formData, [phase]: formData[phase].filter((r: any) => r.id !== rowId) });
+    };
+
     return (
-        <DialogContent className="max-w-7xl sm:max-w-7xl w-[95vw] max-h-[92vh] p-0 gap-0 overflow-hidden">
-            <DialogHeader className="sr-only">
-                <DialogTitle>Caracterización del Proceso: {process.name}</DialogTitle>
+        <DialogContent className="max-w-7xl sm:max-w-7xl w-[95vw] max-h-[92vh] p-0 gap-0 overflow-hidden bg-white">
+            <DialogHeader className="px-6 py-3 border-b border-border flex flex-row items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                    <FileEdit className="w-5 h-5 text-indigo-600" />
+                    <DialogTitle className="text-lg font-bold">
+                        {isEditing ? 'Editando Caracterización' : 'Caracterización del Proceso: ' + process.name}
+                    </DialogTitle>
+                </div>
+                <div className="flex items-center gap-2 mr-8">
+                    {!isEditing ? (
+                        <>
+                            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                                <Edit className="w-4 h-4" /> Editar
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 border-slate-200 text-slate-700 hover:bg-slate-100">
+                                <Printer className="w-4 h-4" /> Imprimir
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} disabled={saving}>
+                                Cancelar
+                            </Button>
+                            <Button size="sm" onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 gap-2">
+                                <Check className="w-4 h-4" /> {saving ? 'Guardando...' : 'Guardar Cambios'}
+                            </Button>
+                        </>
+                    )}
+                </div>
             </DialogHeader>
 
-            {/* ═══════════ DOCUMENT HEADER (formal) ═══════════ */}
-            <div className="border-b-2 border-border">
-                <table className="w-full border-collapse">
-                    <tbody>
-                        {/* Row 1: Title block */}
-                        <tr>
-                            <td rowSpan={3} className="w-[120px] border border-border/60 p-3 text-center align-middle bg-muted/30">
-                                <div className={cn("h-14 w-14 rounded-xl mx-auto flex items-center justify-center text-white font-bold text-lg shadow-md", colors.accent)}>
-                                    {process.code.split('-')[0]}
-                                </div>
-                                <p className="text-[9px] text-muted-foreground mt-1.5 font-medium">SGC SaaS</p>
-                            </td>
-                            <td colSpan={4} className="border border-border/60 px-4 py-1.5 text-center">
-                                <p className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase">Sistema Integrado de Gestión</p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colSpan={4} className="border border-border/60 px-4 py-1 text-center">
-                                <p className="text-sm font-bold tracking-wide">PROCESO: {process.name.toUpperCase()}</p>
-                                <p className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase">Caracterización del Proceso</p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="border border-border/60 px-3 py-1.5 text-[10px]">
-                                <span className="text-muted-foreground font-medium">Código: </span>
-                                <span className="font-bold font-mono">{process.code}</span>
-                            </td>
-                            <td className="border border-border/60 px-3 py-1.5 text-[10px]">
-                                <span className="text-muted-foreground font-medium">Versión: </span>
-                                <span className="font-bold">{characterization.version}</span>
-                            </td>
-                            <td className="border border-border/60 px-3 py-1.5 text-[10px]">
-                                <span className="text-muted-foreground font-medium">Fecha: </span>
-                                <span className="font-bold">{characterization.date}</span>
-                            </td>
-                            <td className="border border-border/60 px-3 py-1.5 text-[10px]">
-                                <span className="text-muted-foreground font-medium">Página: </span>
-                                <span className="font-bold">1 de 1</span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            {/* ═══════════ SCROLLABLE CONTENT ═══════════ */}
-            <ScrollArea className="flex-1 max-h-[calc(92vh-130px)]">
-                <div className="px-0">
+            <ScrollArea className="flex-1 max-h-[calc(92vh-100px)]">
+                <div ref={componentRef} className="p-8 bg-white min-w-[1000px]">
+                    {/* ═══════════ DOCUMENT HEADER (formal) ═══════════ */}
+                    <div className="border-2 border-slate-200 rounded-t-xl overflow-hidden">
+                        <table className="w-full border-collapse">
+                            <tbody>
+                                <tr>
+                                    <td rowSpan={3} className="w-[120px] border border-slate-200 p-3 text-center align-middle bg-slate-50/50">
+                                        <div className={cn("h-14 w-14 rounded-xl mx-auto flex items-center justify-center text-white font-bold text-xl shadow-lg", colors.accent)}>
+                                            {process.code.split('-')[0]}
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 mt-2 font-bold tracking-tighter">VEXVEL SGC</p>
+                                    </td>
+                                    <td colSpan={4} className="border border-slate-200 px-4 py-2 text-center bg-slate-50/30">
+                                        <p className="text-[12px] font-black tracking-[0.2em] text-slate-400 uppercase">Sistema Integrado de Gestión</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colSpan={4} className="border border-slate-200 px-4 py-3 text-center">
+                                        <p className="text-lg font-black tracking-tight text-slate-800">PROCESO: {process.name.toUpperCase()}</p>
+                                        <p className="text-[11px] text-slate-500 font-bold tracking-[0.3em] uppercase mt-1">Caracterización del Proceso</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="border border-slate-200 px-3 py-2 text-[11px] bg-white">
+                                        <span className="text-slate-400 font-bold uppercase text-[9px] block">Código:</span>
+                                        <span className="font-black font-mono text-slate-700">{process.code}</span>
+                                    </td>
+                                    <td className="border border-slate-200 px-3 py-2 text-[11px] bg-white">
+                                        <span className="text-slate-400 font-bold uppercase text-[9px] block">Versión:</span>
+                                        {isEditing ? (
+                                            <input className="w-full font-black text-slate-700 border-none p-0 focus:ring-0" value={formData.version} onChange={e => setFormData({...formData, version: e.target.value})} />
+                                        ) : <span className="font-black text-slate-700">{formData.version}</span>}
+                                    </td>
+                                    <td className="border border-slate-200 px-3 py-2 text-[11px] bg-white">
+                                        <span className="text-slate-400 font-bold uppercase text-[9px] block">Fecha:</span>
+                                        {isEditing ? (
+                                            <input type="date" className="w-full font-black text-slate-700 border-none p-0 focus:ring-0" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                                        ) : <span className="font-black text-slate-700">{formData.date}</span>}
+                                    </td>
+                                    <td className="border border-slate-200 px-3 py-2 text-[11px] bg-white">
+                                        <span className="text-slate-400 font-bold uppercase text-[9px] block">Página:</span>
+                                        <span className="font-black text-slate-700">1 de 1</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
                     {/* ─── PROCESS INFO TABLE ─── */}
-                    <table className="w-full border-collapse">
+                    <table className="w-full border-collapse border-x-2 border-slate-200">
                         <tbody>
                             <tr>
-                                <td className="w-[160px] bg-muted/50 border border-border/60 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
+                                <td className="w-[160px] bg-slate-100/80 border border-slate-200 px-4 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">
                                     Macroproceso
                                 </td>
-                                <td className="border border-border/60 px-4 py-2.5 text-xs" colSpan={4}>
-                                    <div className="flex items-center gap-6">
-                                        {(['ESTRATEGICO', 'MISIONAL', 'APOYO', 'EVALUACION'] as ProcessCategory[]).map(cat => (
-                                            <label key={cat} className="flex items-center gap-1.5 cursor-default">
-                                                <div className={cn(
-                                                    "h-3.5 w-3.5 rounded border-2 flex items-center justify-center",
-                                                    process.category === cat
-                                                        ? "border-emerald-600 bg-emerald-600"
-                                                        : "border-muted-foreground/30"
-                                                )}>
-                                                    {process.category === cat && (
-                                                        <span className="text-white text-[8px] font-bold">✓</span>
-                                                    )}
-                                                </div>
-                                                <span className={cn(
-                                                    "text-xs",
-                                                    process.category === cat ? "font-semibold" : "text-muted-foreground"
-                                                )}>
-                                                    {categoryLabels[cat]}
-                                                </span>
-                                            </label>
-                                        ))}
-                                    </div>
+                                <td className="border border-slate-200 px-4 py-3 text-xs" colSpan={4}>
+                                    <span className={cn("px-3 py-1 rounded-full font-bold", colors.bg, colors.text)}>
+                                        {categoryLabels[process.category]}
+                                    </span>
                                 </td>
                             </tr>
                             <tr>
-                                <td className="bg-muted/50 border border-border/60 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
+                                <td className="bg-slate-100/80 border border-slate-200 px-4 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">
                                     Responsable
                                 </td>
-                                <td className="border border-border/60 px-4 py-2.5 text-xs" colSpan={4}>
-                                    {process.responsibleName || '—'}
+                                <td className="border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700" colSpan={4}>
+                                    {isEditing ? (
+                                        <Select value={formData.responsibleId} onValueChange={v => setFormData({...formData, responsibleId: v})}>
+                                            <SelectTrigger className="h-8 border-none bg-slate-50 focus:ring-0">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {mockUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name} - {u.position}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (process.responsibleName || '—')}
                                 </td>
                             </tr>
                             <tr>
-                                <td className="bg-muted/50 border border-border/60 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
+                                <td className="bg-slate-100/80 border border-slate-200 px-4 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">
                                     Objetivo
                                 </td>
-                                <td className="border border-border/60 px-4 py-2.5 text-xs leading-relaxed" colSpan={4}>
-                                    {process.objective}
+                                <td className="border border-slate-200 px-4 py-3 text-xs leading-relaxed text-slate-700" colSpan={4}>
+                                    {isEditing ? (
+                                        <textarea 
+                                            className="w-full min-h-[60px] bg-slate-50 border-none rounded p-2 focus:ring-1 focus:ring-indigo-200" 
+                                            value={formData.objective} 
+                                            onChange={e => setFormData({...formData, objective: e.target.value})}
+                                        />
+                                    ) : formData.objective}
                                 </td>
                             </tr>
                             <tr>
-                                <td className="bg-muted/50 border border-border/60 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
+                                <td className="bg-slate-100/80 border border-slate-200 px-4 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">
                                     Alcance
                                 </td>
-                                <td className="border border-border/60 px-4 py-2.5 text-xs leading-relaxed" colSpan={4}>
-                                    {process.scope}
+                                <td className="border border-slate-200 px-4 py-3 text-xs leading-relaxed text-slate-700" colSpan={4}>
+                                    {isEditing ? (
+                                        <textarea 
+                                            className="w-full min-h-[60px] bg-slate-50 border-none rounded p-2 focus:ring-1 focus:ring-indigo-200" 
+                                            value={formData.scope} 
+                                            onChange={e => setFormData({...formData, scope: e.target.value})}
+                                        />
+                                    ) : formData.scope}
                                 </td>
                             </tr>
                         </tbody>
                     </table>
 
                     {/* ─── PHVA TABLE: ENTRADAS → ACTIVIDADES → SALIDAS ─── */}
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr>
-                                <th colSpan={2} className={cn(headerCellClass, "bg-slate-700 text-white")}>
-                                    Entradas
-                                </th>
-                                <th rowSpan={2} className={cn(headerCellClass, "bg-slate-800 text-white w-[28%]")}>
-                                    Actividades
-                                </th>
-                                <th colSpan={2} className={cn(headerCellClass, "bg-slate-700 text-white")}>
-                                    Salidas
-                                </th>
-                            </tr>
-                            <tr>
-                                <th className={cn(headerCellClass, "bg-slate-600 text-white w-[14%]")}>Proveedor</th>
-                                <th className={cn(headerCellClass, "bg-slate-600 text-white w-[18%]")}>Insumos</th>
-                                <th className={cn(headerCellClass, "bg-slate-600 text-white w-[22%]")}>Productos</th>
-                                <th className={cn(headerCellClass, "bg-slate-600 text-white w-[18%]")}>Cliente</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {(['planear', 'hacer', 'verificar', 'actuar'] as const).map(phase => {
-                                const config = phaseConfig[phase];
-                                const rows = characterization[phase];
-                                return (
-                                    <React.Fragment key={phase}>
-                                        {/* Phase header row */}
-                                        <tr>
-                                            <td colSpan={5} className={cn(
-                                                "px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-center border border-border/60",
-                                                config.headerBg, config.text
-                                            )}>
-                                                {config.label}
-                                            </td>
-                                        </tr>
-                                        {/* Activity rows */}
-                                        {rows.map((row) => (
-                                            <tr key={row.id} className="hover:bg-muted/20 transition-colors">
-                                                {/* Proveedor */}
-                                                <td className={cellClass}>
-                                                    <ul className="space-y-1 list-none m-0 p-0">
-                                                        {row.providers.map((p, i) => (
-                                                            <li key={i} className="flex items-start gap-1.5">
-                                                                <span className="h-1 w-1 rounded-full bg-slate-400 shrink-0 mt-1.5" />
-                                                                <span>{p}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </td>
-                                                {/* Insumos */}
-                                                <td className={cellClass}>
-                                                    <ul className="space-y-1 list-none m-0 p-0">
-                                                        {row.inputs.map((inp, i) => (
-                                                            <li key={i} className="flex items-start gap-1.5">
-                                                                <span className="h-1 w-1 rounded-full bg-slate-400 shrink-0 mt-1.5" />
-                                                                <span>{inp}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </td>
-                                                {/* Actividades */}
-                                                <td className={cn(cellClass, "text-xs leading-relaxed")}>
-                                                    {row.activity}
-                                                </td>
-                                                {/* Productos */}
-                                                <td className={cellClass}>
-                                                    <ul className="space-y-1 list-none m-0 p-0">
-                                                        {row.outputs.map((out, i) => (
-                                                            <li key={i} className="flex items-start gap-1.5">
-                                                                <span className="h-1 w-1 rounded-full bg-slate-400 shrink-0 mt-1.5" />
-                                                                <span>{out}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </td>
-                                                {/* Cliente */}
-                                                <td className={cellClass}>
-                                                    <ul className="space-y-1 list-none m-0 p-0">
-                                                        {row.clients.map((c, i) => (
-                                                            <li key={i} className="flex items-start gap-1.5">
-                                                                <span className="h-1 w-1 rounded-full bg-slate-400 shrink-0 mt-1.5" />
-                                                                <span>{c}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
+                    <div className="border-x-2 border-slate-200">
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr>
+                                    <th colSpan={2} className={cn(headerCellClass, "bg-slate-700 text-white py-3")}>
+                                        Entradas
+                                    </th>
+                                    <th rowSpan={2} className={cn(headerCellClass, "bg-slate-800 text-white w-[28%] py-3")}>
+                                        Actividades
+                                    </th>
+                                    <th colSpan={2} className={cn(headerCellClass, "bg-slate-700 text-white py-3")}>
+                                        Salidas
+                                    </th>
+                                </tr>
+                                <tr>
+                                    <th className={cn(headerCellClass, "bg-slate-600 text-white w-[14%]")}>Proveedor</th>
+                                    <th className={cn(headerCellClass, "bg-slate-600 text-white w-[18%]")}>Insumos</th>
+                                    <th className={cn(headerCellClass, "bg-slate-600 text-white w-[22%]")}>Productos</th>
+                                    <th className={cn(headerCellClass, "bg-slate-600 text-white w-[18%]")}>Cliente</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(['planear', 'hacer', 'verificar', 'actuar'] as const).map(phase => {
+                                    const config = phaseConfig[phase];
+                                    const rows = formData[phase] || [];
+                                    return (
+                                        <React.Fragment key={phase}>
+                                            {/* Phase header row */}
+                                            <tr className="group">
+                                                <td colSpan={5} className={cn(
+                                                    "px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.2em] text-center border border-slate-200 relative",
+                                                    config.headerBg, config.text
+                                                )}>
+                                                    {config.label}
+                                                    {isEditing && (
+                                                        <Button 
+                                                            variant="secondary" 
+                                                            size="icon" 
+                                                            className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 bg-white/20 hover:bg-white/40 border-none text-white" 
+                                                            onClick={() => addPHVARow(phase)}
+                                                        >
+                                                            <Plus className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
                                                 </td>
                                             </tr>
-                                        ))}
-                                    </React.Fragment>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                            {/* Activity rows */}
+                                            {rows.length === 0 && isEditing && (
+                                                <tr><td colSpan={5} className="p-4 text-center text-slate-400 italic text-xs">Sin actividades registradas. Haz clic en + para agregar.</td></tr>
+                                            )}
+                                            {rows.map((row: any) => (
+                                                <tr key={row.id} className="hover:bg-slate-50 transition-colors relative group">
+                                                    {/* Proveedor */}
+                                                    <td className={cellClass}>
+                                                        {isEditing ? (
+                                                            <textarea 
+                                                                className="w-full bg-indigo-50/30 border-none text-[11px] p-1 font-medium min-h-[60px]" 
+                                                                placeholder="Un proveedor por línea..."
+                                                                value={row.providers?.join('\n') || ''} 
+                                                                onChange={e => updatePHVARow(phase, row.id, 'providers', e.target.value.split('\n'))} 
+                                                            />
+                                                        ) : (
+                                                            <ul className="space-y-1 list-none m-0 p-0 text-slate-600">
+                                                                {row.providers?.map((p: any, i: any) => (
+                                                                    <li key={i} className="flex items-start gap-1.5"><span className="h-1 w-1 rounded-full bg-slate-400 shrink-0 mt-1.5" />{p}</li>
+                                                                ))}
+                                                            </ul>
+                                                        )}
+                                                    </td>
+                                                    {/* Insumos */}
+                                                    <td className={cellClass}>
+                                                        {isEditing ? (
+                                                            <textarea 
+                                                                className="w-full bg-indigo-50/30 border-none text-[11px] p-1 font-medium min-h-[60px]" 
+                                                                placeholder="Un insumo por línea..."
+                                                                value={row.inputs?.join('\n') || ''} 
+                                                                onChange={e => updatePHVARow(phase, row.id, 'inputs', e.target.value.split('\n'))} 
+                                                            />
+                                                        ) : (
+                                                            <ul className="space-y-1 list-none m-0 p-0 text-slate-600">
+                                                                {row.inputs?.map((inp: any, i: any) => (
+                                                                    <li key={i} className="flex items-start gap-1.5"><span className="h-1 w-1 rounded-full bg-slate-400 shrink-0 mt-1.5" />{inp}</li>
+                                                                ))}
+                                                            </ul>
+                                                        )}
+                                                    </td>
+                                                    {/* Actividades */}
+                                                    <td className={cn(cellClass, "text-[11px] leading-relaxed font-bold text-slate-800")}>
+                                                        {isEditing ? (
+                                                            <textarea 
+                                                                className="w-full min-h-[60px] bg-white border border-slate-100 rounded p-1.5 shadow-sm"
+                                                                value={row.activity} 
+                                                                onChange={e => updatePHVARow(phase, row.id, 'activity', e.target.value)} 
+                                                            />
+                                                        ) : row.activity}
+                                                    </td>
+                                                    {/* Productos */}
+                                                    <td className={cellClass}>
+                                                        {isEditing ? (
+                                                            <textarea 
+                                                                className="w-full bg-indigo-50/30 border-none text-[11px] p-1 font-medium min-h-[60px]" 
+                                                                placeholder="Un producto por línea..."
+                                                                value={row.outputs?.join('\n') || ''} 
+                                                                onChange={e => updatePHVARow(phase, row.id, 'outputs', e.target.value.split('\n'))} 
+                                                            />
+                                                        ) : (
+                                                            <ul className="space-y-1 list-none m-0 p-0 text-slate-600">
+                                                                {row.outputs?.map((out: any, i: any) => (
+                                                                    <li key={i} className="flex items-start gap-1.5"><span className="h-1 w-1 rounded-full bg-slate-400 shrink-0 mt-1.5" />{out}</li>
+                                                                ))}
+                                                            </ul>
+                                                        )}
+                                                    </td>
+                                                    {/* Cliente */}
+                                                    <td className={cellClass}>
+                                                        <div className="flex flex-col h-full">
+                                                            {isEditing ? (
+                                                                <textarea 
+                                                                    className="w-full flex-1 bg-indigo-50/30 border-none text-[11px] p-1 font-medium min-h-[60px]" 
+                                                                    placeholder="Un cliente por línea..."
+                                                                    value={row.clients?.join('\n') || ''} 
+                                                                    onChange={e => updatePHVARow(phase, row.id, 'clients', e.target.value.split('\n'))} 
+                                                                />
+                                                            ) : (
+                                                                <ul className="space-y-1 list-none m-0 p-0 text-slate-600">
+                                                                    {row.clients?.map((c: any, i: any) => (
+                                                                        <li key={i} className="flex items-start gap-1.5"><span className="h-1 w-1 rounded-full bg-slate-400 shrink-0 mt-1.5" />{c}</li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
+                                                            {isEditing && (
+                                                                <button 
+                                                                    className="p-1 mt-2 text-rose-400 hover:text-rose-600 transition-colors self-end"
+                                                                    onClick={() => removePHVARow(phase, row.id)}
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
 
-                    {/* ─── SECTION: INDICADORES DE GESTIÓN ─── */}
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr>
-                                <th colSpan={4} className={cn(headerCellClass, "bg-slate-700 text-white")}>
-                                    Indicadores de Gestión
-                                </th>
-                            </tr>
-                            <tr>
-                                <th className={cn(headerCellClass, "bg-slate-600 text-white w-[25%]")}>Indicador</th>
-                                <th className={cn(headerCellClass, "bg-slate-600 text-white")}>Fórmula de Cálculo</th>
-                                <th className={cn(headerCellClass, "bg-slate-600 text-white w-[15%]")}>Frecuencia</th>
-                                <th className={cn(headerCellClass, "bg-slate-600 text-white w-[12%]")}>Meta</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {characterization.indicators.map(ind => (
-                                <tr key={ind.id} className="hover:bg-muted/20 transition-colors">
-                                    <td className={cn(cellClass, "font-semibold")}>{ind.name}</td>
-                                    <td className={cn(cellClass, "font-mono text-[11px] text-muted-foreground")}>{ind.formula}</td>
-                                    <td className={cn(cellClass, "text-center")}>
-                                        <Badge variant="secondary" className="text-[10px] h-5">{ind.frequency}</Badge>
-                                    </td>
-                                    <td className={cn(cellClass, "text-center")}>
-                                        <Badge className="text-[10px] h-5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">{ind.target}</Badge>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-
-                    {/* ─── SECTION: RECURSOS, DOCUMENTOS Y RIESGOS ─── */}
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr>
-                                <th className={cn(headerCellClass, "bg-slate-700 text-white")}>Recursos</th>
-                                <th className={cn(headerCellClass, "bg-slate-700 text-white")}>Documentos Asociados</th>
-                                <th className={cn(headerCellClass, "bg-slate-700 text-white")}>Riesgos Identificados</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                {/* Resources */}
-                                <td className={cn(cellClass, "align-top")}>
-                                    <ul className="space-y-1.5 list-none m-0 p-0">
-                                        {characterization.resources.map(r => (
-                                            <li key={r} className="flex items-start gap-2">
-                                                <span className="h-1.5 w-1.5 rounded-full bg-violet-400 shrink-0 mt-1" />
-                                                <span>{r}</span>
-                                            </li>
-                                        ))}
+                    {/* ─── SECTION: RECURSOS, DOCUMENTOS Y RIESGOS (Resumen) ─── */}
+                    <div className="border-2 border-slate-200 border-t-0 rounded-b-xl overflow-hidden grid grid-cols-3">
+                        <div className="border-r border-slate-200">
+                            <div className="bg-slate-700 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-center">Recursos</div>
+                            <div className="p-4 bg-white min-h-[100px]">
+                                {isEditing ? (
+                                    <textarea 
+                                        className="w-full h-full min-h-[100px] border-none text-[11px] resize-none focus:ring-0" 
+                                        value={formData.resources?.join('\n')} 
+                                        onChange={e => setFormData({...formData, resources: e.target.value.split('\n')})}
+                                        placeholder="Un recurso por línea..."
+                                    />
+                                ) : (
+                                    <ul className="space-y-1.5">
+                                        {formData.resources?.map((r: any) => <li key={r} className="text-xs flex items-center gap-2 text-slate-600"><span className="w-1.5 h-1.5 rounded-full bg-indigo-300" />{r}</li>)}
                                     </ul>
-                                </td>
-                                {/* Documents */}
-                                <td className={cn(cellClass, "align-top")}>
-                                    <ul className="space-y-1.5 list-none m-0 p-0">
-                                        {characterization.documents.map(d => {
-                                            const parts = d.split(' ');
-                                            const code = parts[0];
-                                            const name = parts.slice(1).join(' ');
-                                            return (
-                                                <li key={d} className="flex items-start gap-2">
-                                                    <Badge variant="outline" className="text-[8px] h-4 font-mono bg-sky-50 text-sky-700 border-sky-200 shrink-0 mt-0.5">{code}</Badge>
-                                                    <span>{name}</span>
-                                                </li>
-                                            );
-                                        })}
+                                )}
+                            </div>
+                        </div>
+                        <div className="border-r border-slate-200">
+                            <div className="bg-slate-700 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-center">Documentos</div>
+                            <div className="p-4 bg-white min-h-[100px]">
+                                {isEditing ? (
+                                    <textarea 
+                                        className="w-full h-full min-h-[100px] border-none text-[11px] resize-none focus:ring-0" 
+                                        value={formData.documents?.join('\n')} 
+                                        onChange={e => setFormData({...formData, documents: e.target.value.split('\n')})}
+                                        placeholder="Un documento por línea..."
+                                    />
+                                ) : (
+                                    <ul className="space-y-1.5">
+                                        {formData.documents?.map((d: any) => <li key={d} className="text-xs flex items-center gap-2 text-slate-600 font-mono"><span className="w-1.5 h-1.5 rounded-full bg-sky-300" />{d}</li>)}
                                     </ul>
-                                </td>
-                                {/* Risks */}
-                                <td className={cn(cellClass, "align-top")}>
-                                    <ul className="space-y-1.5 list-none m-0 p-0">
-                                        {characterization.risks.map(r => (
-                                            <li key={r} className="flex items-start gap-2">
-                                                <span className="h-1.5 w-1.5 rounded-full bg-rose-400 shrink-0 mt-1" />
-                                                <span>{r}</span>
-                                            </li>
-                                        ))}
+                                )}
+                            </div>
+                        </div>
+                        <div>
+                            <div className="bg-slate-700 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-center">Riesgos</div>
+                            <div className="p-4 bg-white min-h-[100px]">
+                                {isEditing ? (
+                                    <textarea 
+                                        className="w-full h-full min-h-[100px] border-none text-[11px] resize-none focus:ring-0" 
+                                        value={formData.risks?.join('\n')} 
+                                        onChange={e => setFormData({...formData, risks: e.target.value.split('\n')})}
+                                        placeholder="Un riesgo por línea..."
+                                    />
+                                ) : (
+                                    <ul className="space-y-1.5">
+                                        {formData.risks?.map((r: any) => <li key={r} className="text-xs flex items-center gap-2 text-slate-600 text-red-700"><span className="w-1.5 h-1.5 rounded-full bg-rose-300" />{r}</li>)}
                                     </ul>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </ScrollArea>
         </DialogContent>
@@ -395,20 +541,25 @@ export default function ProcessMapPage() {
     const [showISOInfo, setShowISOInfo] = useState(false);
     const mapRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const fetchProcesses = async () => {
-            try {
-                const res = await fetch(`/api/procesos?tenantId=${tenant.id}`);
-                const data = await res.json();
-                if (data && !data.error) {
-                    setProcesses(data);
+    const fetchProcesses = async () => {
+        try {
+            const res = await fetch(`/api/procesos?tenantId=${tenant.id}`);
+            const data = await res.json();
+            if (data && !data.error) {
+                setProcesses(data);
+                if (selectedProcess) {
+                  const updated = data.find((p: any) => p.id === selectedProcess.id);
+                  if (updated) setSelectedProcess(updated);
                 }
-            } catch (error) {
-                console.error('Error fetching processes:', error);
-            } finally {
-                setLoading(false);
             }
-        };
+        } catch (error) {
+            console.error('Error fetching processes:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchProcesses();
     }, [tenant.id]);
 
@@ -704,8 +855,9 @@ export default function ProcessMapPage() {
                 {selectedProcess && (
                     <CharacterizationView
                         process={selectedProcess}
-                        characterization={mockCharacterization}
+                        characterization={selectedProcess.characterization as any}
                         onClose={() => setShowCharacterization(false)}
+                        onRefresh={fetchProcesses}
                     />
                 )}
             </Dialog>
