@@ -36,18 +36,27 @@ export async function POST(request: Request) {
     console.log('Usuario encontrado, validando contraseña...');
 
     // Validar contraseña usando bcrypt (antes era texto plano)
-    const isPasswordValid = user.password ? await bcrypt.compare(password, user.password) : false;
+    let isPasswordValid = false;
+    
+    if (user.password) {
+      isPasswordValid = await bcrypt.compare(password, user.password);
+      
+      // FALLBACK DE EMERGENCIA: Comparar texto plano si el hash falla
+      // Esto ayuda a migrar usuarios existentes sin bloquearlos
+      if (!isPasswordValid && user.password === password) {
+        console.log('Login exitoso mediante texto plano para:', email);
+        isPasswordValid = true;
+      }
+    }
 
     if (!isPasswordValid) {
       console.log('Contraseña incorrecta para:', email);
-      // DEBUG: Comentar en producción si es sensible, pero ayuda a diagnosticar
-      // console.log('Password provided:', password);
-      // console.log('Hash in DB:', user.password);
       return NextResponse.json(
         { error: 'La contraseña es incorrecta' },
         { status: 401 }
       );
     }
+
 
 
     // Validar que el usuario esté activo

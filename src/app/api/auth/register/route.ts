@@ -31,7 +31,8 @@ export async function POST(request: Request) {
     }
 
     // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
     // Crear Tenant y Usuario en una transacción
     // El slug se genera a partir del nombre de la empresa
