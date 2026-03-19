@@ -1,8 +1,8 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    Settings, User, Building, Bell, Shield, PaintBucket, Globe
+    Settings, User as UserIcon, Building, Bell, Shield, PaintBucket, Globe, Loader2, CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +10,144 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 
 export default function ConfiguracionPage() {
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [userData, setUserData] = useState<any>(null);
+    const [tenantData, setTenantData] = useState<any>(null);
+
+    // Form states
+    const [userForm, setUserForm] = useState({
+        name: '',
+        position: '',
+        phone: '',
+        password: '',
+        confirmPassword: ''
+    });
+
+    const [tenantForm, setTenantForm] = useState({
+        name: '',
+        industry: '',
+        timezone: 'America/Bogota',
+        currency: 'USD',
+        phone: ''
+    });
+
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const storedUser = localStorage.getItem('sgc_user');
+                const storedTenant = localStorage.getItem('sgc_tenant');
+
+                if (storedUser && storedTenant) {
+                    const u = JSON.parse(storedUser);
+                    const t = JSON.parse(storedTenant);
+
+                    // Fetch fresh data from API
+                    const [userRes, tenantRes] = await Promise.all([
+                        fetch(`/api/admin/users/${u.id}`),
+                        fetch(`/api/admin/tenants/${t.id}`)
+                    ]);
+
+                    if (userRes.ok && tenantRes.ok) {
+                        const userFull = await userRes.json();
+                        const tenantFull = await tenantRes.json();
+
+                        setUserData(userFull);
+                        setTenantData(tenantFull);
+
+                        setUserForm({
+                            name: userFull.name || '',
+                            position: userFull.position || '',
+                            phone: userFull.phone || '',
+                            password: '',
+                            confirmPassword: ''
+                        });
+
+                        setTenantForm({
+                            name: tenantFull.name || '',
+                            industry: tenantFull.industry || '',
+                            timezone: tenantFull.timezone || 'America/Bogota',
+                            currency: tenantFull.currency || 'USD',
+                            phone: tenantFull.phone || ''
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                toast.error('Error al cargar la configuración');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadData();
+    }, []);
+
+    const handleSaveUser = async () => {
+        if (userForm.password && userForm.password !== userForm.confirmPassword) {
+            toast.error('Las contraseñas no coinciden');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            const res = await fetch(`/api/admin/users/${userData.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: userForm.name,
+                    position: userForm.position,
+                    phone: userForm.phone,
+                    ...(userForm.password ? { password: userForm.password } : {})
+                })
+            });
+
+            if (!res.ok) throw new Error('Error al guardar');
+            
+            const updated = await res.json();
+            setUserData(updated);
+            localStorage.setItem('sgc_user', JSON.stringify(updated));
+            toast.success('Perfil actualizado correctamente');
+        } catch (error) {
+            toast.error('Error al actualizar el perfil');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveTenant = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch(`/api/admin/tenants/${tenantData.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(tenantForm)
+            });
+
+            if (!res.ok) throw new Error('Error al guardar');
+            
+            const updated = await res.json();
+            setTenantData(updated);
+            localStorage.setItem('sgc_tenant', JSON.stringify(updated));
+            toast.success('Configuración de empresa actualizada');
+        } catch (error) {
+            toast.error('Error al actualizar la empresa');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex-1 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            </div>
+        );
+    }
+
     return (
         <div className="flex-1 space-y-6 p-8 pt-6">
             <div className="flex items-center justify-between">
@@ -21,17 +157,12 @@ export default function ConfiguracionPage() {
                         Administra los ajustes de tu cuenta y las preferencias del Sistema de Gestión.
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Button className="shadow-md">
-                        Guardar Cambios
-                    </Button>
-                </div>
             </div>
 
             <Tabs defaultValue="perfil" className="space-y-6">
                 <TabsList className="bg-slate-100/50 dark:bg-slate-800/50 border shadow-sm w-full justify-start overflow-x-auto">
                     <TabsTrigger value="perfil" className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-2">
-                        <User className="w-4 h-4" /> Perfil de Usuario
+                        <UserIcon className="w-4 h-4" /> Perfil de Usuario
                     </TabsTrigger>
                     <TabsTrigger value="empresa" className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-2">
                         <Building className="w-4 h-4" /> Datos de la Empresa
@@ -55,8 +186,8 @@ export default function ConfiguracionPage() {
                         </CardHeader>
                         <CardContent className="pt-6 space-y-6">
                             <div className="flex items-center gap-6">
-                                <div className="h-24 w-24 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-3xl font-bold text-slate-400">
-                                    AD
+                                <div className="h-24 w-24 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-3xl font-bold text-blue-600">
+                                    {userForm.name.substring(0, 2).toUpperCase()}
                                 </div>
                                 <div className="space-y-2">
                                     <Button variant="outline" size="sm">Cambiar Avatar</Button>
@@ -67,20 +198,26 @@ export default function ConfiguracionPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="firstName">Nombre Completo</Label>
-                                    <Input id="firstName" defaultValue="Admin User" />
+                                    <Input id="firstName" value={userForm.name} onChange={(e) => setUserForm({...userForm, name: e.target.value})} />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="position">Cargo / Puesto</Label>
-                                    <Input id="position" defaultValue="Administrador del Sistema" />
+                                    <Input id="position" value={userForm.position} onChange={(e) => setUserForm({...userForm, position: e.target.value})} />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="email">Correo Electrónico</Label>
-                                    <Input id="email" type="email" defaultValue="admin@empresa.com" disabled />
+                                    <Input id="email" type="email" value={userData?.email} disabled />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="phone">Teléfono de Contacto</Label>
-                                    <Input id="phone" type="tel" placeholder="+1 (555) 000-0000" />
+                                    <Input id="phone" type="tel" value={userForm.phone} onChange={(e) => setUserForm({...userForm, phone: e.target.value})} placeholder="+1 (555) 000-0000" />
                                 </div>
+                            </div>
+                            <div className="pt-4">
+                                <Button onClick={handleSaveUser} disabled={saving} className="gap-2">
+                                    {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                                    Guardar Perfil
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
@@ -95,24 +232,34 @@ export default function ConfiguracionPage() {
                         <CardContent className="pt-6 space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <Label htmlFor="companyName">Nombre de la Empresa o Tenant</Label>
-                                    <Input id="companyName" defaultValue="Mi Empresa S.A." disabled />
+                                    <Label htmlFor="companyName">Nombre de la Empresa</Label>
+                                    <Input id="companyName" value={tenantForm.name} onChange={(e) => setTenantForm({...tenantForm, name: e.target.value})} />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="industry">Sector Industrial</Label>
-                                    <Input id="industry" defaultValue="Tecnología" />
+                                    <Input id="industry" value={tenantForm.industry} onChange={(e) => setTenantForm({...tenantForm, industry: e.target.value})} />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="timezone">Zona Horaria Global</Label>
                                     <div className="relative">
                                         <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                        <Input id="timezone" defaultValue="America/Bogota" className="pl-9" />
+                                        <Input id="timezone" value={tenantForm.timezone} onChange={(e) => setTenantForm({...tenantForm, timezone: e.target.value})} className="pl-9" />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="currency">Moneda Módulo de Costos</Label>
-                                    <Input id="currency" defaultValue="USD" />
+                                    <Label htmlFor="currency">Moneda Principal</Label>
+                                    <Input id="currency" value={tenantForm.currency} onChange={(e) => setTenantForm({...tenantForm, currency: e.target.value})} />
                                 </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="tenantPhone">Teléfono Corporativo</Label>
+                                    <Input id="tenantPhone" value={tenantForm.phone} onChange={(e) => setTenantForm({...tenantForm, phone: e.target.value})} />
+                                </div>
+                            </div>
+                            <div className="pt-4">
+                                <Button onClick={handleSaveTenant} disabled={saving} className="gap-2">
+                                    {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                                    Guardar Datos de Empresa
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
@@ -161,18 +308,14 @@ export default function ConfiguracionPage() {
                         <CardContent className="pt-6 space-y-6">
                             <div className="grid grid-cols-1 gap-6 max-w-xl">
                                 <div className="space-y-2">
-                                    <Label htmlFor="currentPassword">Contraseña Actual</Label>
-                                    <Input id="currentPassword" type="password" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="newPassword">Nueva Contraseña</Label>
-                                    <Input id="newPassword" type="password" />
+                                    <Label htmlFor="newPassword">Nueva Contraseña (dejar en blanco si no se desea cambiar)</Label>
+                                    <Input id="newPassword" type="password" value={userForm.password} onChange={(e) => setUserForm({...userForm, password: e.target.value})} />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="confirmPassword">Confirmar Nueva Contraseña</Label>
-                                    <Input id="confirmPassword" type="password" />
+                                    <Input id="confirmPassword" type="password" value={userForm.confirmPassword} onChange={(e) => setUserForm({...userForm, confirmPassword: e.target.value})} />
                                 </div>
-                                <Button className="w-max shadow-sm">Actualizar Contraseña</Button>
+                                <Button onClick={handleSaveUser} disabled={saving} className="w-max shadow-sm">Actualizar Contraseña</Button>
                             </div>
 
                             <div className="border-t border-border/50 pt-6 mt-6">
@@ -228,3 +371,4 @@ export default function ConfiguracionPage() {
         </div>
     );
 }
+

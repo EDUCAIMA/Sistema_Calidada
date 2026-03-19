@@ -9,7 +9,7 @@ export async function PATCH(
     try {
         const { id } = await params;
         const body = await request.json();
-        const { email, password, name, role, tenantId, position, active } = body;
+        const { email, password, name, role, tenantId, position, active, phone } = body;
 
         const updateData: any = {};
         if (email) updateData.email = email;
@@ -18,6 +18,7 @@ export async function PATCH(
         if (tenantId) updateData.tenantId = tenantId;
         if (position !== undefined) updateData.position = position;
         if (active !== undefined) updateData.active = active;
+        if (phone !== undefined) updateData.phone = phone;
         
         if (password) {
             updateData.password = await bcrypt.hash(password, 10);

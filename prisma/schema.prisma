@@ -108,6 +108,10 @@ model Tenant {
   name      String
   slug      String   @unique
   logo      String?
+  industry  String?
+  timezone  String?  @default("America/Bogota")
+  currency  String?  @default("USD")
+  phone     String?
   plan      PlanType @default(BASICO)
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -132,6 +136,7 @@ model User {
   password  String?
   name      String
   position  String?
+  phone     String?
   role      Role     @default(USUARIO)
   avatar    String?
   active    Boolean  @default(true)
@@ -140,6 +145,7 @@ model User {
 
   processesResponsible Process[] @relation("ProcessResponsible")
 }
+
 
 model Process {
   id              String          @id @default(cuid())
