@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { fullname, company, email, password } = body;
+    const { fullname, company, password } = body;
+    const email = body.email?.toLowerCase();
 
     if (!fullname || !company || !email || !password) {
       return NextResponse.json(
@@ -25,6 +27,9 @@ export async function POST(request: Request) {
       );
     }
 
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     // Crear Tenant y Usuario en una transacción
     // El slug se genera a partir del nombre de la empresa
     const slug = company.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
@@ -44,7 +49,7 @@ export async function POST(request: Request) {
         data: {
           name: fullname,
           email: email,
-          password: password, // Almacenado temporalmente en texto plano (se recomienda hashear)
+          password: hashedPassword,
           role: 'ADMIN_EMPRESA',
           tenantId: tenant.id,
         },
@@ -65,3 +70,4 @@ export async function POST(request: Request) {
     );
   }
 }
+
