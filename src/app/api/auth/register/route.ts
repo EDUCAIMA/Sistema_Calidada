@@ -6,7 +6,9 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { fullname, company, password } = body;
-    const email = body.email?.toLowerCase();
+    const email = body.email?.toLowerCase().trim();
+
+    console.log('Intento de registro para:', email);
 
     if (!fullname || !company || !email || !password) {
       return NextResponse.json(
@@ -14,6 +16,7 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
 
     // Verificar si el usuario ya existe
     const existingUser = await prisma.user.findUnique({

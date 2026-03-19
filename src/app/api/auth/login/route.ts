@@ -6,7 +6,9 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { password } = body;
-    const email = body.email?.toLowerCase();
+    const email = body.email?.toLowerCase().trim();
+
+    console.log('Intento de login para:', email);
 
     if (!email || !password) {
       return NextResponse.json(
@@ -24,21 +26,29 @@ export async function POST(request: Request) {
     });
 
     if (!user) {
+      console.log('Usuario no encontrado:', email);
       return NextResponse.json(
         { error: 'El correo electrónico no está registrado' },
         { status: 401 }
       );
     }
 
+    console.log('Usuario encontrado, validando contraseña...');
+
     // Validar contraseña usando bcrypt (antes era texto plano)
     const isPasswordValid = user.password ? await bcrypt.compare(password, user.password) : false;
 
     if (!isPasswordValid) {
+      console.log('Contraseña incorrecta para:', email);
+      // DEBUG: Comentar en producción si es sensible, pero ayuda a diagnosticar
+      // console.log('Password provided:', password);
+      // console.log('Hash in DB:', user.password);
       return NextResponse.json(
         { error: 'La contraseña es incorrecta' },
         { status: 401 }
       );
     }
+
 
     // Validar que el usuario esté activo
     if (!user.active) {
