@@ -6,10 +6,11 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Network, FileText, ShieldAlert, ClipboardCheck,
     BarChart3, Building2, Users, Settings, ChevronDown, LogOut,
-    Target, BookOpen, Briefcase, Scale, TrendingUp, Search, Bell
+    Target, BookOpen, Briefcase, Scale, TrendingUp, Search, Bell, Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/app-context';
+import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -368,7 +369,26 @@ export function AppSidebar() {
 }
 
 export function AppHeader() {
-    const { sidebarCollapsed, toggleSidebar } = useApp();
+    const { sidebarCollapsed, toggleSidebar, setCurrentUser, setTenant } = useApp();
+    const router = useRouter();
+    const [adminSession, setAdminSession] = React.useState<any>(null);
+
+    React.useEffect(() => {
+        // En un entorno real esto sería más seguro, por ahora usamos localStorage
+        const session = localStorage.getItem('sgc_admin_session');
+        if (session) {
+            setAdminSession(JSON.parse(session));
+        }
+    }, []);
+
+    const handleBackToAdmin = () => {
+        if (adminSession) {
+            setCurrentUser(adminSession.user);
+            setTenant(adminSession.tenant);
+            localStorage.removeItem('sgc_admin_session');
+            router.push('/admin-portal');
+        }
+    };
 
     return (
         <header className={cn(
@@ -391,9 +411,20 @@ export function AppHeader() {
                     <input
                         type="text"
                         placeholder="Buscar procesos, documentos, riesgos..."
-                        className="h-9 w-80 pl-9 pr-4 rounded-lg bg-muted/60 border-0 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
                     />
                 </div>
+                {adminSession && (
+                    <Button 
+                        variant="secondary" 
+                        size="sm" 
+                        className="h-9 px-4 animate-pulse hover:animate-none rounded-xl gap-2 font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20"
+                        onClick={handleBackToAdmin}
+                    >
+                        <Shield className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Volver a Administración</span>
+                        <span className="sm:hidden">Volver</span>
+                    </Button>
+                )}
             </div>
             <div className="flex items-center gap-2">
                 <Button variant="ghost" size="icon" className="h-9 w-9 relative">

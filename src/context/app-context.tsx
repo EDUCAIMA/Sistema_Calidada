@@ -68,6 +68,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTenant(defaultTenant);
         localStorage.removeItem('sgc_user');
         localStorage.removeItem('sgc_tenant');
+        localStorage.removeItem('sgc_admin_session');
         router.push('/');
     }, [router]);
 

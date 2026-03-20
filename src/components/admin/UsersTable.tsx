@@ -15,9 +15,12 @@ import {
   XCircle,
   Plus,
   Pencil,
-  Trash2
+  Trash2,
+  ExternalLink
 } from 'lucide-react';
 import { UserDialogs } from './UserDialogs';
+import { useApp } from '@/context/app-context';
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,8 +38,12 @@ interface User {
   createdAt: string;
   tenantId: string;
   tenant: {
+    id: string;
     name: string;
     slug: string;
+    plan: any;
+    active: boolean;
+    createdAt: any;
   };
 }
 
@@ -48,6 +55,8 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { setCurrentUser, setTenant } = useApp();
+  const router = useRouter();
   
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -99,6 +108,35 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
     setDialogType('delete');
     setSelectedUser(user);
     setDialogOpen(true);
+  };
+
+  const handleImpersonate = (user: User) => {
+    // 1. Guardar la sesión del administrador actual
+    const adminSession = {
+      user: JSON.parse(localStorage.getItem('sgc_user') || 'null'),
+      tenant: JSON.parse(localStorage.getItem('sgc_tenant') || 'null')
+    };
+    
+    if (adminSession.user) {
+      localStorage.setItem('sgc_admin_session', JSON.stringify(adminSession));
+    }
+
+    // 2. Cambiar el contexto a este usuario y su tenant
+    const safeUser = {
+      ...user,
+      createdAt: new Date(user.createdAt)
+    };
+    
+    const safeTenant = {
+      ...user.tenant,
+      createdAt: new Date(user.tenant.createdAt)
+    };
+
+    setCurrentUser(safeUser as any);
+    setTenant(safeTenant as any);
+    
+    // 2. Redirigir al dashboard del sistema
+    router.push('/dashboard');
   };
 
   if (loading && users.length === 0) {
@@ -230,6 +268,13 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-white border-slate-200 text-slate-800">
+                            <DropdownMenuItem 
+                                onClick={() => handleImpersonate(user)}
+                                className="gap-2 focus:bg-blue-50 focus:text-blue-600 cursor-pointer text-blue-600 font-semibold"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              Ver Implementación
+                            </DropdownMenuItem>
                             <DropdownMenuItem 
                                 onClick={() => handleEdit(user)}
                                 className="gap-2 focus:bg-slate-50 focus:text-blue-600 cursor-pointer"
