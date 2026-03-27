@@ -295,9 +295,21 @@ export function AppSidebar() {
             {/* Tenant */}
             {!sidebarCollapsed && (
                 <div className="px-3 py-3 border-b border-sidebar-border/30">
-                    <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-md bg-sidebar-accent/50">
-                        <Building2 className="h-3.5 w-3.5 text-sidebar-foreground/50 flex-shrink-0" />
-                        <span className="text-xs font-medium text-sidebar-foreground/80 truncate">{tenant.name}</span>
+                    <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-md bg-sidebar-accent/50 overflow-hidden">
+                        {(tenant.logo || tenant.logoUrl) ? (
+                            <div className="h-7 w-auto max-w-[120px] flex items-center justify-center">
+                                <img 
+                                    src={tenant.logo || tenant.logoUrl} 
+                                    alt="Logo" 
+                                    className="max-h-full max-w-full object-contain"
+                                />
+                            </div>
+                        ) : (
+                            <>
+                                <Building2 className="h-3.5 w-3.5 text-sidebar-foreground/50 flex-shrink-0" />
+                                <span className="text-xs font-medium text-sidebar-foreground/80 truncate">{tenant.name}</span>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

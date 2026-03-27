@@ -6,7 +6,7 @@ import {
     Plus, Edit, Trash2, Save, Lightbulb, ShieldCheck,
     AlertTriangle, TrendingUp as ChartLine, Eye,
     ShieldAlert, User, Clock, CheckCircle, Info,
-    Download, HelpCircle
+    Download, HelpCircle, Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,8 +17,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { cn } from '@/lib/utils';
 import type { DOFAItem, DOFACategory } from '@/lib/types';
 import { toast } from 'sonner';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { domToPng } from 'modern-screenshot';
+import { useRef } from 'react';
+import { DocumentHeader } from '@/components/DocumentHeader';
 
 // Elegant Bento/DOFA Palette
 const categoryConfig: Record<DOFACategory, {
@@ -63,6 +66,16 @@ export default function ContextoOrganizacionalPage() {
     const [selectedItem, setSelectedItem] = useState<DOFAItem | null>(null);
     const [showISOInfo, setShowISOInfo] = useState(false);
     const [newItem, setNewItem] = useState<Partial<DOFAItem>>({ category: 'FORTALEZA' });
+    const [isExporting, setIsExporting] = useState(false);
+    const pdfRef = useRef<HTMLDivElement>(null);
+    
+    // Document Metadata State (Configurable)
+    const [docMetadata, setDocMetadata] = useState({
+        code: 'DIR-REG-001',
+        version: '01',
+        approvalDate: new Date().toISOString().split('T')[0]
+    });
+    const [showConfig, setShowConfig] = useState(false);
 
     useEffect(() => {
         const fetchItems = async () => {
@@ -82,74 +95,101 @@ export default function ContextoOrganizacionalPage() {
     }, [tenant.id]);
 
     const handleDownloadPDF = () => {
-        const doc = new jsPDF();
-        const now = new Date().toLocaleDateString();
+        try {
+            // Asegurar que tenemos metadatos básicos
+            const safeCode = docMetadata.code || 'SGC-DOFA-001';
+            const safeVersion = docMetadata.version || '01';
+            const safeDate = docMetadata.approvalDate || new Date().toISOString().split('T')[0];
+            const safeTenantName = tenant?.name || "Calidad SGC";
 
-        doc.setFontSize(22);
-        doc.setTextColor(0, 113, 197);
-        doc.text('QualityLink QMS', 20, 20);
+            const doc = new jsPDF('p', 'mm', 'letter');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 20;
 
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text('Sistema de Gestión de Calidad - ISO 9001:2015', 20, 28);
-        doc.text(`Fecha de exportación: ${now}`, 150, 28);
+            // --- 1. ENCABEZADO FORMAL ISO ---
+            const headerHeight = 22;
+            doc.setDrawColor(30, 41, 59);
+            doc.setLineWidth(0.4);
+            doc.rect(margin, margin, pageWidth - (margin * 2), headerHeight);
+            
+            const col1Width = 40;
+            const col3Width = 60;
+            const col2Width = pageWidth - (margin * 2) - col1Width - col3Width;
 
-        doc.setLineWidth(0.5);
-        doc.setDrawColor(0, 113, 197);
-        doc.line(20, 32, 190, 32);
+            doc.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
+            doc.line(margin + col1Width + col2Width, margin, margin + col1Width + col2Width, margin + headerHeight);
 
-        doc.setFontSize(16);
-        doc.setTextColor(30);
-        doc.text('Análisis de Contexto (Matriz DOFA)', 20, 45);
+            // --- 1. LOGO O NOMBRE DE EMPRESA ---
+            if (tenant?.logo) {
+                try {
+                    // El logo en tenant.logo es un base64 (DataURL)
+                    doc.addImage(tenant.logo, 'PNG', margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
+                } catch (e) {
+                    console.error("Error adding logo to PDF:", e);
+                    doc.setFontSize(9).setFont('helvetica', 'bold');
+                    doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
+                }
+            } else {
+                doc.setFontSize(9).setFont('helvetica', 'bold');
+                doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
+            }
 
-        let currentY = 55;
+            doc.setFontSize(14).text("Análisis de contexto", margin + col1Width + col2Width/2, margin + 14, { align: 'center' });
+            // Eliminado subtítulo ISO por solicitud del usuario
 
-        categories.forEach((cat) => {
-            const cfg = categoryConfig[cat];
-            const catItems = items.filter(i => i.category === cat);
+            doc.setFontSize(8).setFont('helvetica', 'normal');
+            const metaX = margin + col1Width + col2Width + 4;
+            // Subimos las posiciones Y unos píxeles (antes 6, 11, 16, 21)
+            doc.text(`Código: ${safeCode}`, metaX, margin + 5);
+            doc.text(`Versión: ${safeVersion}`, metaX, margin + 9.5);
+            doc.text(`Fecha: ${safeDate}`, metaX, margin + 14);
+            doc.text(`Página: 1 de 1`, metaX, margin + 18.5);
 
-            if (catItems.length > 0) {
-                doc.setFontSize(12);
-                const color = cfg.color.includes('emerald') ? [5, 150, 105] :
-                    cfg.color.includes('blue') ? [37, 99, 235] :
-                        cfg.color.includes('amber') ? [217, 119, 6] : [225, 29, 72];
+            let currentY = margin + headerHeight + 10;
 
-                doc.setTextColor(color[0], color[1], color[2]);
-                doc.text(cfg.plural.toUpperCase(), 20, currentY);
+            // --- 2. TABLAS POR CATEGORÍA ---
+            categories.forEach((cat) => {
+                const cfg = categoryConfig[cat];
+                const catItems = items.filter(i => i.category === cat);
+                const colors: Record<DOFACategory, [number, number, number]> = {
+                    FORTALEZA: [22, 163, 74], OPORTUNIDAD: [37, 99, 235], DEBILIDAD: [217, 119, 6], AMENAZA: [225, 29, 72]
+                };
 
-                const tableData = catItems.map(item => [
-                    item.description,
-                    item.impact,
-                    item.actions,
-                    item.responsible
-                ]);
+                doc.setFontSize(10).setFont('helvetica', 'bold');
+                doc.setTextColor(colors[cat][0], colors[cat][1], colors[cat][2]);
+                doc.text(`${cfg.plural.toUpperCase()}`, margin, currentY);
+                currentY += 4;
 
                 autoTable(doc, {
-                    startY: currentY + 5,
-                    head: [['Descripción', 'Impacto', 'Estrategia', 'Responsable']],
-                    body: tableData,
-                    theme: 'striped',
-                    headStyles: {
-                        fillColor: cfg.color.includes('emerald') ? [5, 150, 105] :
-                            cfg.color.includes('blue') ? [37, 99, 235] :
-                                cfg.color.includes('amber') ? [217, 119, 6] : [225, 29, 72]
-                    },
-                    margin: { left: 20, right: 20 },
-                    styles: { fontSize: 9 }
+                    startY: currentY,
+                    head: [['Descripción', 'Impacto', 'Estrategia de Acción', 'Responsable']],
+                    body: catItems.length > 0 ? catItems.map(item => [item.description || '-', item.impact || 'Medio', item.actions || '-', item.responsible || '-']) : [['Ninguno', '-', '-', '-']],
+                    styles: { fontSize: 8, cellPadding: 3, textColor: [30, 41, 59] },
+                    headStyles: { fillColor: colors[cat], textColor: [255, 255, 255], fontStyle: 'bold' },
+                    margin: { left: margin, right: margin }
                 });
 
-                currentY = (doc as any).lastAutoTable.finalY + 15;
-
-                if (currentY > 250 && cat !== categories[categories.length - 1]) {
+                currentY = (doc as any).lastAutoTable.finalY + 12;
+                if (currentY > pageHeight - 30) {
                     doc.addPage();
-                    currentY = 20;
+                    currentY = margin + 10;
                 }
-            }
-        });
+            });
 
-        doc.save(`Analisis-DOFA-QualityLink-${now.replace(/\//g, '-')}.pdf`);
-        toast.success('PDF descargado exitosamente');
+            // 100% SÍNCRONO: doc.save usa la ventana de activación del usuario nativa
+            doc.save(`Analisis_DOFA_${safeTenantName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'documento'}.pdf`);
+            toast.success('Documento descargado exitosamente');
+
+        } catch (error: any) {
+            console.error('ERROR_PDF:', error);
+            toast.error('Error al descargar');
+        }
     };
+
+
+
+
 
     const handleCreate = async () => {
         if (!newItem.description) { toast.error('La descripción es requerida'); return; }
@@ -213,7 +253,7 @@ export default function ContextoOrganizacionalPage() {
         <div className="min-h-screen bg-[#f8fafc] -m-6 p-8 font-sans text-slate-900 pb-20">
             {/* Page Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-                <div className="space-y-1">
+                <div className="space-y-2">
                     <div className="flex items-center gap-3">
                         <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Análisis de Contexto</h1>
                         <button
@@ -227,6 +267,15 @@ export default function ContextoOrganizacionalPage() {
                     <div className="flex items-center gap-3">
                         <span className="bg-[#136dec]/10 text-[#136dec] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 4.1</span>
                         <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">Metodología DOFA</span>
+                        
+                        <div className="w-px h-4 bg-slate-300 mx-1"></div>
+                        
+                        {/* UI Document Metadata (Now Dynamic) */}
+                        <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setShowConfig(true)}>
+                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Código: {docMetadata.code}</span>
+                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Versión: {docMetadata.version}</span>
+                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Aprobación: {docMetadata.approvalDate}</span>
+                        </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -256,7 +305,18 @@ export default function ContextoOrganizacionalPage() {
             </div>
 
             {/* DOFA Sections Grid */}
-            <div className="space-y-12">
+            <div id="pdf-content" ref={pdfRef} className={cn("bg-[#f8fafc] p-4 rounded-xl", isExporting && "p-8")}>
+                <div className={cn("hidden mb-6", isExporting && "block")}>
+                    <DocumentHeader 
+                        title="ANÁLISIS DE CONTEXTO (MATRIZ DOFA)"
+                        code={docMetadata.code}
+                        version={docMetadata.version}
+                        approvalDate={docMetadata.approvalDate}
+                        logoUrl={tenant?.logo || tenant?.logoUrl || undefined}
+                    />
+                </div>
+
+                <div className="space-y-12">
                 {categories.map(cat => {
                     const cfg = categoryConfig[cat];
                     const catItems = items.filter(i => i.category === cat);
@@ -369,6 +429,7 @@ export default function ContextoOrganizacionalPage() {
                     <p className="text-xs text-slate-300 font-medium mt-2">Inicie su análisis haciendo clic en el botón 'Agregar Factor'.</p>
                 </div>
             )}
+            </div>
 
             {/* Creation / Edit Form Dialog */}
             <Dialog open={showNew} onOpenChange={setShowNew}>
@@ -538,6 +599,57 @@ export default function ContextoOrganizacionalPage() {
                 </DialogContent>
             </Dialog>
             {/* ISO 9001:2015 Clause 4.1 Info Dialog - Professional Redesign */}
+            {/* Configuration Dialog */}
+            <Dialog open={showConfig} onOpenChange={setShowConfig}>
+                <DialogContent className="max-w-md bg-white border-none rounded-3xl shadow-2xl p-0 overflow-hidden">
+                    <div className="bg-slate-900 p-6 text-white flex items-center gap-3">
+                        <Settings className="w-6 h-6 text-blue-400" />
+                        <div>
+                            <h2 className="text-xl font-bold uppercase tracking-tight italic">Configurar Documento</h2>
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Metadatos del Analisis de Contexto</p>
+                        </div>
+                    </div>
+                    
+                    <div className="p-8 space-y-6 bg-white text-slate-900">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Código del Formato</Label>
+                            <Input 
+                                value={docMetadata.code}
+                                onChange={e => setDocMetadata({...docMetadata, code: e.target.value.toUpperCase()})}
+                                className="h-12 border-slate-100 bg-slate-50 font-black text-[#136dec] uppercase"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Versión</Label>
+                                <Input 
+                                    value={docMetadata.version}
+                                    onChange={e => setDocMetadata({...docMetadata, version: e.target.value})}
+                                    className="h-12 border-slate-100 bg-slate-50 font-black"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fecha de Aprobación</Label>
+                                <Input 
+                                    type="date"
+                                    value={docMetadata.approvalDate}
+                                    onChange={e => setDocMetadata({...docMetadata, approvalDate: e.target.value})}
+                                    className="h-12 border-slate-100 bg-slate-50 font-bold"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="pt-4 flex justify-between items-center text-[10px] text-slate-300 italic">
+                            <p>* Estos datos se verán reflejados en el encabezado oficial del PDF.</p>
+                        </div>
+                    </div>
+                    
+                    <div className="p-6 bg-slate-50 flex justify-end gap-3 border-t">
+                        <Button onClick={() => setShowConfig(false)} className="bg-slate-900 text-white font-black uppercase text-[10px] px-8 h-12 rounded-xl">Aplicar Configuración</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={showISOInfo} onOpenChange={setShowISOInfo}>
                 <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border border-gray-200 shadow-sm rounded-3xl overflow-hidden flex flex-col p-0 gap-0 font-sans">
                     {/* BEGIN: Header */}

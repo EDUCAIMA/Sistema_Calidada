@@ -70,9 +70,9 @@ export async function POST(request: Request) {
         return NextResponse.json(result);
     } catch (error: any) {
         console.error('Error detallado en Alcance API:', error);
-        return NextResponse.json({ 
+        return NextResponse.json({
             error: 'Error al procesar la solicitud en el servidor',
-            details: error.message 
+            details: error.message
         }, { status: 500 });
     }
 }

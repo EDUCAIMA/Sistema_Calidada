@@ -1,8 +1,12 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '@/context/app-context';
-import { Plus, Search, Edit, Trash2, Save, Eye, Users, Building2, Globe, ShieldAlert, ArrowUpRight, ArrowRight, ArrowDownRight, Clock, Box, HelpCircle } from 'lucide-react';
+import { 
+    Plus, Search, Edit, Trash2, Save, Eye, Users, Building2, 
+    Globe, ShieldAlert, ArrowUpRight, ArrowRight, ArrowDownRight, 
+    Clock, Box, HelpCircle, Download, Settings
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -14,9 +18,9 @@ import { cn } from '@/lib/utils';
 import { mockStakeholders } from '@/lib/mock-data';
 import type { Stakeholder, StakeholderType, StakeholderInfluence } from '@/lib/types';
 import { toast } from 'sonner';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Download } from 'lucide-react';
+import { DocumentHeader } from '@/components/DocumentHeader';
 
 const typeConfig: Record<StakeholderType, { label: string; icon: React.ReactNode; color: string; bg: string; softBg: string }> = {
     INTERNO: { label: 'Interno', icon: <Building2 className="h-5 w-5" />, color: 'text-indigo-600', bg: 'bg-indigo-600', softBg: 'bg-indigo-50' },
@@ -38,6 +42,16 @@ export default function PartesInteresadasPage() {
     const [selectedItem, setSelectedItem] = useState<Stakeholder | null>(null);
     const [showISOInfo, setShowISOInfo] = useState(false);
     const [newItem, setNewItem] = useState<Partial<Stakeholder>>({ type: 'EXTERNO', influence: 'MEDIA' });
+    const [isExporting, setIsExporting] = useState(false);
+    const pdfRef = useRef<HTMLDivElement>(null);
+
+    // Document Metadata State (Configurable)
+    const [docMetadata, setDocMetadata] = useState({
+        code: 'DIR-REG-002',
+        version: '01',
+        approvalDate: new Date().toISOString().split('T')[0]
+    });
+    const [showConfig, setShowConfig] = useState(false);
 
     useEffect(() => {
         const fetchStakeholders = async () => {
@@ -57,73 +71,96 @@ export default function PartesInteresadasPage() {
     }, [tenant.id]);
 
     const handleDownloadPDF = () => {
-        const doc = new jsPDF();
-        const now = new Date().toLocaleDateString();
+        try {
+            const doc = new jsPDF('p', 'mm', 'letter');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const margin = 20;
 
-        // Header
-        doc.setFontSize(22);
-        doc.setTextColor(0, 113, 197); // Intel Blue
-        doc.text('QualityLink QMS', 20, 20);
-        
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text('Sistema de Gestión de Calidad - ISO 9001:2015', 20, 28);
-        doc.text(`Fecha de exportación: ${now}`, 150, 28);
-        
-        doc.setLineWidth(0.5);
-        doc.setDrawColor(0, 113, 197);
-        doc.line(20, 32, 190, 32);
+            const safeTenantName = tenant?.name || "Calidad SGC";
+            const safeCode = docMetadata.code || 'DIR-REG-002';
+            const safeVersion = docMetadata.version || '01';
+            const safeDate = docMetadata.approvalDate || new Date().toISOString().split('T')[0];
 
-        doc.setFontSize(16);
-        doc.setTextColor(30);
-        doc.text('Identificación de Partes Interesadas', 20, 45);
+            // --- 1. ENCABEZADO FORMAL ISO ---
+            const headerHeight = 22;
+            doc.setDrawColor(30, 41, 59);
+            doc.setLineWidth(0.4);
+            doc.rect(margin, margin, pageWidth - (margin * 2), headerHeight);
+            
+            const col1Width = 40;
+            const col3Width = 60;
+            const col2Width = pageWidth - (margin * 2) - col1Width - col3Width;
 
-        let currentY = 55;
+            doc.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
+            doc.line(margin + col1Width + col2Width, margin, margin + col1Width + col2Width, margin + headerHeight);
 
-        const types: StakeholderType[] = ['INTERNO', 'EXTERNO'];
-
-        types.forEach((type) => {
-            const cfg = typeConfig[type];
-            const typeItems = stakeholders.filter(s => s.type === type);
-
-            if (typeItems.length > 0) {
-                doc.setFontSize(12);
-                const color = type === 'INTERNO' ? [79, 70, 229] : [37, 99, 235];
-                
-                doc.setTextColor(color[0], color[1], color[2]);
-                doc.text(cfg.label.toUpperCase(), 20, currentY);
-                
-                const tableData = typeItems.map(item => [
-                    item.name,
-                    item.needs,
-                    item.expectations,
-                    item.influence,
-                    item.strategy
-                ]);
-
-                autoTable(doc, {
-                    startY: currentY + 5,
-                    head: [['Interesado', 'Requisitos', 'Expectativas', 'Influencia', 'Estrategia']],
-                    body: tableData,
-                    theme: 'striped',
-                    headStyles: { 
-                        fillColor: type === 'INTERNO' ? [79, 70, 229] : [37, 99, 235]
-                    },
-                    margin: { left: 20, right: 20 },
-                    styles: { fontSize: 8 }
-                });
-
-                currentY = (doc as any).lastAutoTable.finalY + 15;
-
-                if (currentY > 250 && type !== types[types.length - 1]) {
-                    doc.addPage();
-                    currentY = 20;
+            // --- LOGO O NOMBRE DE EMPRESA ---
+            if (tenant?.logo) {
+                try {
+                    doc.addImage(tenant.logo, 'PNG', margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
+                } catch (e) {
+                    doc.setFontSize(9).setFont('helvetica', 'bold');
+                    doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
                 }
+            } else {
+                doc.setFontSize(9).setFont('helvetica', 'bold');
+                doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
             }
-        });
 
-        doc.save(`Partes-Interesadas-QualityLink-${now.replace(/\//g, '-')}.pdf`);
-        toast.success('PDF de Partes Interesadas descargado');
+            // --- TÍTULO ---
+            doc.setFontSize(14).text("Matriz de Partes Interesadas", margin + col1Width + col2Width/2, margin + 14, { align: 'center' });
+
+            // --- METADATOS ---
+            doc.setFontSize(8).setFont('helvetica', 'normal');
+            const metaX = margin + col1Width + col2Width + 4;
+            doc.text(`Código: ${safeCode}`, metaX, margin + 5);
+            doc.text(`Versión: ${safeVersion}`, metaX, margin + 9.5);
+            doc.text(`Fecha: ${safeDate}`, metaX, margin + 14);
+            doc.text(`Página: 1 de 1`, metaX, margin + 18.5);
+
+            let currentY = margin + headerHeight + 10;
+
+            // --- TABLA DE STAKEHOLDERS ---
+            const tableData = stakeholders.map(s => [
+                s.type === 'INTERNO' ? 'INTERNO' : 'EXTERNO',
+                s.name.toUpperCase(),
+                s.needs || 'N/A',
+                s.expectations || 'N/A',
+                s.influence
+            ]);
+
+            autoTable(doc, {
+                startY: currentY,
+                margin: { left: margin, right: margin },
+                head: [['TIPO', 'PARTE INTERESADA', 'REQUISITOS / NECESIDADES', 'EXPECTATIVAS', 'INFLUENCIA']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: { 
+                    fillColor: [30, 41, 59], 
+                    textColor: [255, 255, 255], 
+                    fontSize: 10, 
+                    fontStyle: 'bold',
+                    halign: 'center'
+                },
+                columnStyles: {
+                    0: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+                    1: { cellWidth: 40, fontStyle: 'bold' },
+                    2: { cellWidth: 'auto' },
+                    3: { cellWidth: 'auto', fontStyle: 'italic' },
+                    4: { cellWidth: 20, halign: 'center' }
+                },
+                styles: { fontSize: 9, cellPadding: 5 },
+                didDrawPage: (data) => {
+                    // Si hay múltiples páginas, se podría repetir algo aquí
+                }
+            });
+
+            doc.save(`Matriz_Partes_Interesadas_${safeTenantName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+            toast.success('Documento descargado exitosamente');
+        } catch (error) {
+            console.error('Error generando PDF:', error);
+            toast.error('Error al generar el PDF');
+        }
     };
 
     const stats = {
@@ -212,6 +249,15 @@ export default function PartesInteresadasPage() {
                     <div className="flex items-center gap-3">
                         <span className="bg-[#136dec]/10 text-[#136dec] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 4.2</span>
                         <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">Requisitos y Expectativas</span>
+                        
+                        <div className="w-px h-4 bg-slate-300 mx-1"></div>
+                        
+                        {/* UI Document Metadata (Now Dynamic) */}
+                        <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setShowConfig(true)}>
+                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Código: {docMetadata.code}</span>
+                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Versión: {docMetadata.version}</span>
+                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Aprobación: {docMetadata.approvalDate}</span>
+                        </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -240,8 +286,18 @@ export default function PartesInteresadasPage() {
                 </div>
             </div>
 
-            {/* Dash KPIs */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            <div id="pdf-content" ref={pdfRef} className={cn("bg-[#f8fafc] p-4 rounded-xl", isExporting && "p-8")}>
+                <div className={cn("hidden mb-6", isExporting && "block")}>
+                    <DocumentHeader 
+                        title="MATRIZ DE PARTES INTERESADAS"
+                        code={docMetadata.code}
+                        version={docMetadata.version}
+                        approvalDate={docMetadata.approvalDate}
+                        logoUrl={tenant?.logoUrl || undefined}
+                    />
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                 {[
                     { label: 'Total Entidades', value: stats.total, icon: <Users className="h-5 w-5" />, bg: 'bg-slate-100', color: 'text-slate-700' },
                     { label: 'Contexto Interno', value: stats.internos, icon: <Building2 className="h-5 w-5" />, bg: 'bg-indigo-100', color: 'text-indigo-700' },
@@ -369,6 +425,7 @@ export default function PartesInteresadasPage() {
                     <p className="text-xs text-slate-300 font-medium mt-2 italic tracking-wide">Inicie la identificación para dar cumplimiento a la cláusula 4.2.</p>
                 </div>
             )}
+            </div>
 
             {/* Form Dialog for Create/Edit */}
             <Dialog open={showNew} onOpenChange={setShowNew}>
@@ -519,6 +576,53 @@ export default function PartesInteresadasPage() {
                     )}
                 </DialogContent>
             </Dialog>
+            {/* Configuration Dialog */}
+            <Dialog open={showConfig} onOpenChange={setShowConfig}>
+                <DialogContent className="max-w-md bg-white border-none rounded-3xl shadow-2xl p-0 overflow-hidden">
+                    <div className="bg-slate-900 p-6 text-white flex items-center gap-3">
+                        <Settings className="w-6 h-6 text-blue-400" />
+                        <div>
+                            <h2 className="text-xl font-bold uppercase tracking-tight italic">Configurar Documento</h2>
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Metadatos de la Matriz de Partes Interesadas</p>
+                        </div>
+                    </div>
+                    
+                    <div className="p-8 space-y-6 bg-white text-slate-900">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Código del Formato</Label>
+                            <Input 
+                                value={docMetadata.code}
+                                onChange={e => setDocMetadata({...docMetadata, code: e.target.value.toUpperCase()})}
+                                className="h-12 border-slate-100 bg-slate-50 font-black text-[#136dec] uppercase"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Versión</Label>
+                                <Input 
+                                    value={docMetadata.version}
+                                    onChange={e => setDocMetadata({...docMetadata, version: e.target.value})}
+                                    className="h-12 border-slate-100 bg-slate-50 font-black"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fecha de Aprobación</Label>
+                                <Input 
+                                    type="date"
+                                    value={docMetadata.approvalDate}
+                                    onChange={e => setDocMetadata({...docMetadata, approvalDate: e.target.value})}
+                                    className="h-12 border-slate-100 bg-slate-50 font-bold"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="p-6 bg-slate-50 flex justify-end gap-3 border-t">
+                        <Button onClick={() => setShowConfig(false)} className="bg-slate-900 text-white font-black uppercase text-[10px] px-8 h-12 rounded-xl">Aplicar Configuración</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* ISO 9001:2015 Clause 4.2 Info Dialog */}
             <Dialog open={showISOInfo} onOpenChange={setShowISOInfo}>
                 <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border border-gray-200 shadow-sm rounded-3xl overflow-hidden flex flex-col p-0 gap-0 font-sans">

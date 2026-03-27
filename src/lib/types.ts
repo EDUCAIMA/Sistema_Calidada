@@ -15,6 +15,7 @@ export interface Tenant {
   name: string;
   slug: string;
   logo?: string;
+  logoUrl?: string; // Standardized property for image source
   plan: 'BASICO' | 'PROFESIONAL' | 'ENTERPRISE';
   active: boolean;
   createdAt: Date;
@@ -102,6 +103,7 @@ export interface Document {
   approvedBy?: string;
   approvedDate?: Date;
   nextReviewDate?: Date;
+  author?: string;
   createdAt: Date;
   updatedAt: Date;
 }

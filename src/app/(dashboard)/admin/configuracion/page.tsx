@@ -11,8 +11,10 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { useApp } from '@/context/app-context';
 
 export default function ConfiguracionPage() {
+    const { currentUser, tenant, setTenant, setCurrentUser } = useApp();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [userData, setUserData] = useState<any>(null);
@@ -32,61 +34,38 @@ export default function ConfiguracionPage() {
         industry: '',
         timezone: 'America/Bogota',
         currency: 'USD',
-        phone: ''
+        phone: '',
+        logo: ''
     });
 
     useEffect(() => {
-        const loadData = async () => {
-            try {
-                const storedUser = localStorage.getItem('sgc_user');
-                const storedTenant = localStorage.getItem('sgc_tenant');
+        if (currentUser && tenant.id) {
+            setUserData(currentUser);
+            setTenantData(tenant);
+            
+            setUserForm({
+                name: currentUser.name || '',
+                position: currentUser.position || '',
+                phone: currentUser.phone || '',
+                password: '',
+                confirmPassword: ''
+            });
 
-                if (storedUser && storedTenant) {
-                    const u = JSON.parse(storedUser);
-                    const t = JSON.parse(storedTenant);
-
-                    // Fetch fresh data from API
-                    const [userRes, tenantRes] = await Promise.all([
-                        fetch(`/api/admin/users/${u.id}`),
-                        fetch(`/api/admin/tenants/${t.id}`)
-                    ]);
-
-                    if (userRes.ok && tenantRes.ok) {
-                        const userFull = await userRes.json();
-                        const tenantFull = await tenantRes.json();
-
-                        setUserData(userFull);
-                        setTenantData(tenantFull);
-
-                        setUserForm({
-                            name: userFull.name || '',
-                            position: userFull.position || '',
-                            phone: userFull.phone || '',
-                            password: '',
-                            confirmPassword: ''
-                        });
-
-                        setTenantForm({
-                            name: tenantFull.name || '',
-                            industry: tenantFull.industry || '',
-                            timezone: tenantFull.timezone || 'America/Bogota',
-                            currency: tenantFull.currency || 'USD',
-                            phone: tenantFull.phone || ''
-                        });
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading settings:', error);
-                toast.error('Error al cargar la configuración');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadData();
-    }, []);
+            setTenantForm({
+                name: tenant.name || '',
+                industry: tenant.industry || '',
+                timezone: tenant.timezone || 'America/Bogota',
+                currency: tenant.currency || 'USD',
+                phone: tenant.phone || '',
+                logo: tenant.logo || ''
+            });
+            
+            setLoading(false);
+        }
+    }, [currentUser, tenant]);
 
     const handleSaveUser = async () => {
+        console.log('Saving user...', userData?.id);
         if (userForm.password && userForm.password !== userForm.confirmPassword) {
             toast.error('Las contraseñas no coinciden');
             return;
@@ -94,7 +73,9 @@ export default function ConfiguracionPage() {
 
         setSaving(true);
         try {
-            const res = await fetch(`/api/admin/users/${userData.id}`, {
+            const url = `/api/admin/users/${userData.id}`;
+            console.log('PATCH to', url);
+            const res = await fetch(url, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -105,35 +86,98 @@ export default function ConfiguracionPage() {
                 })
             });
 
-            if (!res.ok) throw new Error('Error al guardar');
+            console.log('Response status:', res.status);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                console.error('Save user failed:', errData);
+                throw new Error('Error al guardar');
+            }
             
             const updated = await res.json();
             setUserData(updated);
-            localStorage.setItem('sgc_user', JSON.stringify(updated));
+            try {
+                localStorage.setItem('sgc_user', JSON.stringify(updated));
+            } catch (e) {
+                console.error('LocalStorage user error:', e);
+            }
             toast.success('Perfil actualizado correctamente');
         } catch (error) {
+            console.error('handleSaveUser error:', error);
             toast.error('Error al actualizar el perfil');
         } finally {
             setSaving(false);
         }
     };
 
+    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 1024 * 1024) { // 1MB limit
+            toast.error('La imagen es demasiado grande. Máximo 1MB.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            const base64Logo = reader.result as string;
+            setTenantForm({ ...tenantForm, logo: base64Logo });
+            
+            // Auto-save logo
+            try {
+                const res = await fetch(`/api/admin/tenants/${tenantData.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...tenantForm, logo: base64Logo })
+                });
+
+                if (res.ok) {
+                    const updated = await res.json();
+                    setTenant(updated);
+                    toast.success('Logo actualizado y guardado');
+                } else {
+                    throw new Error('Error al guardar el logo');
+                }
+            } catch (error) {
+                console.error('Error auto-saving logo:', error);
+                toast.error('No se pudo guardar el logo automáticamente');
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
     const handleSaveTenant = async () => {
+        console.log('Saving tenant...', tenantData?.id);
+        if (!tenantData?.id) {
+            console.error('No tenant ID found');
+            toast.error('Error de sesión: No hay ID de empresa');
+            return;
+        }
+
         setSaving(true);
         try {
-            const res = await fetch(`/api/admin/tenants/${tenantData.id}`, {
+            const url = `/api/admin/tenants/${tenantData.id}`;
+            console.log('PATCH to', url);
+            const res = await fetch(url, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(tenantForm)
             });
 
-            if (!res.ok) throw new Error('Error al guardar');
+            console.log('Response status:', res.status);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                console.error('Save tenant failed:', errData);
+                throw new Error('Error al guardar');
+            }
             
             const updated = await res.json();
             setTenantData(updated);
-            localStorage.setItem('sgc_tenant', JSON.stringify(updated));
+            setTenant(updated); // Actualizar contexto global
+            
             toast.success('Configuración de empresa actualizada');
         } catch (error) {
+            console.error('handleSaveTenant error:', error);
             toast.error('Error al actualizar la empresa');
         } finally {
             setSaving(false);
@@ -230,7 +274,39 @@ export default function ConfiguracionPage() {
                             <CardDescription>Ajustes generales que aplican a todo el entorno de trabajo.</CardDescription>
                         </CardHeader>
                         <CardContent className="pt-6 space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="flex items-center gap-6 pb-6 border-b border-border/50">
+                                <div className="h-24 w-24 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-white shadow-sm">
+                                    {tenantForm.logo ? (
+                                        <img src={tenantForm.logo} alt="Logo" className="h-full w-full object-contain p-2" />
+                                    ) : (
+                                        <Building className="h-10 w-10 text-slate-300" />
+                                    )}
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-sm font-bold uppercase tracking-wider text-slate-500">Logo Corporativo</Label>
+                                    <div className="flex items-center gap-3">
+                                        <Input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            onChange={handleLogoUpload} 
+                                            className="h-10 text-xs w-[250px] cursor-pointer"
+                                        />
+                                        {tenantForm.logo && (
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                onClick={() => setTenantForm({...tenantForm, logo: ''})}
+                                                className="text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                                            >
+                                                Eliminar
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">Recomendado: PNG fondo transparente (Máx. 1MB)</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="companyName">Nombre de la Empresa</Label>
                                     <Input id="companyName" value={tenantForm.name} onChange={(e) => setTenantForm({...tenantForm, name: e.target.value})} />
