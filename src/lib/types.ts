@@ -15,7 +15,11 @@ export interface Tenant {
   name: string;
   slug: string;
   logo?: string;
-  logoUrl?: string; // Standardized property for image source
+  logoUrl?: string;
+  industry?: string;
+  timezone?: string;
+  currency?: string;
+  phone?: string;
   plan: 'BASICO' | 'PROFESIONAL' | 'ENTERPRISE';
   active: boolean;
   createdAt: Date;
@@ -29,6 +33,7 @@ export interface User {
   name: string;
   position?: string;
   role: Role;
+  phone?: string;
   avatar?: string;
   active: boolean;
   createdAt: Date;
