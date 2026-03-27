@@ -56,11 +56,11 @@ const typeLabels: Record<DocumentType, string> = {
 };
 
 const baseDocuments: Document[] = [
-    { id: 'bd-1', code: 'ES.CAL.MA.01', name: 'Alcance del Sistema de Gestión', type: 'MANUAL', processName: 'ESTRATEGICO', processId: 'p-cal-01', currentVersion: 1, status: 'APROBADO', author: 'Eduardo Caicedo', fileName: 'alcance-sgc.pdf' },
-    { id: 'bd-2', code: 'ES.CAL.PO.01', name: 'Política de Calidad', type: 'POLITICA', processName: 'ESTRATEGICO', processId: 'p-cal-01', currentVersion: 1, status: 'APROBADO', author: 'Eduardo Caicedo', fileName: 'politica-calidad.pdf' },
-    { id: 'bd-3', code: 'AP.CAL.OT.01', name: 'Mapa de Procesos', type: 'OTRO', processName: 'APOYO', processId: 'p-cal-01', currentVersion: 2, status: 'APROBADO', author: 'Eduardo Caicedo', fileName: 'mapa-procesos.pdf' },
-    { id: 'bd-4', code: 'ES.CAL.RE.01', name: 'Matriz de Partes Interesadas', type: 'REGISTRO', processName: 'ESTRATEGICO', processId: 'p-cal-01', currentVersion: 1, status: 'APROBADO', author: 'Director de Calidad', fileName: 'partes-interesadas.pdf' },
-    { id: 'bd-5', code: 'ES.CAL.RE.02', name: 'Matriz DOFA', type: 'REGISTRO', processName: 'ESTRATEGICO', processId: 'p-cal-01', currentVersion: 1, status: 'APROBADO', author: 'Director de Calidad', fileName: 'matriz-dofa.pdf' },
+    { id: 'bd-1', tenantId: 'default', code: 'ES.CAL.MA.01', name: 'Alcance del Sistema de Gestión', type: 'MANUAL', processName: 'ESTRATEGICO', processId: 'p-cal-01', currentVersion: 1, status: 'APROBADO', author: 'Eduardo Caicedo', fileName: 'alcance-sgc.pdf', createdBy: 'system', createdAt: new Date(), updatedAt: new Date() },
+    { id: 'bd-2', tenantId: 'default', code: 'ES.CAL.PO.01', name: 'Política de Calidad', type: 'POLITICA', processName: 'ESTRATEGICO', processId: 'p-cal-01', currentVersion: 1, status: 'APROBADO', author: 'Eduardo Caicedo', fileName: 'politica-calidad.pdf', createdBy: 'system', createdAt: new Date(), updatedAt: new Date() },
+    { id: 'bd-3', tenantId: 'default', code: 'AP.CAL.OT.01', name: 'Mapa de Procesos', type: 'OTRO', processName: 'APOYO', processId: 'p-cal-01', currentVersion: 2, status: 'APROBADO', author: 'Eduardo Caicedo', fileName: 'mapa-procesos.pdf', createdBy: 'system', createdAt: new Date(), updatedAt: new Date() },
+    { id: 'bd-4', tenantId: 'default', code: 'ES.CAL.RE.01', name: 'Matriz de Partes Interesadas', type: 'REGISTRO', processName: 'ESTRATEGICO', processId: 'p-cal-01', currentVersion: 1, status: 'APROBADO', author: 'Director de Calidad', fileName: 'partes-interesadas.pdf', createdBy: 'system', createdAt: new Date(), updatedAt: new Date() },
+    { id: 'bd-5', tenantId: 'default', code: 'ES.CAL.RE.02', name: 'Matriz DOFA', type: 'REGISTRO', processName: 'ESTRATEGICO', processId: 'p-cal-01', currentVersion: 1, status: 'APROBADO', author: 'Director de Calidad', fileName: 'matriz-dofa.pdf', createdBy: 'system', createdAt: new Date(), updatedAt: new Date() },
 ];
 
 export default function DocumentosPage() {
