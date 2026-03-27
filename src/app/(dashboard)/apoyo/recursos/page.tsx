@@ -83,7 +83,7 @@ export default function RecursosPage() {
 
     const handlePermissionChange = (cargoName: string, module: string, perm: string, checked: boolean) => {
         setPermissions(prev => {
-            const cargoPerms = { ...prev[cargoName] } || {};
+            const cargoPerms = { ...(prev[cargoName] || {}) };
             const modulePerms = [...(cargoPerms[module] || [])];
             
             if (checked) {
