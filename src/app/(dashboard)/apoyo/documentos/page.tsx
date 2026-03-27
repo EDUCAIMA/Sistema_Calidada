@@ -177,7 +177,7 @@ export default function DocumentosPage() {
                     });
 
                     if (data.length > 0 && !newDoc.processId) {
-                        setNewDoc(prev => ({ ...prev, processId: data[0].id }));
+                        setNewDoc((prev: any) => ({ ...prev, processId: data[0].id }));
                     }
                 }
             } catch (error) { 
@@ -206,7 +206,7 @@ export default function DocumentosPage() {
             const generatedCode = `${prefixToMatch}.${nextIdx}`;
             
             if (newDoc.code !== generatedCode) {
-                setNewDoc(prev => ({ ...prev, code: generatedCode }));
+                setNewDoc((prev: any) => ({ ...prev, code: generatedCode }));
             }
         }
     }, [newDoc.type, newDoc.processId, showNew, docTypePrefixes, catPrefixes, documents]);
