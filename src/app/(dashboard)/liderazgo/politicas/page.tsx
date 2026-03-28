@@ -140,6 +140,65 @@ export default function PoliticasPage() {
     approvalDate: '2026-03-21'
   });
 
+  // Coding Standard States
+  const [processes, setProcesses] = useState<any[]>([]);
+  const [catPrefixes, setCatPrefixes] = useState<any>(null);
+  const [docTypePrefixes, setDocTypePrefixes] = useState<any>(null);
+  const [builder, setBuilder] = useState({
+      processId: '',
+      type: 'REGISTRO',
+      consecutive: '001'
+  });
+
+  useEffect(() => {
+    if (tenant?.id) {
+      // Fetch standards for coding
+      const savedCats = localStorage.getItem('sgc_cat_prefixes');
+      const savedDocs = localStorage.getItem('sgc_doc_prefixes');
+      if (savedCats) setCatPrefixes(JSON.parse(savedCats));
+      if (savedDocs) setDocTypePrefixes(JSON.parse(savedDocs));
+
+      const fetchProcesses = async () => {
+        try {
+          const res = await fetch(`/api/procesos?tenantId=${tenant.id}`);
+          const data = await res.json();
+          if (data && !data.error) setProcesses(data);
+        } catch (e) { console.error(e); }
+      };
+      fetchProcesses();
+
+      // Fetch metadata
+      const fetchMetadata = async () => {
+        try {
+          const res = await fetch(`/api/formatos?tenantId=${tenant.id}&moduleKey=5.2`);
+          const data = await res.json();
+          if (data && !data.error) {
+            setDocMetadata({
+              code: data.code,
+              version: data.version,
+              approvalDate: data.approvalDate
+            });
+          }
+        } catch (error) { console.error(error); }
+      };
+      fetchMetadata();
+    }
+  }, [tenant?.id]);
+
+  // Auto-generate code when builder changes
+  useEffect(() => {
+    if (showConfig && builder.processId && catPrefixes && docTypePrefixes) {
+      const process = processes.find(p => p.id === builder.processId);
+      if (process) {
+        const macro = catPrefixes[process.category] || 'GN';
+        const procCode = process.code || 'PROC';
+        const type = docTypePrefixes[builder.type] || 'RE';
+        const generated = `${macro}.${procCode}.${type}.${builder.consecutive}`;
+        setDocMetadata(prev => ({ ...prev, code: generated }));
+      }
+    }
+  }, [builder, showConfig, catPrefixes, docTypePrefixes, processes]);
+
   const filteredPolicies = policies.filter(policy =>
     policy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     policy.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -740,12 +799,59 @@ export default function PoliticasPage() {
           </div>
 
           <div className="p-8 space-y-6 bg-white text-slate-900">
+            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl space-y-4">
+              <p className="text-[10px] font-black uppercase text-indigo-400 mb-2">Asistente de Codificación Estándar</p>
+              
+              <div className="grid grid-cols-1 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-[9px] font-black uppercase text-slate-500 ml-1">Seleccionar Proceso Responsable</Label>
+                  <Select value={builder.processId} onValueChange={(val) => setBuilder({...builder, processId: val})}>
+                    <SelectTrigger className="h-10 bg-white border-slate-200 font-bold text-xs uppercase">
+                      <SelectValue placeholder="SELECCIONAR PROCESO" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {processes.map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs font-bold uppercase">
+                          {p.name} ({p.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-black uppercase text-slate-500 ml-1">Tipo Documental</Label>
+                    <Select value={builder.type} onValueChange={(val) => setBuilder({...builder, type: val})}>
+                      <SelectTrigger className="h-10 bg-white border-slate-200 font-bold text-xs uppercase">
+                        <SelectValue placeholder="TIPO" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {docTypePrefixes && Object.keys(docTypePrefixes).map(t => (
+                          <SelectItem key={t} value={t} className="text-xs font-bold uppercase">{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-black uppercase text-slate-500 ml-1">Consecutivo</Label>
+                    <Input 
+                      value={builder.consecutive}
+                      onChange={e => setBuilder({...builder, consecutive: e.target.value})}
+                      className="h-10 bg-white border-slate-200 font-bold text-xs text-center"
+                      placeholder="001"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Código del Formato</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Código Final (Generado o Manual)</Label>
               <Input
                 value={docMetadata.code}
                 onChange={e => setDocMetadata({ ...docMetadata, code: e.target.value.toUpperCase() })}
-                className="h-12 border-slate-100 bg-slate-50 font-black text-[#136dec] uppercase"
+                className="h-12 border-slate-100 bg-slate-50 font-black text-[#136dec] uppercase text-center text-lg"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">

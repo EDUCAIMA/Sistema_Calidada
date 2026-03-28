@@ -104,7 +104,16 @@ export default function DocumentosPage() {
         version: 1,
         autor: currentUser?.name || 'Sistema'
     });
+    const [docTypeLabels, setDocTypeLabels] = useState<Record<DocumentType, string>>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('sgc_doc_labels');
+            return saved ? JSON.parse(saved) : typeLabels;
+        }
+        return typeLabels;
+    });
     const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
+    const [isEditingStandard, setIsEditingStandard] = useState(false);
+
 
     // Persistencia Local para este demo
     useEffect(() => {
@@ -135,7 +144,9 @@ export default function DocumentosPage() {
     useEffect(() => {
         localStorage.setItem('sgc_cat_prefixes', JSON.stringify(catPrefixes));
         localStorage.setItem('sgc_doc_prefixes', JSON.stringify(docTypePrefixes));
-    }, [catPrefixes, docTypePrefixes]);
+        localStorage.setItem('sgc_doc_labels', JSON.stringify(docTypeLabels));
+    }, [catPrefixes, docTypePrefixes, docTypeLabels]);
+
 
     useEffect(() => {
         if (showStandardization) {
@@ -414,9 +425,10 @@ export default function DocumentosPage() {
                                         <SelectTrigger className="w-44 border-slate-200 bg-white h-10 rounded-xl font-bold uppercase text-[10px] tracking-widest"><SelectValue placeholder="TIPO DOCUMENTO" /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="ALL">TODOS</SelectItem>
-                                            {Object.entries(typeLabels).map(([k, v]) => (
+                                            {Object.entries(docTypeLabels).map(([k, v]) => (
                                                 <SelectItem key={k} value={k}>{v.toUpperCase()}</SelectItem>
                                             ))}
+
                                         </SelectContent>
                                     </Select>
                                     <Button variant="outline" className="h-10 w-10 p-0 border-slate-200 bg-white rounded-xl text-slate-400 hover:text-slate-900 transition-colors"><Filter className="w-4 h-4"/></Button>
@@ -444,7 +456,8 @@ export default function DocumentosPage() {
                                                         <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-white transition-colors border border-slate-100">{getFileIcon(doc.fileName)}</div>
                                                         <div className="flex flex-col">
                                                             <span className="font-bold text-slate-800 text-sm leading-tight group-hover:text-blue-600 transition-colors">{doc.name}</span>
-                                                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{typeLabels[doc.type]}</span>
+                                                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{docTypeLabels[doc.type]}</span>
+
                                                         </div>
                                                     </div>
                                                 </TableCell>
@@ -472,89 +485,169 @@ export default function DocumentosPage() {
                 </TabsContent>
 
                 {/* 7.5.2 ESTANDARIZACION (Configuracion) */}
-                <TabsContent value="estandarizacion" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="border border-slate-200 rounded-2xl shadow-sm bg-white overflow-hidden">
-                            <CardHeader className="bg-slate-50 border-b border-slate-100 p-6 flex flex-row items-center justify-between">
-                                <div>
-                                    <CardTitle className="text-sm font-black uppercase tracking-tight">Prefijos de Tipos de Documento</CardTitle>
-                                    <CardDescription className="text-xs font-bold uppercase tracking-widest">Identificación única (7.5.2-a)</CardDescription>
-                                </div>
-                                <Button variant="ghost" size="icon" onClick={() => setShowStandardization(true)} className="h-8 w-8 text-slate-400 hover:text-slate-900"><Settings2 className="w-4 h-4"/></Button>
-                            </CardHeader>
-                            <CardContent className="p-6">
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                    {Object.entries(docTypePrefixes).map(([type, pref]) => (
-                                        <div key={type} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
-                                            <span className="text-[10px] font-black text-slate-500 uppercase">{typeLabels[type as DocumentType]}</span>
-                                            <span className="text-xs font-black text-slate-900">{pref}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
+                <TabsContent value="estandarizacion" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex justify-end mb-2">
+                        <Button 
+                            onClick={() => setIsEditingStandard(!isEditingStandard)} 
+                            variant="outline" 
+                            className={cn(
+                                "gap-2 px-6 font-black uppercase text-xs tracking-widest h-12 rounded-xl transition-all",
+                                isEditingStandard ? "bg-amber-500 text-white border-amber-600 hover:bg-amber-600" : "bg-white text-slate-700 border-slate-200"
+                            )}
+                        >
+                            {isEditingStandard ? <><Save className="w-4 h-4" /> Finalizar Edición</> : <><Edit className="w-4 h-4" /> Editar Estándares</>}
+                        </Button>
+                    </div>
 
-                        <Card className="border border-slate-200 rounded-2xl shadow-sm bg-white overflow-hidden">
-                            <CardHeader className="bg-slate-50 border-b border-slate-100 p-6 flex flex-row items-center justify-between">
-                                <div>
-                                    <CardTitle className="text-sm font-black uppercase tracking-tight">Iniciadores de Proceso</CardTitle>
-                                    <CardDescription className="text-xs font-bold uppercase tracking-widest">Codificación de Cláusula 4.4</CardDescription>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {/* 1. MACROPROCESOS */}
+                        <Card className="border border-slate-200 rounded-[2.5rem] shadow-sm bg-white overflow-hidden flex flex-col">
+                            <CardHeader className="bg-slate-50 border-b border-slate-100 p-8">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-indigo-500 rounded-2xl text-white shadow-lg shadow-indigo-200">
+                                        <Layers className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-xl font-black uppercase tracking-tighter text-slate-900">Macroprocesos</CardTitle>
+                                        <CardDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Codificación Superior</CardDescription>
+                                    </div>
                                 </div>
-                                <Button variant="ghost" size="icon" onClick={() => setShowStandardization(true)} className="h-8 w-8 text-slate-400 hover:text-slate-900"><Settings2 className="w-4 h-4"/></Button>
                             </CardHeader>
-                            <CardContent className="p-6">
-                                <div className="grid grid-cols-2 gap-3">
-                                    {Object.entries(catPrefixes).map(([cat, pref]) => (
-                                        <div key={cat} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
-                                            <span className="text-[10px] font-black text-slate-500 uppercase">{cat}</span>
-                                            <span className="text-xs font-black text-indigo-600">{pref}</span>
+                            <CardContent className="p-8 space-y-4">
+                                {Object.entries(catPrefixes).map(([cat, pref]) => (
+                                    <div key={cat} className="group flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-2xl transition-all">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Categoría</span>
+                                            <span className="text-sm font-black text-slate-800 uppercase leading-none">{cat}</span>
                                         </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="border-none shadow-2xl bg-slate-900 rounded-[2rem] overflow-hidden relative group">
-                            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity"><LayoutGrid className="w-32 h-32 text-white"/></div>
-                            <CardHeader className="p-10 pb-6 relative z-10">
-                                <CardTitle className="text-white text-3xl font-[900] italic tracking-tighter flex items-center gap-4">
-                                     <Layers className="w-8 h-8 text-indigo-400" /> Procesos Operativos
-                                </CardTitle>
-                                <CardDescription className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mt-2 ml-12">Vinculación Cláusula 4.4</CardDescription>
-                            </CardHeader>
-                            <CardContent className="px-10 pb-10 pt-0 relative z-10 space-y-6">
-                                <div className="space-y-3">
-                                    {processes.map(p => (
-                                        <div key={p.id} className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all group/item">
-                                            <div className="flex items-center gap-4">
-                                                <div className="h-10 w-10 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400 font-black text-xs border border-indigo-500/30">
-                                                    {p.code}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-white font-black text-sm tracking-tight group-hover/item:text-indigo-300 transition-colors uppercase">{p.name}</span>
-                                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{p.category}</span>
-                                                </div>
+                                        {isEditingStandard ? (
+                                            <Input 
+                                                value={pref} 
+                                                onChange={e => setCatPrefixes({...catPrefixes, [cat]: e.target.value.toUpperCase()})}
+                                                className="w-16 h-10 bg-white border-2 border-slate-200 text-center font-black text-indigo-600 uppercase rounded-xl"
+                                                maxLength={3}
+                                            />
+                                        ) : (
+                                            <div className="h-10 w-12 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center font-black text-indigo-600">
+                                                {pref.toUpperCase()}
                                             </div>
-                                            <ArrowRight className="w-4 h-4 text-white/20 group-hover/item:text-white/60 group-hover/item:translate-x-1 transition-all" />
-                                        </div>
-                                    ))}
-                                    {processes.length === 0 && (
-                                        <div className="py-10 text-center border-2 border-dashed border-white/10 rounded-[2rem]">
-                                            <p className="text-slate-500 font-black uppercase text-[10px] tracking-widest">No hay procesos sincronizados</p>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+
+                        {/* 2. PROCESOS */}
+                        <Card className="border border-slate-200 rounded-[2.5rem] shadow-sm bg-white overflow-hidden flex flex-col shadow-xl">
+                            <CardHeader className="bg-slate-900 border-b border-slate-800 p-8">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
+                                        <CheckCircle2 className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-xl font-black uppercase tracking-tighter text-white">Procesos</CardTitle>
+                                        <CardDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Códigos Operativos</CardDescription>
+                                    </div>
                                 </div>
-                                <Button 
-                                    onClick={() => setShowProcessModal(true)} 
-                                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-[900] uppercase text-xs tracking-widest h-14 w-full rounded-2xl shadow-xl shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center gap-3 mt-6"
-                                >
-                                    <div className="h-6 w-6 bg-white/20 rounded-lg flex items-center justify-center"><Plus className="w-3 h-3"/></div>
-                                    Sincronizar Nuevo Proceso
-                                </Button>
+                            </CardHeader>
+                            <CardContent className="p-8 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
+                                {processes.map(p => (
+                                    <div key={p.id} className="group flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-2xl transition-all">
+                                        <div className="flex flex-col flex-1 truncate mr-4">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Nombre Proceso</span>
+                                            <span className="text-sm font-black text-slate-800 uppercase leading-none truncate">{(p.name || '').toUpperCase()}</span>
+                                        </div>
+                                        <div className="h-10 px-3 bg-white border border-slate-200 rounded-xl flex items-center justify-center font-black text-emerald-600 shadow-sm">
+                                            {(p.code || '').toUpperCase()}
+                                        </div>
+                                    </div>
+                                ))}
+                                {processes.length === 0 && (
+                                    <div className="py-20 text-center grayscale opacity-30">
+                                        <Info className="w-12 h-12 mx-auto mb-4" />
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">Sincroniza procesos en el Mapa de Procesos</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* 3. TIPOS DOCUMENTALES */}
+                        <Card className="border border-slate-200 rounded-[2.5rem] shadow-sm bg-white overflow-hidden flex flex-col">
+                            <CardHeader className="bg-slate-50 border-b border-slate-100 p-8">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-amber-500 rounded-2xl text-white shadow-lg shadow-amber-200">
+                                        <FileText className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-xl font-black uppercase tracking-tighter text-slate-900">Tipos de Documento</CardTitle>
+                                        <CardDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Códigos de Registro</CardDescription>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-8 space-y-4">
+                                {Object.entries(docTypePrefixes).map(([type, pref]) => (
+                                    <div key={type} className="group flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-2xl transition-all">
+                                        <div className="flex flex-col flex-1 mr-2">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Nombre Tipo</span>
+                                            {isEditingStandard ? (
+                                                <Input 
+                                                    value={docTypeLabels[type as DocumentType]} 
+                                                    onChange={e => setDocTypeLabels({...docTypeLabels, [type]: e.target.value.toUpperCase()})}
+                                                    className="h-9 mt-1 bg-white border-slate-200 font-extrabold text-xs uppercase rounded-lg"
+                                                />
+                                            ) : (
+                                                <span className="text-sm font-black text-slate-800 uppercase leading-none">{docTypeLabels[type as DocumentType]}</span>
+                                            )}
+                                        </div>
+                                        {isEditingStandard ? (
+                                            <Input 
+                                                value={pref} 
+                                                onChange={e => setDocTypePrefixes({...docTypePrefixes, [type]: e.target.value.toUpperCase()})}
+                                                className="w-16 h-10 mt-5 bg-white border-2 border-slate-200 text-center font-black text-amber-600 uppercase rounded-xl"
+                                                maxLength={3}
+                                            />
+                                        ) : (
+                                            <div className="h-10 w-12 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-center font-black text-amber-600">
+                                                {pref.toUpperCase()}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
                             </CardContent>
                         </Card>
                     </div>
+
+                    <div className="p-10 bg-indigo-900 rounded-[3rem] text-white overflow-hidden relative shadow-2xl">
+                        <div className="absolute top-0 right-0 p-12 opacity-10">
+                            <Settings2 className="w-48 h-48 rotate-12" />
+                        </div>
+                        <div className="relative z-10 max-w-2xl">
+                            <h3 className="text-3xl font-black italic tracking-tighter uppercase mb-4">Lógica de Codificación ISO</h3>
+                            <p className="text-indigo-200 text-sm font-medium leading-relaxed mb-8">
+                                La estructura de codificación estándar para el SGC de Vexvel sigue un modelo de cuatro segmentos (AAAA.BBBB.CCCC.NN), garantizando la integridad exigida por la Cláusula 7.5.2 de la norma ISO 9001:2015.
+                            </p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                <div className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase text-indigo-400">Macro</span>
+                                    <div className="h-12 bg-white/10 rounded-2xl flex items-center justify-center font-black text-xl border border-white/20">ES</div>
+                                </div>
+                                <div className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase text-indigo-400">Proceso</span>
+                                    <div className="h-12 bg-white/10 rounded-2xl flex items-center justify-center font-black text-xl border border-white/20">CAL</div>
+                                </div>
+                                <div className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase text-indigo-400">Tipo</span>
+                                    <div className="h-12 bg-white/10 rounded-2xl flex items-center justify-center font-black text-xl border border-white/20">PR</div>
+                                </div>
+                                <div className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase text-indigo-400">No.</span>
+                                    <div className="h-12 bg-white/10 rounded-2xl flex items-center justify-center font-black text-xl border border-white/20">01</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </TabsContent>
+
 
                 {/* 7.5.1 GENERALIDADES */}
                 <TabsContent value="generalidades" className="space-y-6">
@@ -666,7 +759,8 @@ export default function DocumentosPage() {
                                 <div className="grid grid-cols-2 gap-4">
                                     {Object.entries(tempDocTypePrefixes).map(([type, pref]) => (
                                         <div key={type} className="flex flex-col gap-1.5 focus-within:translate-x-1 transition-transform">
-                                            <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">{typeLabels[type as DocumentType]}</Label>
+                                            <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">{docTypeLabels[type as DocumentType]}</Label>
+
                                             <Input 
                                                 value={pref} 
                                                 onChange={e => setTempDocTypePrefixes({...tempDocTypePrefixes, [type]: e.target.value.toUpperCase()})}
@@ -745,7 +839,8 @@ export default function DocumentosPage() {
                                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo de Documento *</label>
                                      <Select value={newDoc.type} onValueChange={v => setNewDoc({ ...newDoc, type: v as DocumentType })}>
                                         <SelectTrigger className="h-12 bg-slate-50 border-none rounded-2xl font-bold shadow-inner"><SelectValue /></SelectTrigger>
-                                        <SelectContent className="font-sans">{Object.entries(typeLabels).map(([k,v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}</SelectContent>
+                                        <SelectContent className="font-sans">{Object.entries(docTypeLabels).map(([k,v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}</SelectContent>
+
                                     </Select>
                                 </div>
                                 <div className="space-y-2 pt-2">
@@ -778,7 +873,7 @@ export default function DocumentosPage() {
                                 </div>
                                 <div className="space-y-2">
                                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Título descriptivo del recurso *</label>
-                                     <Input placeholder="Ej: Procedimiento de Ventas" className="h-14 bg-slate-50 border-none rounded-2xl font-black text-sm uppercase px-6 focus-visible:ring-indigo-500" value={newDoc.name || ''} onChange={e => setNewDoc({ ...newDoc, name: e.target.value })} />
+                                     <Input placeholder="Ej: PROCEDIMIENTO DE VENTAS" className="h-14 bg-slate-50 border-none rounded-2xl font-black text-sm uppercase px-6 focus-visible:ring-indigo-500" value={newDoc.name || ''} onChange={e => setNewDoc({ ...newDoc, name: e.target.value.toUpperCase() })} />
                                 </div>
                             </div>
                         </div>

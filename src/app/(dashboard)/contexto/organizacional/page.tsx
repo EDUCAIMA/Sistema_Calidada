@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import type { DOFAItem, DOFACategory } from '@/lib/types';
 import { toast } from 'sonner';
@@ -76,6 +78,16 @@ export default function ContextoOrganizacionalPage() {
         approvalDate: new Date().toISOString().split('T')[0]
     });
     const [showConfig, setShowConfig] = useState(false);
+    
+    // Coding Standard States
+    const [processes, setProcesses] = useState<any[]>([]);
+    const [catPrefixes, setCatPrefixes] = useState<any>(null);
+    const [docTypePrefixes, setDocTypePrefixes] = useState<any>(null);
+    const [builder, setBuilder] = useState({
+        processId: '',
+        type: 'REGISTRO',
+        consecutive: '001'
+    });
 
     useEffect(() => {
         const fetchItems = async () => {
@@ -91,8 +103,79 @@ export default function ContextoOrganizacionalPage() {
                 setLoading(false);
             }
         };
+
+        const fetchMetadata = async () => {
+            try {
+                const res = await fetch(`/api/formatos?tenantId=${tenant.id}&moduleKey=4.1`);
+                const data = await res.json();
+                if (data && !data.error) {
+                    setDocMetadata({
+                        code: data.code,
+                        version: data.version,
+                        approvalDate: data.approvalDate
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching metadata:', error);
+            }
+        };
+
         fetchItems();
-    }, [tenant.id]);
+        if (tenant?.id) {
+            fetchMetadata();
+            
+            // Fetch standards for coding
+            const savedCats = localStorage.getItem('sgc_cat_prefixes');
+            const savedDocs = localStorage.getItem('sgc_doc_prefixes');
+            if (savedCats) setCatPrefixes(JSON.parse(savedCats));
+            if (savedDocs) setDocTypePrefixes(JSON.parse(savedDocs));
+
+            const fetchProcesses = async () => {
+                try {
+                    const res = await fetch(`/api/procesos?tenantId=${tenant.id}`);
+                    const data = await res.json();
+                    if (data && !data.error) setProcesses(data);
+                } catch (e) { console.error(e); }
+            };
+            fetchProcesses();
+        }
+    }, [tenant?.id]);
+
+    // Auto-generate code when builder changes
+    useEffect(() => {
+        if (showConfig && builder.processId && catPrefixes && docTypePrefixes) {
+            const process = processes.find(p => p.id === builder.processId);
+            if (process) {
+                const macro = catPrefixes[process.category] || 'GN';
+                const procCode = process.code || 'PROC';
+                const type = docTypePrefixes[builder.type] || 'RE';
+                const generated = `${macro}.${procCode}.${type}.${builder.consecutive}`;
+                setDocMetadata(prev => ({ ...prev, code: generated }));
+            }
+        }
+    }, [builder, showConfig, catPrefixes, docTypePrefixes, processes]);
+
+    const handleSaveConfig = async () => {
+        if (!tenant?.id) return toast.error('Error: Empresa no identificada');
+        try {
+            const res = await fetch('/api/formatos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tenantId: tenant.id,
+                    moduleKey: '4.1',
+                    ...docMetadata
+                }),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            
+            setShowConfig(false);
+            toast.success('Configuración de encabezado guardada');
+        } catch (error) {
+            toast.error('Error al guardar la configuración');
+        }
+    };
 
     const handleDownloadPDF = () => {
         try {
@@ -601,51 +684,110 @@ export default function ContextoOrganizacionalPage() {
             {/* ISO 9001:2015 Clause 4.1 Info Dialog - Professional Redesign */}
             {/* Configuration Dialog */}
             <Dialog open={showConfig} onOpenChange={setShowConfig}>
-                <DialogContent className="max-w-md bg-white border-none rounded-3xl shadow-2xl p-0 overflow-hidden">
-                    <div className="bg-slate-900 p-6 text-white flex items-center gap-3">
-                        <Settings className="w-6 h-6 text-blue-400" />
-                        <div>
-                            <h2 className="text-xl font-bold uppercase tracking-tight italic">Configurar Documento</h2>
-                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Metadatos del Analisis de Contexto</p>
+                <DialogContent className="max-w-lg bg-white border border-slate-200/60 rounded-2xl shadow-xl p-0 overflow-hidden">
+                    {/* Clean Light Header */}
+                    <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                                <Settings className="w-5 h-5 text-blue-500" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">Configurar Documento</h2>
+                                <p className="text-xs text-slate-400 mt-0.5">Metadatos del Análisis de Contexto (4.1)</p>
+                            </div>
                         </div>
                     </div>
                     
-                    <div className="p-8 space-y-6 bg-white text-slate-900">
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Código del Formato</Label>
+                    <div className="px-6 py-5 space-y-5">
+                        {/* Code Builder Section */}
+                        <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                                <span className="text-[11px] font-semibold text-blue-600 uppercase tracking-wide">Asistente de Codificación</span>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <div>
+                                    <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Proceso Responsable</Label>
+                                    <Select value={builder.processId} onValueChange={(val) => setBuilder({...builder, processId: val})}>
+                                        <SelectTrigger className="h-10 bg-white border-slate-200 rounded-lg text-sm">
+                                            <SelectValue placeholder="Seleccionar proceso..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {processes.map(p => (
+                                                <SelectItem key={p.id} value={p.id} className="text-sm">
+                                                    {p.name} ({p.code})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Tipo Documental</Label>
+                                        <Select value={builder.type} onValueChange={(val) => setBuilder({...builder, type: val})}>
+                                            <SelectTrigger className="h-10 bg-white border-slate-200 rounded-lg text-sm">
+                                                <SelectValue placeholder="Tipo" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {docTypePrefixes && Object.keys(docTypePrefixes).map(t => (
+                                                    <SelectItem key={t} value={t} className="text-sm">{t}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Consecutivo</Label>
+                                        <Input 
+                                            value={builder.consecutive}
+                                            onChange={e => setBuilder({...builder, consecutive: e.target.value})}
+                                            className="h-10 bg-white border-slate-200 rounded-lg text-sm text-center font-semibold"
+                                            placeholder="001"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Code Result */}
+                        <div>
+                            <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Código del Documento</Label>
                             <Input 
                                 value={docMetadata.code}
                                 onChange={e => setDocMetadata({...docMetadata, code: e.target.value.toUpperCase()})}
-                                className="h-12 border-slate-100 bg-slate-50 font-black text-[#136dec] uppercase"
+                                className="h-12 border-slate-200 bg-slate-50/70 rounded-lg font-bold text-blue-600 uppercase text-center text-base tracking-wider"
                             />
                         </div>
+
+                        {/* Version & Date Row */}
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Versión</Label>
+                            <div>
+                                <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Versión</Label>
                                 <Input 
                                     value={docMetadata.version}
                                     onChange={e => setDocMetadata({...docMetadata, version: e.target.value})}
-                                    className="h-12 border-slate-100 bg-slate-50 font-black"
+                                    className="h-10 border-slate-200 bg-slate-50/70 rounded-lg font-semibold text-sm"
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fecha de Aprobación</Label>
+                            <div>
+                                <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Fecha de Aprobación</Label>
                                 <Input 
                                     type="date"
                                     value={docMetadata.approvalDate}
                                     onChange={e => setDocMetadata({...docMetadata, approvalDate: e.target.value})}
-                                    className="h-12 border-slate-100 bg-slate-50 font-bold"
+                                    className="h-10 border-slate-200 bg-slate-50/70 rounded-lg font-medium text-sm"
                                 />
                             </div>
                         </div>
                         
-                        <div className="pt-4 flex justify-between items-center text-[10px] text-slate-300 italic">
-                            <p>* Estos datos se verán reflejados en el encabezado oficial del PDF.</p>
-                        </div>
+                        <p className="text-[11px] text-slate-400 italic">* Estos datos se reflejarán en el encabezado oficial del PDF.</p>
                     </div>
                     
-                    <div className="p-6 bg-slate-50 flex justify-end gap-3 border-t">
-                        <Button onClick={() => setShowConfig(false)} className="bg-slate-900 text-white font-black uppercase text-[10px] px-8 h-12 rounded-xl">Aplicar Configuración</Button>
+                    {/* Footer */}
+                    <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-3">
+                        <Button variant="ghost" onClick={() => setShowConfig(false)} className="text-slate-500 text-sm font-medium h-10 px-4 rounded-lg hover:bg-slate-100">Cancelar</Button>
+                        <Button onClick={handleSaveConfig} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 h-10 rounded-lg shadow-sm">Guardar Configuración</Button>
                     </div>
                 </DialogContent>
             </Dialog>

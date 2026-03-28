@@ -28,6 +28,7 @@ model Tenant {
   sgcScopes    SGCScope[]
   stakeholders Stakeholder[]
   users        User[]
+  formatControls FormatControl[]
 }
 
 model User {
@@ -251,6 +252,20 @@ model SGCScope {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   tenant              Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+model FormatControl {
+  id           String   @id @default(cuid())
+  tenantId     String
+  moduleKey    String
+  code         String
+  version      String
+  approvalDate String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  @@unique([tenantId, moduleKey])
 }
 
 enum Role {

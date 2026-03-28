@@ -4,11 +4,13 @@ import Link from 'next/link';
 import {
     Network, FileText, ShieldAlert, ClipboardCheck,
     AlertTriangle, Clock, FileCheck, TrendingUp,
-    ArrowUpRight, ArrowDownRight, BarChart3
+    ArrowUpRight, ArrowDownRight, BarChart3, CheckCircle2, ListChecks, BookOpen
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { mockDashboardStats, mockRisks, mockAudits, mockDocuments } from '@/lib/mock-data';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip,
@@ -97,38 +99,162 @@ export default function DashboardPage() {
 
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Trend Chart */}
-                <Card className="lg:col-span-2 border-0 shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-primary" />
-                            Tendencias del SGC
-                        </CardTitle>
+                {/* Implementation Instructions */}
+                <Card className="lg:col-span-2 border-0 shadow-sm flex flex-col max-h-[500px]">
+                    <CardHeader className="pb-3 border-b dark:border-slate-800">
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="text-base font-bold flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                                <ListChecks className="h-5 w-5" />
+                                Guía Detallada de Implementación del SGC
+                            </CardTitle>
+                            <Badge variant="outline" className="text-[10px] uppercase font-bold text-slate-500 border-slate-200">
+                                Orden Recomendado por Expertos
+                            </Badge>
+                        </div>
                     </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={280}>
-                            <AreaChart data={monthlyData}>
-                                <defs>
-                                    <linearGradient id="colorDocs" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="oklch(0.55 0.20 260)" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="oklch(0.55 0.20 260)" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorRisks" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="oklch(0.72 0.16 60)" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="oklch(0.72 0.16 60)" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.90 0.01 260)" />
-                                <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="oklch(0.60 0.02 260)" />
-                                <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.60 0.02 260)" />
-                                <RechartTooltip
-                                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 12 }}
-                                />
-                                <Area type="monotone" dataKey="documentos" stroke="oklch(0.55 0.20 260)" fill="url(#colorDocs)" strokeWidth={2} name="Documentos" />
-                                <Area type="monotone" dataKey="riesgos" stroke="oklch(0.72 0.16 60)" fill="url(#colorRisks)" strokeWidth={2} name="Riesgos" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                    <CardContent className="p-0 overflow-hidden flex-1">
+                        <ScrollArea className="h-full max-h-[400px]">
+                            <div className="p-4 space-y-6">
+                                {/* Paso 1 */}
+                                <div className="relative pl-8">
+                                    <div className="absolute left-0 top-0 h-full w-[2px] bg-slate-100 dark:bg-slate-800" />
+                                    <div className="absolute left-[-4px] top-0 h-2 w-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+                                    <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2">Paso 1: Fundamentos y Estrategia</h4>
+                                    <div className="space-y-3">
+                                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100">Contexto y Orientación</span>
+                                                <Badge variant="secondary" className="text-[9px] font-mono">4.1, 4.2, 5.2</Badge>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 leading-relaxed italic">
+                                                Antes de cualquier trámite, defina el "Por qué" y el "Para qué". Realice el Análisis DOFA/PESTAL y defina la Política de Calidad que guiará el sistema.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Paso 2 */}
+                                <div className="relative pl-8">
+                                    <div className="absolute left-0 h-full w-[2px] bg-slate-100 dark:bg-slate-800" />
+                                    <div className="absolute left-[-4px] top-0 h-2 w-2 rounded-full bg-indigo-500" />
+                                    <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2">Paso 2: Gobernanza Humana</h4>
+                                    <div className="space-y-3">
+                                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100">Roles, Responsabilidades y Autoridades</span>
+                                                <Badge variant="secondary" className="text-[9px] font-mono">5.3</Badge>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 leading-relaxed">
+                                                Identifique a los líderes y dueños de procesos. Es crítico definir quién rinde cuentas y quién tiene autoridad antes de empezar la estandarización.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Paso 3 */}
+                                <div className="relative pl-8">
+                                    <div className="absolute left-0 h-full w-[2px] bg-slate-100 dark:bg-slate-800" />
+                                    <div className="absolute left-[-4px] top-0 h-2 w-2 rounded-full bg-indigo-500" />
+                                    <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2">Paso 3: Arquitectura y Codificación</h4>
+                                    <div className="space-y-3">
+                                        <div className="p-3 rounded-lg bg-white dark:bg-slate-900 border-2 border-indigo-100 dark:border-indigo-900/40 shadow-sm relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-50 dark:bg-indigo-900/10 rounded-bl-full -z-10" />
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-sm font-black text-indigo-950 dark:text-white uppercase tracking-tighter">EL ESQUELETO DEL SISTEMA</span>
+                                                <Badge variant="secondary" className="text-[9px] font-mono">4.3, 4.4, 7.5.2</Badge>
+                                            </div>
+                                            <div className="space-y-2 mt-2">
+                                                <div className="flex items-start gap-2">
+                                                    <div className="h-4 w-4 rounded bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-[10px] font-bold text-indigo-600 grow-0 shrink-0 mt-0.5">A</div>
+                                                    <p className="text-[10px] text-slate-600 dark:text-slate-400"><span className="font-bold text-slate-900 dark:text-slate-200">Mapa de Procesos:</span> Definir Macroprocesos y Procesos clave.</p>
+                                                </div>
+                                                <div className="flex items-start gap-2">
+                                                    <div className="h-4 w-4 rounded bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-[10px] font-bold text-indigo-600 grow-0 shrink-0 mt-0.5">B</div>
+                                                    <p className="text-[10px] text-slate-600 dark:text-slate-400"><span className="font-bold text-slate-900 dark:text-slate-200">Tablas de Retención y Codificación:</span> Definir nomenclatura para procesos y tipos documentales.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Paso 4 */}
+                                <div className="relative pl-8">
+                                    <div className="absolute left-0 h-full w-[2px] bg-slate-100 dark:bg-slate-800" />
+                                    <div className="absolute left-[-4px] top-0 h-2 w-2 rounded-full bg-indigo-500" />
+                                    <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2">Paso 4: Planificación de Riesgos</h4>
+                                    <div className="space-y-3">
+                                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100">Riesgos y Oportunidades</span>
+                                                <Badge variant="secondary" className="text-[9px] font-mono">6.1</Badge>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 leading-relaxed italic">
+                                                Identificar qué puede afectar el logro de resultados de los procesos definidos en la estructura previa.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Paso 5 */}
+                                <div className="relative pl-8">
+                                    <div className="absolute left-0 h-full w-[2px] bg-slate-100 dark:bg-slate-800" />
+                                    <div className="absolute left-[-4px] top-0 h-2 w-2 rounded-full bg-indigo-500" />
+                                    <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2">Paso 5: Normalización Detallada</h4>
+                                    <div className="space-y-3">
+                                        <div className="p-3 rounded-lg bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">Caracterización de Procesos</span>
+                                                <Badge variant="secondary" className="text-[9px] font-mono text-emerald-600 border-emerald-100">4.4, 8.1</Badge>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 leading-relaxed">
+                                                <span className="font-bold underline">Solo ahora</span> se procede a describir entradas, salidas, recursos y controles operativos. No antes del Paso 3.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Paso 6 */}
+                                <div className="relative pl-8">
+                                    <div className="absolute left-0 h-full w-[2px] bg-slate-100 dark:bg-slate-800" />
+                                    <div className="absolute left-[-4px] top-0 h-2 w-2 rounded-full bg-emerald-500" />
+                                    <h4 className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-2">Paso 6: Gestión del Talento</h4>
+                                    <div className="space-y-3">
+                                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100">Competencia y Conciencia</span>
+                                                <Badge variant="secondary" className="text-[9px] font-mono">7.2, 7.3</Badge>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 leading-relaxed">
+                                                Asegurar que cada interviniente conoce el sistema y posee las habilidades para ejecutar sus labores.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Paso 7 */}
+                                <div className="relative pl-8">
+                                    <div className="absolute left-[-4px] top-0 h-2 w-2 rounded-full bg-emerald-500" />
+                                    <h4 className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-2">Paso 7: Mejora Continua</h4>
+                                    <div className="space-y-3">
+                                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100">Evaluación y Mejora</span>
+                                                <Badge variant="secondary" className="text-[9px] font-mono">9.2, 9.3, 10.2</Badge>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 leading-relaxed">
+                                                Auditorías internas y acciones correctivas para cerrar el ciclo de mejora PHVA.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </ScrollArea>
                     </CardContent>
+                    <div className="p-3 bg-indigo-50/30 dark:bg-indigo-950/10 border-t dark:border-slate-800">
+                        <p className="text-[10px] text-center text-indigo-700 dark:text-indigo-400 font-medium">
+                            💡 Tip: No avance al Paso 5 sin haber normalizado la codificación en el Paso 3.
+                        </p>
+                    </div>
                 </Card>
 
                 {/* Risk Distribution Pie */}
@@ -171,24 +297,8 @@ export default function DashboardPage() {
             </div>
 
             {/* Bottom Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Risk by Type */}
-                <Card className="border-0 shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-semibold">Riesgos por Tipo</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={180}>
-                            <BarChart data={riskByType}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.90 0.01 260)" />
-                                <XAxis dataKey="type" tick={{ fontSize: 11 }} stroke="oklch(0.60 0.02 260)" />
-                                <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.60 0.02 260)" />
-                                <RechartTooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 12 }} />
-                                <Bar dataKey="count" fill="oklch(0.55 0.20 260)" radius={[6, 6, 0, 0]} name="Cantidad" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
 
                 {/* Document Status */}
                 <Card className="border-0 shadow-sm">
