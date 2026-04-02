@@ -4,10 +4,10 @@ import bcrypt from 'bcryptjs';
 
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const tenantId = params.id;
+        const { id: tenantId } = await params;
         const { adminPassword, adminEmail } = await request.json();
 
         if (!tenantId || !adminPassword || !adminEmail) {
