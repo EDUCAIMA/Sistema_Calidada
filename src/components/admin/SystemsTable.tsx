@@ -2,10 +2,28 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, Filter, MoreVertical, ExternalLink } from 'lucide-react';
+import { Download, Filter, MoreVertical, ExternalLink, Trash2, Key, AlertTriangle } from 'lucide-react';
 import { useApp } from '@/context/app-context';
 import { useRouter } from 'next/navigation';
 import { Tenant } from '@/lib/types';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 
 interface TenantReal extends Tenant {
   _count?: {
@@ -23,10 +41,16 @@ interface SystemsTableProps {
 }
 
 export function SystemsTable({ searchTerm }: SystemsTableProps) {
-  const { setTenant } = useApp();
+  const { setTenant, currentUser } = useApp();
   const router = useRouter();
   const [tenants, setTenants] = useState<TenantReal[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // States for deletion
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [systemToDelete, setSystemToDelete] = useState<TenantReal | null>(null);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     async function fetchTenants() {
@@ -48,6 +72,41 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
   const handleEnterSystem = (system: TenantReal) => {
     setTenant(system);
     router.push('/dashboard');
+  };
+
+  const handleDelete = async () => {
+    if (!systemToDelete || !adminPassword || !currentUser?.email) {
+      toast.error('Información incompleta para la eliminación');
+      return;
+    }
+    
+    try {
+      setIsDeleting(true);
+      const response = await fetch(`/api/admin/tenants/${systemToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          adminPassword, 
+          adminEmail: currentUser.email 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al eliminar el sistema');
+      }
+      
+      toast.success('Sistema y toda su información eliminada correctamente');
+      setTenants(tenants.filter(t => t.id !== systemToDelete.id));
+      setDeleteDialogOpen(false);
+      setSystemToDelete(null);
+      setAdminPassword('');
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const filteredSystems = useMemo(() => {
@@ -149,9 +208,33 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
                           <ExternalLink className="h-3 w-3" />
                           Ingresar
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl border-slate-200 shadow-xl">
+                            <DropdownMenuItem 
+                              className="flex items-center gap-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 py-2.5 px-3 rounded-lg cursor-pointer transition-colors"
+                              onClick={() => handleEnterSystem(system)}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                              <span className="font-medium text-sm">Gestionar QMS</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-slate-100 my-1" />
+                            <DropdownMenuItem 
+                              className="flex items-center gap-2 text-red-600 hover:bg-red-50 py-2.5 px-3 rounded-lg cursor-pointer transition-colors"
+                              onClick={() => {
+                                setSystemToDelete(system);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="font-medium text-sm">Eliminar Sistema</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </td>
                   </tr>
@@ -167,6 +250,64 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
           </table>
         </div>
       </CardContent>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-white">
+          <div className="bg-red-600 p-6 flex flex-col items-center text-center">
+             <div className="bg-white/20 p-3 rounded-2xl mb-4 backdrop-blur-md">
+                <AlertTriangle className="h-8 w-8 text-white" />
+             </div>
+             <DialogTitle className="text-2xl font-bold text-white mb-2">¿Eliminar Sistema?</DialogTitle>
+             <DialogDescription className="text-red-100 font-medium">
+               Esta acción es <span className="underline decoration-white font-bold">irreversible</span>. Se eliminarán permanentemente todos los usuarios, procesos, documentos y riesgos asociados a <span className="text-white font-black">{systemToDelete?.name}</span>.
+             </DialogDescription>
+          </div>
+          
+          <div className="p-8 space-y-6 bg-white">
+            <div className="space-y-3">
+              <Label htmlFor="password" title="Contraseña de Administrador" className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <Key className="h-3.5 w-3.5" />
+                Validación de Seguridad
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Introduce tu contraseña para confirmar..."
+                className="h-12 border-slate-200 focus:ring-red-500/20 focus:border-red-500 px-4 rounded-xl"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                autoFocus
+              />
+              <p className="text-[11px] text-slate-500 flex items-center gap-1.5 px-1">
+                Para proceder, por favor introduce tu contraseña personal de administrador.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 pt-2">
+              <Button 
+                variant="destructive" 
+                className="h-12 text-sm font-bold bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/20 rounded-xl"
+                onClick={handleDelete}
+                disabled={!adminPassword || isDeleting}
+              >
+                {isDeleting ? 'Procesando eliminación...' : 'Sí, Eliminar Todo Permanentemente'}
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="h-12 text-sm font-bold text-slate-500 hover:text-slate-900 border-none hover:bg-slate-100 rounded-xl"
+                onClick={() => {
+                  setDeleteDialogOpen(false);
+                  setAdminPassword('');
+                }}
+                disabled={isDeleting}
+              >
+                Cancelar y Mantener Datos
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
