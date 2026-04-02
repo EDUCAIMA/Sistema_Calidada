@@ -39,42 +39,44 @@ export async function DELETE(
 
         // 2. Ejecutar la eliminación en cascada manual dentro de una transacción
         await prisma.$transaction(async (tx) => {
-            // Eliminar registros dependientes (manual ya que no hay cascade en schema)
-            
-            // 1. Usuarios vinculados
-            await tx.user.deleteMany({ where: { tenantId } });
-            
-            // 2. Procesos y sus caracterizaciones
-            const processes = await tx.process.findMany({ where: { tenantId } });
-            const processIds = processes.map(p => p.id);
-            await tx.processCharacterization.deleteMany({ where: { processId: { in: processIds } } });
-            await tx.process.deleteMany({ where: { tenantId } });
+            // ELIMINAR REGISTROS SIGUIENDO EL ORDEN DE DEPENDENCIAS (HIJOS -> PADRES)
 
-            // 3. Documentos y versiones
+            // 1. Auditorías, Hallazgos y Acciones Correctivas
+            const audits = await tx.audit.findMany({ where: { tenantId } });
+            const auditIds = audits.map(a => a.id);
+            const findings = await tx.finding.findMany({ where: { auditId: { in: auditIds } } });
+            const findingIds = findings.map(f => f.id);
+
+            await tx.correctiveAction.deleteMany({ where: { findingId: { in: findingIds } } });
+            await tx.finding.deleteMany({ where: { auditId: { in: auditIds } } });
+            await tx.audit.deleteMany({ where: { tenantId } });
+
+            // 2. Riesgos y Matrices
+            await tx.risk.deleteMany({ where: { tenantId } });
+            await tx.riskMatrix.deleteMany({ where: { tenantId } });
+
+            // 3. Documentos y Versiones
             const documents = await tx.document.findMany({ where: { tenantId } });
             const docIds = documents.map(d => d.id);
             await tx.documentVersion.deleteMany({ where: { documentId: { in: docIds } } });
             await tx.document.deleteMany({ where: { tenantId } });
 
-            // 4. Riesgos y Matrices
-            await tx.risk.deleteMany({ where: { tenantId } });
-            await tx.riskMatrix.deleteMany({ where: { tenantId } });
+            // 4. Procesos y Caracterizaciones
+            const processes = await tx.process.findMany({ where: { tenantId } });
+            const processIds = processes.map(p => p.id);
+            await tx.processCharacterization.deleteMany({ where: { processId: { in: processIds } } });
+            await tx.process.deleteMany({ where: { tenantId } });
 
-            // 5. Auditorías y Hallazgos
-            const audits = await tx.audit.findMany({ where: { tenantId } });
-            const auditIds = audits.map(a => a.id);
-            await tx.finding.deleteMany({ where: { auditId: { in: auditIds } } });
-            await tx.audit.deleteMany({ where: { tenantId } });
+            // 5. Usuarios (Deben borrarse DESPUÉS de los procesos que dependen de ellos por responsableId)
+            await tx.user.deleteMany({ where: { tenantId } });
 
-            // 6. Contexto (DOFA, Stakeholders, Scope)
+            // 6. Otros (Contexto y Formatos)
             await tx.dOFAItem.deleteMany({ where: { tenantId } });
             await tx.stakeholder.deleteMany({ where: { tenantId } });
             await tx.sGCScope.deleteMany({ where: { tenantId } });
-            
-            // 7. Formatos
             await tx.formatControl.deleteMany({ where: { tenantId } });
 
-            // 8. Finalmente, el Tenant
+            // 7. Finalmente, el Tenant
             await tx.tenant.delete({
                 where: { id: tenantId }
             });
