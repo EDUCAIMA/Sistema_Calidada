@@ -5,6 +5,17 @@ export async function GET() {
     try {
         const tenants = await prisma.tenant.findMany({
             include: {
+                users: {
+                    select: {
+                        email: true,
+                        role: true,
+                        name: true
+                    },
+                    where: {
+                        role: 'ADMIN_EMPRESA'
+                    },
+                    take: 1
+                },
                 _count: {
                     select: { users: true }
                 }

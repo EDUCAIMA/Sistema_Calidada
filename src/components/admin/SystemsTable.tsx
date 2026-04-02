@@ -11,6 +11,11 @@ interface TenantReal extends Tenant {
   _count?: {
     users: number;
   };
+  users?: {
+    email: string;
+    role: string;
+    name: string;
+  }[];
 }
 
 interface SystemsTableProps {
@@ -87,6 +92,7 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
             <thead>
               <tr className="bg-slate-50/50 text-slate-500 text-[11px] uppercase tracking-widest font-bold border-b border-slate-100">
                 <th className="text-left py-4 pl-6 font-bold">Empresa / Sistema</th>
+                <th className="text-left py-4 font-bold">Encargado/Correo</th>
                 <th className="text-left py-4 font-bold">Slug / Identificador</th>
                 <th className="text-left py-4 font-bold">Estado</th>
                 <th className="text-left py-4 font-bold">Implementación</th>
@@ -102,6 +108,12 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{system.name}</span>
                         <span className="text-[10px] text-slate-400 mt-0.5 uppercase">ID: {system.id.slice(-8).toUpperCase()}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 text-sm text-slate-600 font-medium">
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-slate-900 truncate max-w-[150px]">{system.users?.[0]?.name || 'N/A'}</span>
+                        <span className="text-[10px] text-slate-500 break-all">{system.users?.[0]?.email || 'N/A'}</span>
                       </div>
                     </td>
                     <td className="py-4 text-sm text-slate-600 font-medium">{system.slug}</td>
