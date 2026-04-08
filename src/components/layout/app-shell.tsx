@@ -50,7 +50,7 @@ const navItems: NavItem[] = [
         icon: <Target className="h-4.5 w-4.5" />,
         clause: '5',
         children: [
-            { title: 'Políticas', href: '/liderazgo/politicas' },
+            { title: '5.2 Política', href: '/liderazgo/politicas' },
             { title: 'Roles y Responsabilidades', href: '/liderazgo/roles' },
         ],
     },

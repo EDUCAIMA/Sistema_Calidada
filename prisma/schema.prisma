@@ -29,6 +29,7 @@ model Tenant {
   stakeholders Stakeholder[]
   users        User[]
   formatControls FormatControl[]
+  policies     Policy[]
 }
 
 model User {
@@ -268,6 +269,37 @@ model FormatControl {
   @@unique([tenantId, moduleKey])
 }
 
+model Policy {
+  id             String              @id @default(cuid())
+  tenantId       String
+  title          String
+  content        String
+  type           String              @default("General")
+  version        String              @default("1.0")
+  status         PolicyStatus        @default(EN_REVISION)
+  author         String
+  objectives     Json?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id])
+  communications PolicyCommunication[]
+}
+
+model PolicyCommunication {
+  id              String   @id @default(cuid())
+  policyId        String
+  audience        String
+  method          String
+  date            DateTime
+  evidence        String?
+  responsibleName String
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  policy          Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+}
+
 enum Role {
   SUPER_ADMIN
   ADMIN_EMPRESA
@@ -341,6 +373,12 @@ enum PlanType {
   BASICO
   PROFESIONAL
   ENTERPRISE
+}
+
+enum PolicyStatus {
+  VIGENTE
+  EN_REVISION
+  OBSOLETA
 }
 
 enum DOFACategory {

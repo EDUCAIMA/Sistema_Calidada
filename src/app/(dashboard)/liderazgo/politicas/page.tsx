@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/context/app-context';
 import {
   FileText, Plus, Search, Edit, Trash2, Download, Eye, Save,
   HelpCircle, Clock, Settings, Shield, BookOpen, Scale,
-  Leaf, Info, CheckCircle2, AlertTriangle
+  Leaf, Info, CheckCircle2, AlertTriangle, Megaphone, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,23 +14,50 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 // Type definitions
+interface PolicyCommunication {
+  id: string;
+  policyId: string;
+  audience: string;
+  method: string;
+  date: string;
+  evidence?: string | null;
+  responsibleName: string;
+  notes?: string | null;
+  createdAt: string;
+}
+
 interface Policy {
   id: string;
   title: string;
   content: string;
   version: string;
-  status: 'Vigente' | 'En Revisión' | 'Obsoleta';
-  date: string;
+  status: 'VIGENTE' | 'EN_REVISION' | 'OBSOLETA';
   author: string;
   type: string;
   objectives?: string[];
+  createdAt: string;
+  updatedAt: string;
+  communications?: PolicyCommunication[];
 }
+
+const statusMap: Record<string, string> = {
+  'VIGENTE': 'Vigente',
+  'EN_REVISION': 'En Revisión',
+  'OBSOLETA': 'Obsoleta',
+};
+
+const statusReverseMap: Record<string, string> = {
+  'Vigente': 'VIGENTE',
+  'En Revisión': 'EN_REVISION',
+  'Obsoleta': 'OBSOLETA',
+};
 
 // Category icons and colors
 const typeConfig: Record<string, { icon: React.ReactNode; color: string; bg: string; softBg: string; border: string }> = {
@@ -57,81 +84,21 @@ const defaultTypeConfig = {
   color: 'text-slate-600', bg: 'bg-slate-600', softBg: 'bg-slate-50', border: 'border-slate-200',
 };
 
-// Mock data for policies
-const mockPolicies: Policy[] = [
-  {
-    id: 'POL-001',
-    title: 'Política de Calidad Institucional',
-    content: 'Nuestra organización se compromete a implementar, mantener y mejorar continuamente un Sistema de Gestión de la Calidad conforme a la norma ISO 9001:2015, enfocado en la satisfacción de nuestros clientes, el cumplimiento de los requisitos legales y reglamentarios aplicables, y la mejora continua de nuestros procesos.',
-    version: '2.0',
-    status: 'Vigente',
-    date: '15/01/2026',
-    author: 'Dirección General',
-    type: 'General',
-    objectives: [
-      'Garantizar la satisfacción del cliente',
-      'Cumplir requisitos legales y normativos',
-      'Mejorar continuamente los procesos',
-      'Promover la competencia del personal'
-    ],
-  },
-  {
-    id: 'POL-002',
-    title: 'Política de Seguridad de la Información',
-    content: 'La organización se compromete a proteger la confidencialidad, integridad y disponibilidad de la información, implementando controles de seguridad adecuados y promoviendo una cultura de seguridad entre todos los colaboradores.',
-    version: '1.5',
-    status: 'Vigente',
-    date: '10/11/2025',
-    author: 'Comité de Seguridad',
-    type: 'Seguridad',
-    objectives: [
-      'Proteger los activos de información',
-      'Gestionar los riesgos de seguridad',
-      'Cumplir con regulaciones de protección de datos'
-    ],
-  },
-  {
-    id: 'POL-003',
-    title: 'Política de Gestión de Riesgos',
-    content: 'La organización adoptará un enfoque proactivo para la identificación, evaluación y tratamiento de los riesgos que puedan afectar el logro de sus objetivos estratégicos y operacionales.',
-    version: '1.0',
-    status: 'En Revisión',
-    date: '20/02/2026',
-    author: 'Área de Planificación',
-    type: 'Riesgos',
-    objectives: [
-      'Identificar riesgos estratégicos y operacionales',
-      'Establecer planes de tratamiento efectivos',
-      'Integrar la gestión de riesgos en todos los procesos'
-    ],
-  },
-  {
-    id: 'POL-004',
-    title: 'Política Ambiental',
-    content: 'La organización se compromete a proteger el medio ambiente, prevenir la contaminación y gestionar de manera responsable los recursos naturales, integrando consideraciones ambientales en todos sus procesos y decisiones.',
-    version: '1.2',
-    status: 'Vigente',
-    date: '05/08/2025',
-    author: 'Dirección General',
-    type: 'Sostenibilidad',
-    objectives: [
-      'Minimizar el impacto ambiental',
-      'Promover el uso eficiente de recursos',
-      'Cumplir con la legislación ambiental vigente'
-    ],
-  }
-];
-
 export default function PoliticasPage() {
   const { tenant } = useApp();
-  const [policies, setPolicies] = useState<Policy[]>(mockPolicies);
+  const [policies, setPolicies] = useState<Policy[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [showISOInfo, setShowISOInfo] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
-  const [newPolicy, setNewPolicy] = useState<Partial<Policy>>({ type: 'General', status: 'En Revisión' });
+  const [newPolicy, setNewPolicy] = useState<Partial<Policy>>({ type: 'General', status: 'EN_REVISION' });
+  const [showCommunication, setShowCommunication] = useState(false);
+  const [newComm, setNewComm] = useState({ audience: '', method: '', date: '', evidence: '', responsibleName: '', notes: '' });
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Document Metadata State
   const [docMetadata, setDocMetadata] = useState({
@@ -152,6 +119,17 @@ export default function PoliticasPage() {
 
   useEffect(() => {
     if (tenant?.id) {
+      // Fetch policies from API
+      const fetchPolicies = async () => {
+        try {
+          const res = await fetch(`/api/liderazgo/politicas?tenantId=${tenant.id}`);
+          const data = await res.json();
+          if (data && !data.error) setPolicies(data);
+        } catch (e) { console.error(e); }
+        finally { setLoading(false); }
+      };
+      fetchPolicies();
+
       // Fetch standards for coding
       const savedCats = localStorage.getItem('sgc_cat_prefixes');
       const savedDocs = localStorage.getItem('sgc_doc_prefixes');
@@ -206,50 +184,137 @@ export default function PoliticasPage() {
   );
 
   const getStatusConfig = (status: string) => {
-    switch (status) {
+    const displayStatus = statusMap[status] || status;
+    switch (displayStatus) {
       case 'Vigente':
-        return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-200', icon: <CheckCircle2 className="w-3 h-3" /> };
+        return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-200', icon: <CheckCircle2 className="w-3 h-3" />, label: 'Vigente' };
       case 'En Revisión':
-        return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-200', icon: <Clock className="w-3 h-3" /> };
+        return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-200', icon: <Clock className="w-3 h-3" />, label: 'En Revisión' };
       case 'Obsoleta':
-        return { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-200', icon: <AlertTriangle className="w-3 h-3" /> };
+        return { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-200', icon: <AlertTriangle className="w-3 h-3" />, label: 'Obsoleta' };
       default:
-        return { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-slate-200', icon: null };
+        return { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-slate-200', icon: null, label: status };
     }
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!newPolicy.title) { toast.error('El título es requerido'); return; }
     if (!newPolicy.content) { toast.error('El contenido es requerido'); return; }
 
-    const policy: Policy = {
-      id: selectedPolicy?.id || `POL-${String(policies.length + 1).padStart(3, '0')}`,
-      title: newPolicy.title || '',
-      content: newPolicy.content || '',
-      version: newPolicy.version || '1.0',
-      status: (newPolicy.status as Policy['status']) || 'En Revisión',
-      date: new Date().toLocaleDateString(),
-      author: newPolicy.author || 'Sin asignar',
-      type: newPolicy.type || 'General',
-      objectives: newPolicy.objectives || [],
-    };
+    try {
+      const res = await fetch('/api/liderazgo/politicas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedPolicy?.id || undefined,
+          tenantId: tenant?.id,
+          title: newPolicy.title,
+          content: newPolicy.content,
+          type: newPolicy.type || 'General',
+          version: newPolicy.version || '1.0',
+          status: newPolicy.status || 'EN_REVISION',
+          author: newPolicy.author || 'Sin asignar',
+          objectives: newPolicy.objectives || [],
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
 
-    if (selectedPolicy) {
-      setPolicies(policies.map(p => p.id === policy.id ? policy : p));
-      toast.success('Política actualizada exitosamente');
-    } else {
-      setPolicies([policy, ...policies]);
-      toast.success('Política creada exitosamente');
+      if (selectedPolicy) {
+        setPolicies(policies.map(p => p.id === data.id ? data : p));
+        toast.success('Política actualizada exitosamente');
+      } else {
+        setPolicies([data, ...policies]);
+        toast.success('Política creada exitosamente');
+      }
+
+      setShowNew(false);
+      setNewPolicy({ type: 'General', status: 'EN_REVISION' });
+      setSelectedPolicy(null);
+    } catch (error) {
+      toast.error('Error al guardar la política');
     }
-
-    setShowNew(false);
-    setNewPolicy({ type: 'General', status: 'En Revisión' });
-    setSelectedPolicy(null);
   };
 
-  const handleDelete = (id: string) => {
-    setPolicies(policies.filter(p => p.id !== id));
-    toast.success('Política eliminada');
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/liderazgo/politicas?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPolicies(policies.filter(p => p.id !== id));
+      toast.success('Política eliminada');
+    } catch (error) {
+      toast.error('Error al eliminar la política');
+    }
+  };
+
+  const handleAddCommunication = async () => {
+    if (!selectedPolicy || !newComm.audience || !newComm.method || !newComm.date) {
+      toast.error('Complete los campos obligatorios'); return;
+    }
+    
+    setUploading(true);
+    try {
+      let finalEvidence = newComm.evidence;
+      
+      // If there's a file selected, upload it first
+      const file = fileInputRef.current?.files?.[0];
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadData.error) throw new Error(uploadData.error);
+        finalEvidence = uploadData.url;
+      }
+
+      const res = await fetch('/api/liderazgo/politicas/comunicaciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          policyId: selectedPolicy.id, 
+          ...newComm,
+          evidence: finalEvidence 
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      // Update local state
+      const updatedComms = [...(selectedPolicy.communications || []), data];
+      const updatedPolicy = { ...selectedPolicy, communications: updatedComms };
+      setSelectedPolicy(updatedPolicy);
+      setPolicies(policies.map(p => p.id === updatedPolicy.id ? updatedPolicy : p));
+      setNewComm({ audience: '', method: '', date: '', evidence: '', responsibleName: '', notes: '' });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setShowCommunication(false);
+      toast.success('Comunicación registrada exitosamente con evidencia');
+    } catch (error: any) {
+      toast.error(`Error: ${error.message || 'Error al registrar la comunicación'}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteCommunication = async (commId: string) => {
+    if (!selectedPolicy) return;
+    try {
+      const res = await fetch(`/api/liderazgo/politicas/comunicaciones?id=${commId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const updatedComms = (selectedPolicy.communications || []).filter(c => c.id !== commId);
+      const updatedPolicy = { ...selectedPolicy, communications: updatedComms };
+      setSelectedPolicy(updatedPolicy);
+      setPolicies(policies.map(p => p.id === updatedPolicy.id ? updatedPolicy : p));
+      toast.success('Comunicación eliminada');
+    } catch (error) {
+      toast.error('Error al eliminar la comunicación');
+    }
   };
 
   const handleDownloadPDF = () => {
@@ -302,7 +367,7 @@ export default function PoliticasPage() {
         startY: currentY,
         head: [['Código', 'Política', 'Tipo', 'Versión', 'Estado', 'Responsable', 'Fecha']],
         body: policies.map(p => [
-          p.id, p.title, p.type, `v${p.version}`, p.status, p.author, p.date
+          p.id, p.title, p.type, `v${p.version}`, statusMap[p.status] || p.status, p.author, new Date(p.createdAt).toLocaleDateString()
         ]),
         styles: { fontSize: 8, cellPadding: 3, textColor: [30, 41, 59] },
         headStyles: { fillColor: [19, 109, 236], textColor: [255, 255, 255], fontStyle: 'bold' },
@@ -359,6 +424,14 @@ export default function PoliticasPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8fafc] -m-6 p-8 font-sans text-slate-900 pb-20">
       {/* Page Header */}
@@ -405,7 +478,7 @@ export default function PoliticasPage() {
             PDF
           </Button>
           <Button
-            onClick={() => { setSelectedPolicy(null); setNewPolicy({ type: 'General', status: 'En Revisión' }); setShowNew(true); }}
+            onClick={() => { setSelectedPolicy(null); setNewPolicy({ type: 'General', status: 'EN_REVISION' }); setShowNew(true); }}
             className="flex items-center gap-2 px-5 py-2 bg-[#136dec] text-white rounded-lg hover:bg-blue-600 font-bold text-xs shadow-lg shadow-blue-600/20 transition-all h-10 uppercase tracking-wider"
           >
             <Plus className="w-4 h-4" />
@@ -449,7 +522,7 @@ export default function PoliticasPage() {
                         </span>
                         <span className={cn("text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1", sConfig.bg, sConfig.text, sConfig.border)}>
                           {sConfig.icon}
-                          {policy.status}
+                          {sConfig.label}
                         </span>
                       </div>
                       <h3 className="font-bold text-slate-800 uppercase tracking-wide text-sm">{policy.title}</h3>
@@ -485,11 +558,21 @@ export default function PoliticasPage() {
                     </div>
                   )}
 
+                  {/* Communications badge */}
+                  {(policy.communications || []).length > 0 && (
+                    <div className="flex items-center gap-2 mb-3">
+                      <Megaphone className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-[11px] font-bold text-amber-600">
+                        {(policy.communications || []).length} Comunicaciones registradas
+                      </span>
+                    </div>
+                  )}
+
                   {/* Meta row */}
                   <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                     <div className="flex items-center gap-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                       <span>v{policy.version}</span>
-                      <span>{policy.date}</span>
+                      <span>{new Date(policy.createdAt).toLocaleDateString()}</span>
                       <span>{policy.author}</span>
                     </div>
                     <div className="flex gap-1">
@@ -659,49 +742,158 @@ export default function PoliticasPage() {
 
       {/* ═══ DETAIL DIALOG ═══ */}
       <Dialog open={showDetail} onOpenChange={setShowDetail}>
-        <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans">
+        <DialogContent className="max-w-4xl max-h-[90vh] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans flex flex-col">
+          <ScrollArea className="flex-1">
           {selectedPolicy && (() => {
             const tConfig = typeConfig[selectedPolicy.type] || defaultTypeConfig;
             const sConfig = getStatusConfig(selectedPolicy.status);
             return (
               <>
                 <div className={cn("h-1.5 w-full", tConfig.bg)} />
-                <div className="p-6">
-                  <div className="flex items-start gap-6 mb-8">
-                    <div className={cn("h-16 w-16 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg", tConfig.bg)}>
-                      {tConfig.icon}
+                <div className="p-5">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center text-white shrink-0 shadow-md", tConfig.bg)}>
+                      {React.cloneElement(tConfig.icon as React.ReactElement, { className: "w-6 h-6" })}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
                         <Badge className={cn("border-none uppercase text-[9px] tracking-widest font-black px-3 py-1", tConfig.bg)}>{selectedPolicy.type}</Badge>
                         <span className={cn("text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1", sConfig.bg, sConfig.text, sConfig.border)}>
                           {sConfig.icon}
-                          {selectedPolicy.status}
+                          {sConfig.label}
                         </span>
                       </div>
-                      <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">{selectedPolicy.title}</h2>
+                      <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight truncate">{selectedPolicy.title}</h2>
                     </div>
                   </div>
 
-                  <div className="space-y-8">
-                    <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200/50">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Declaración de la Política</p>
-                      <p className="text-sm font-medium text-slate-600 leading-relaxed">{selectedPolicy.content}</p>
+                  <div className="space-y-4">
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/50">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Declaración de la Política</p>
+                      <p className="text-xs font-medium text-slate-600 leading-relaxed">{selectedPolicy.content}</p>
                     </div>
 
                     {selectedPolicy.objectives && selectedPolicy.objectives.length > 0 && (
-                      <div className="bg-[#136dec]/5 rounded-2xl p-6 border border-blue-100/50">
-                        <p className="text-[10px] font-black text-[#136dec] uppercase tracking-widest mb-3">Objetivos Asociados</p>
-                        <ul className="space-y-2">
+                      <div className="bg-[#136dec]/5 rounded-xl p-4 border border-blue-100/50">
+                        <p className="text-[9px] font-black text-[#136dec] uppercase tracking-widest mb-1.5">Objetivos Asociados</p>
+                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                           {selectedPolicy.objectives.map((obj, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm font-medium text-slate-700">
-                              <CheckCircle2 className="w-4 h-4 text-[#136dec] shrink-0 mt-0.5" />
+                            <li key={i} className="flex items-start gap-1.5 text-[11px] font-medium text-slate-700">
+                              <CheckCircle2 className="w-3 h-3 text-[#136dec] shrink-0 mt-0.5" />
                               {obj}
                             </li>
                           ))}
                         </ul>
                       </div>
                     )}
+
+                    {/* ═══ COMUNICACIÓN DE LA POLÍTICA (5.2.2) ═══ */}
+                    <div className="bg-amber-50/50 rounded-xl p-4 border border-amber-100/50">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Megaphone className="w-3.5 h-3.5 text-amber-600" />
+                          <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest">Comunicación (5.2.2)</p>
+                          <span className="text-[8px] font-bold bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full">
+                            {(selectedPolicy.communications || []).length} registros
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          className="bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-bold uppercase tracking-wider h-7 px-3 rounded-lg"
+                          onClick={() => setShowCommunication(true)}
+                        >
+                          <Plus className="w-2.5 h-2.5 mr-1" /> Registrar
+                        </Button>
+                      </div>
+
+                      {(selectedPolicy.communications || []).length > 0 ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-white/60">
+                                <th className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-amber-100">Audiencia</th>
+                                <th className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-amber-100">Método</th>
+                                <th className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-amber-100">Fecha</th>
+                                <th className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-amber-100">Responsable</th>
+                                <th className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-amber-100">Evidencia</th>
+                                <th className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-amber-100 text-right">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-amber-50">
+                              {(selectedPolicy.communications || []).map((comm) => (
+                                <tr key={comm.id} className="hover:bg-white/40 transition-colors">
+                                  <td className="px-3 py-1.5 text-[11px] font-medium text-slate-700">{comm.audience}</td>
+                                  <td className="px-3 py-1.5 text-[11px] text-slate-600">{comm.method}</td>
+                                  <td className="px-3 py-1.5 text-[11px] text-slate-500 font-bold">{new Date(comm.date).toLocaleDateString()}</td>
+                                  <td className="px-3 py-1.5 text-[11px] text-slate-500 uppercase">{comm.responsibleName}</td>
+                                  <td className="px-3 py-1.5 text-[11px] text-slate-400 italic">
+                                    {comm.evidence ? (
+                                      comm.evidence.startsWith('/uploads') ? (
+                                        <a 
+                                          href={comm.evidence} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:underline flex items-center gap-1 font-bold not-italic"
+                                        >
+                                          <Download className="w-2.5 h-2.5" /> Ver PDF
+                                        </a>
+                                      ) : comm.evidence
+                                    ) : '—'}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-right">
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-slate-300 hover:text-red-500 hover:bg-red-50" onClick={() => handleDeleteCommunication(comm.id)}>
+                                      <Trash2 className="h-2.5 w-2.5" />
+                                    </Button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-amber-600/60 italic text-center py-4">No se han registrado comunicaciones de esta política.</p>
+                      )}
+
+                      {/* Inline add communication form */}
+                      {showCommunication && (
+                        <div className="mt-4 bg-white rounded-xl p-4 border border-amber-200 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nueva Comunicación</p>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowCommunication(false)}><X className="h-3 h-3" /></Button>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <Input className="h-8 text-[11px] border-slate-200" placeholder="Audiencia" value={newComm.audience} onChange={e => setNewComm({...newComm, audience: e.target.value})} />
+                            <Input className="h-8 text-[11px] border-slate-200" placeholder="Método" value={newComm.method} onChange={e => setNewComm({...newComm, method: e.target.value})} />
+                            <Input type="date" className="h-8 text-[11px] border-slate-200" value={newComm.date} onChange={e => setNewComm({...newComm, date: e.target.value})} />
+                            <Input className="h-8 text-[11px] border-slate-200" placeholder="Responsable" value={newComm.responsibleName} onChange={e => setNewComm({...newComm, responsibleName: e.target.value})} />
+                            <div className="flex flex-col gap-0.5">
+                              <p className="text-[8px] font-bold text-slate-400 uppercase ml-1">Evidencia (PDF)</p>
+                              <input 
+                                type="file" 
+                                accept=".pdf"
+                                ref={fileInputRef}
+                                className="h-8 text-[9px] block w-full text-slate-500 file:mr-2 file:py-0.5 file:px-3 file:rounded-full file:border-0 file:text-[9px] file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border border-slate-200 rounded-md p-1" 
+                              />
+                            </div>
+                            <Input className="h-8 text-[11px] border-slate-200" placeholder="Notas" value={newComm.notes} onChange={e => setNewComm({...newComm, notes: e.target.value})} />
+                          </div>
+                          <div className="flex justify-end">
+                            <Button 
+                              size="sm" 
+                              className="bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-bold uppercase h-7 px-4" 
+                              onClick={handleAddCommunication}
+                              disabled={uploading}
+                            >
+                              {uploading ? (
+                                <><div className="animate-spin rounded-full h-2 w-2 border-b-2 border-white mr-1.5"></div> Subiendo...</>
+                              ) : (
+                                <><Save className="w-2.5 h-2.5 mr-1" /> Guardar</>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="flex items-center justify-between pt-6 border-t border-slate-100">
                       <div>
@@ -714,18 +906,19 @@ export default function PoliticasPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Fecha</p>
-                        <p className="text-sm font-bold text-slate-500">{selectedPolicy.date}</p>
+                        <p className="text-sm font-bold text-slate-500">{new Date(selectedPolicy.createdAt).toLocaleDateString()}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-10 flex justify-end">
-                    <Button onClick={() => setShowDetail(false)} className="bg-slate-900 hover:bg-black text-white px-8 h-12 font-bold uppercase text-[10px] tracking-widest rounded-xl">Cerrar Ficha</Button>
+                  <div className="mt-6 flex justify-end">
+                    <Button onClick={() => setShowDetail(false)} className="bg-slate-900 hover:bg-black text-white px-6 h-10 font-bold uppercase text-[9px] tracking-widest rounded-xl">Cerrar Ficha</Button>
                   </div>
                 </div>
               </>
             );
           })()}
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
