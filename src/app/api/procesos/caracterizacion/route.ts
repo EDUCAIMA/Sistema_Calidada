@@ -4,6 +4,9 @@ import prisma from '@/lib/db';
 export async function POST(request: Request) {
     try {
         const body = await request.json();
+        console.log('--- API CARACTERIZACIÓN [POST] ---');
+        console.log('Body recibido:', JSON.stringify(body, null, 2));
+
         const { 
             processId, 
             version, 
@@ -31,9 +34,9 @@ export async function POST(request: Request) {
           await prisma.process.update({
             where: { id: processId },
             data: {
-              ...(objective !== undefined && { objective }),
-              ...(scope !== undefined && { scope }),
-              ...(responsibleId !== undefined && { responsibleId }),
+              ...(objective !== undefined && objective !== null && { objective }),
+              ...(scope !== undefined && scope !== null && { scope }),
+              ...(responsibleId !== undefined && responsibleId !== null && { responsibleId }),
             }
           });
         }
@@ -71,10 +74,10 @@ export async function POST(request: Request) {
         return NextResponse.json(characterization);
 
     } catch (error: any) {
-        console.error('Error saving characterization:', error);
+        console.error('CRITICAL_API_ERROR [caracterizacion]:', error);
         return NextResponse.json({ 
             error: 'Error al guardar la caracterización',
-            details: error.message 
+            details: error instanceof Error ? error.message : String(error)
         }, { status: 500 });
     }
 }

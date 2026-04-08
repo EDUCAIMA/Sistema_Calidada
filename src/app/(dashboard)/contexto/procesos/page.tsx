@@ -107,8 +107,8 @@ function CharacterizationView({ process, characterization: initialChar, tenant, 
         actuar: { label: 'ACTUAR', color: 'bg-red-600', headerBg: 'bg-red-600', text: 'text-white' },
     };
 
-    const cellClass = "px-3 py-2.5 text-xs border border-border/60 align-top";
-    const headerCellClass = "px-3 py-2 text-[10px] font-bold uppercase tracking-wider border border-border/60 text-center";
+    const cellClass = "px-1.5 py-1.5 text-[11px] border border-border/60 align-top";
+    const headerCellClass = "px-1.5 py-1 text-[9px] font-bold uppercase tracking-wider border border-border/60 text-center";
 
     const handleSave = async () => {
         setSaving(true);
@@ -122,14 +122,15 @@ function CharacterizationView({ process, characterization: initialChar, tenant, 
                 }),
             });
             const data = await res.json();
-            if (data.error) throw new Error(data.error);
+            if (data.error) throw new Error(data.details || data.error);
             
             toast.success('Caracterización guardada correctamente');
             setIsEditing(false);
             onRefresh();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving:', error);
-            toast.error('Error al guardar la caracterización');
+            const detailMsg = error?.message || 'Error desconocido';
+            toast.error(`Error al guardar: ${detailMsg}`);
         } finally {
             setSaving(false);
         }
@@ -266,7 +267,7 @@ function CharacterizationView({ process, characterization: initialChar, tenant, 
     };
 
     return (
-        <DialogContent className="max-w-7xl sm:max-w-7xl w-[95vw] max-h-[92vh] p-0 gap-0 overflow-hidden bg-white">
+        <DialogContent className="max-w-5xl sm:max-w-5xl w-[92vw] max-h-[92vh] p-0 gap-0 overflow-hidden bg-white">
             <DialogHeader className="px-6 py-3 border-b border-border flex flex-row items-center justify-between bg-slate-50/50">
                 <div className="flex items-center gap-2">
                     <FileEdit className="w-5 h-5 text-indigo-600" />
@@ -297,8 +298,8 @@ function CharacterizationView({ process, characterization: initialChar, tenant, 
                 </div>
             </DialogHeader>
 
-            <ScrollArea className="flex-1 max-h-[calc(92vh-100px)]">
-                <div ref={componentRef} className="p-8 bg-white min-w-[1000px]">
+            <ScrollArea className="flex-1 max-h-[calc(92vh-60px)]">
+                <div ref={componentRef} className="p-5 bg-white min-w-[850px]">
                     {/* ═══════════ DOCUMENT HEADER (formal) ═══════════ */}
                     <div className="border-2 border-slate-200 rounded-t-xl overflow-hidden">
                         <table className="w-full border-collapse">
@@ -310,14 +311,14 @@ function CharacterizationView({ process, characterization: initialChar, tenant, 
                                         </div>
                                         <p className="text-[10px] text-slate-500 mt-2 font-bold tracking-tighter">VEXVEL SGC</p>
                                     </td>
-                                    <td colSpan={4} className="border border-slate-200 px-4 py-2 text-center bg-slate-50/30">
-                                        <p className="text-[12px] font-black tracking-[0.2em] text-slate-400 uppercase">Sistema Integrado de Gestión</p>
+                                    <td colSpan={4} className="border border-slate-200 px-3 py-1.5 text-center bg-slate-50/30">
+                                        <p className="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">Sistema Integrado de Gestión</p>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td colSpan={4} className="border border-slate-200 px-4 py-3 text-center">
-                                        <p className="text-lg font-black tracking-tight text-slate-800">PROCESO: {process.name.toUpperCase()}</p>
-                                        <p className="text-[11px] text-slate-500 font-bold tracking-[0.3em] uppercase mt-1">Caracterización del Proceso</p>
+                                    <td colSpan={4} className="border border-slate-200 px-3 py-2 text-center">
+                                        <p className="text-base font-black tracking-tight text-slate-800">PROCESO: {process.name.toUpperCase()}</p>
+                                        <p className="text-[9px] text-slate-500 font-bold tracking-[0.3em] uppercase mt-0.5">Caracterización del Proceso</p>
                                     </td>
                                 </tr>
                                 <tr>
@@ -350,40 +351,40 @@ function CharacterizationView({ process, characterization: initialChar, tenant, 
                     <table className="w-full border-collapse border-x-2 border-slate-200">
                         <tbody>
                             <tr>
-                                <td className="w-[160px] bg-slate-100/80 border border-slate-200 px-4 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">
+                                <td className="w-[140px] bg-slate-100/80 border border-slate-200 px-3 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-slate-600">
                                     Macroproceso
                                 </td>
-                                <td className="border border-slate-200 px-4 py-3 text-xs" colSpan={4}>
-                                    <span className={cn("px-3 py-1 rounded-full font-bold", colors.bg, colors.text)}>
+                                <td className="border border-slate-200 px-3 py-2 text-[11px]" colSpan={4}>
+                                    <span className={cn("px-2.5 py-0.5 rounded-full font-bold", colors.bg, colors.text)}>
                                         {categoryLabels[process.category]}
                                     </span>
                                 </td>
                             </tr>
                             <tr>
-                                <td className="bg-slate-100/80 border border-slate-200 px-4 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">
+                                <td className="bg-slate-100/80 border border-slate-200 px-3 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-slate-600">
                                     Responsable
                                 </td>
-                                <td className="border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700" colSpan={4}>
+                                <td className="border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-700" colSpan={4}>
                                     {isEditing ? (
                                         <Select value={formData.responsibleId} onValueChange={v => setFormData({...formData, responsibleId: v})}>
-                                            <SelectTrigger className="h-8 border-none bg-slate-50 focus:ring-0">
+                                            <SelectTrigger className="h-7 border-none bg-slate-50 focus:ring-0 text-[11px]">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {mockUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name} - {u.position}</SelectItem>)}
+                                                {mockUsers.map(u => <SelectItem key={u.id} value={u.id} className="text-[11px]">{u.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                     ) : (process.responsibleName || '—')}
                                 </td>
                             </tr>
                             <tr>
-                                <td className="bg-slate-100/80 border border-slate-200 px-4 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">
+                                <td className="bg-slate-100/80 border border-slate-200 px-3 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-slate-600">
                                     Objetivo
                                 </td>
-                                <td className="border border-slate-200 px-4 py-3 text-xs leading-relaxed text-slate-700" colSpan={4}>
+                                <td className="border border-slate-200 px-3 py-2 text-[11px] leading-relaxed text-slate-700" colSpan={4}>
                                     {isEditing ? (
                                         <textarea 
-                                            className="w-full min-h-[60px] bg-slate-50 border-none rounded p-2 focus:ring-1 focus:ring-indigo-200" 
+                                            className="w-full min-h-[50px] bg-slate-50 border-none rounded p-1.5 focus:ring-1 focus:ring-indigo-200 text-[11px]" 
                                             value={formData.objective} 
                                             onChange={e => setFormData({...formData, objective: e.target.value})}
                                         />
@@ -391,13 +392,13 @@ function CharacterizationView({ process, characterization: initialChar, tenant, 
                                 </td>
                             </tr>
                             <tr>
-                                <td className="bg-slate-100/80 border border-slate-200 px-4 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">
+                                <td className="bg-slate-100/80 border border-slate-200 px-3 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-slate-600">
                                     Alcance
                                 </td>
-                                <td className="border border-slate-200 px-4 py-3 text-xs leading-relaxed text-slate-700" colSpan={4}>
+                                <td className="border border-slate-200 px-3 py-2 text-[11px] leading-relaxed text-slate-700" colSpan={4}>
                                     {isEditing ? (
                                         <textarea 
-                                            className="w-full min-h-[60px] bg-slate-50 border-none rounded p-2 focus:ring-1 focus:ring-indigo-200" 
+                                            className="w-full min-h-[50px] bg-slate-50 border-none rounded p-1.5 focus:ring-1 focus:ring-indigo-200 text-[11px]" 
                                             value={formData.scope} 
                                             onChange={e => setFormData({...formData, scope: e.target.value})}
                                         />

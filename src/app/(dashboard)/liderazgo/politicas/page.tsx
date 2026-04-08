@@ -624,7 +624,7 @@ export default function PoliticasPage() {
 
       {/* ═══ CREATE / EDIT DIALOG ═══ */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans">
+        <DialogContent className="max-w-2xl sm:max-w-2xl w-[90vw] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans">
           <div className="px-6 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
             <div className="flex items-center gap-3">
               <div className="bg-[#136dec] p-1.5 rounded-md shadow-lg shadow-blue-600/20">
@@ -861,21 +861,20 @@ export default function PoliticasPage() {
                             <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nueva Comunicación</p>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowCommunication(false)}><X className="h-3 h-3" /></Button>
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            <Input className="h-8 text-[11px] border-slate-200" placeholder="Audiencia" value={newComm.audience} onChange={e => setNewComm({...newComm, audience: e.target.value})} />
-                            <Input className="h-8 text-[11px] border-slate-200" placeholder="Método" value={newComm.method} onChange={e => setNewComm({...newComm, method: e.target.value})} />
-                            <Input type="date" className="h-8 text-[11px] border-slate-200" value={newComm.date} onChange={e => setNewComm({...newComm, date: e.target.value})} />
-                            <Input className="h-8 text-[11px] border-slate-200" placeholder="Responsable" value={newComm.responsibleName} onChange={e => setNewComm({...newComm, responsibleName: e.target.value})} />
-                            <div className="flex flex-col gap-0.5">
-                              <p className="text-[8px] font-bold text-slate-400 uppercase ml-1">Evidencia (PDF)</p>
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                            <Input className="h-7 text-[10px] border-slate-200" placeholder="Audiencia" value={newComm.audience} onChange={e => setNewComm({...newComm, audience: e.target.value})} />
+                            <Input className="h-7 text-[10px] border-slate-200" placeholder="Método" value={newComm.method} onChange={e => setNewComm({...newComm, method: e.target.value})} />
+                            <Input type="date" className="h-7 text-[10px] border-slate-200" value={newComm.date} onChange={e => setNewComm({...newComm, date: e.target.value})} />
+                            <Input className="h-7 text-[10px] border-slate-200" placeholder="Responsable" value={newComm.responsibleName} onChange={e => setNewComm({...newComm, responsibleName: e.target.value})} />
+                            <div className="flex flex-col gap-0.5 lg:col-span-2">
                               <input 
                                 type="file" 
                                 accept=".pdf"
                                 ref={fileInputRef}
-                                className="h-8 text-[9px] block w-full text-slate-500 file:mr-2 file:py-0.5 file:px-3 file:rounded-full file:border-0 file:text-[9px] file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border border-slate-200 rounded-md p-1" 
+                                className="h-7 text-[8px] block w-full text-slate-500 file:mr-2 file:py-0 file:px-2 file:rounded-full file:border-0 file:text-[8px] file:font-semibold file:bg-blue-50 file:text-blue-700 border border-slate-200 rounded-md p-1" 
                               />
                             </div>
-                            <Input className="h-8 text-[11px] border-slate-200" placeholder="Notas" value={newComm.notes} onChange={e => setNewComm({...newComm, notes: e.target.value})} />
+                            <Input className="h-7 text-[10px] border-slate-200 lg:col-span-2" placeholder="Notas adicionales..." value={newComm.notes} onChange={e => setNewComm({...newComm, notes: e.target.value})} />
                           </div>
                           <div className="flex justify-end">
                             <Button 
