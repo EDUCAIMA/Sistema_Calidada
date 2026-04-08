@@ -753,7 +753,7 @@ export default function PoliticasPage() {
                 <div className="p-5">
                   <div className="flex items-center gap-4 mb-4">
                     <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center text-white shrink-0 shadow-md", tConfig.bg)}>
-                      {React.cloneElement(tConfig.icon as React.ReactElement, { className: "w-6 h-6" })}
+                      {React.cloneElement(tConfig.icon as React.ReactElement<{ className?: string }>, { className: "w-6 h-6" })}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
