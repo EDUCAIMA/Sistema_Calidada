@@ -2,6 +2,38 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
+export async function PATCH(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id: tenantId } = await params;
+        const body = await request.json();
+
+        const { name, industry, timezone, currency, phone, logo } = body;
+
+        const updated = await prisma.tenant.update({
+            where: { id: tenantId },
+            data: {
+                ...(name !== undefined && { name }),
+                ...(industry !== undefined && { industry }),
+                ...(timezone !== undefined && { timezone }),
+                ...(currency !== undefined && { currency }),
+                ...(phone !== undefined && { phone }),
+                ...(logo !== undefined && { logo }),
+            },
+        });
+
+        return NextResponse.json(updated);
+    } catch (error: any) {
+        console.error('Error updating tenant:', error);
+        return NextResponse.json(
+            { error: 'Error al actualizar la empresa', details: error.message },
+            { status: 500 }
+        );
+    }
+}
+
 export async function DELETE(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
