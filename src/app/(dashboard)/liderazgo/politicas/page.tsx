@@ -104,7 +104,8 @@ export default function PoliticasPage() {
   const [docMetadata, setDocMetadata] = useState({
     code: 'DIR-REG-005',
     version: '01',
-    approvalDate: '2026-03-21'
+    approvalDate: '2026-03-21',
+    managerName: 'GERENTE GENERAL'
   });
 
   // Coding Standard States
@@ -154,7 +155,8 @@ export default function PoliticasPage() {
             setDocMetadata({
               code: data.code,
               version: data.version,
-              approvalDate: data.approvalDate
+              approvalDate: data.approvalDate,
+              managerName: data.managerName || 'GERENTE GENERAL'
             });
           }
         } catch (error) { console.error(error); }
@@ -314,6 +316,105 @@ export default function PoliticasPage() {
       toast.success('Comunicación eliminada');
     } catch (error) {
       toast.error('Error al eliminar la comunicación');
+    }
+  };
+
+  const handlePrintPolicy = (policy: Policy) => {
+    try {
+      const safeTenantName = tenant?.name || "SGC";
+      const doc = new jsPDF('p', 'mm', 'letter');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+
+      // --- 1. ENCABEZADO FORMAL ISO ---
+      const headerHeight = 22;
+      doc.setDrawColor(30, 41, 59);
+      doc.setLineWidth(0.4);
+      doc.rect(margin, margin, pageWidth - (margin * 2), headerHeight);
+      
+      const col1Width = 40;
+      const col3Width = 60;
+      const col2Width = pageWidth - (margin * 2) - col1Width - col3Width;
+
+      doc.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
+      doc.line(margin + col1Width + col2Width, margin, margin + col1Width + col2Width, margin + headerHeight);
+
+      // --- LOGO O NOMBRE DE EMPRESA ---
+      if (tenant?.logo) {
+        try {
+          doc.addImage(tenant.logo, 'PNG', margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
+        } catch (e) {
+          doc.setFontSize(9).setFont('helvetica', 'bold');
+          doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
+        }
+      } else {
+        doc.setFontSize(9).setFont('helvetica', 'bold');
+        doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
+      }
+
+      // --- TÍTULO ---
+      doc.setFontSize(14).setFont('helvetica', 'bold');
+      doc.text(policy.title.toUpperCase(), margin + col1Width + col2Width/2, margin + 14, { align: 'center', maxWidth: col2Width - 4 });
+
+      // --- METADATOS ---
+      doc.setFontSize(8).setFont('helvetica', 'normal');
+      const metaX = margin + col1Width + col2Width + 4;
+      doc.text(`Código: ${docMetadata.code}`, metaX, margin + 5);
+      doc.text(`Versión: ${docMetadata.version}`, metaX, margin + 9.5);
+      doc.text(`Fecha: ${docMetadata.approvalDate}`, metaX, margin + 14);
+      doc.text(`Página: 1 de 1`, metaX, margin + 18.5);
+
+      let currentY = margin + headerHeight + 15;
+
+      // --- CONTENIDO DE LA POLÍTICA ---
+      doc.setFontSize(12).setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text("Declaración de la Política", margin, currentY);
+      currentY += 8;
+
+      doc.setFontSize(10).setFont('helvetica', 'normal');
+      doc.setTextColor(51, 65, 85);
+      const splitContent = doc.splitTextToSize(policy.content, pageWidth - (margin * 2));
+      doc.text(splitContent, margin, currentY);
+      currentY += (splitContent.length * 5) + 15;
+
+      // --- OBJETIVOS ASOCIADOS ---
+      if (policy.objectives && policy.objectives.length > 0) {
+        doc.setFontSize(12).setFont('helvetica', 'bold');
+        doc.setTextColor(30, 41, 59);
+        doc.text("Objetivos Asociados", margin, currentY);
+        currentY += 8;
+
+        doc.setFontSize(10).setFont('helvetica', 'normal');
+        doc.setTextColor(51, 65, 85);
+        policy.objectives.forEach((obj) => {
+          if (currentY > pageHeight - 40) {
+            doc.addPage();
+            currentY = margin + 10;
+          }
+          const splitObj = doc.splitTextToSize(`• ${obj}`, pageWidth - (margin * 2) - 5);
+          doc.text(splitObj, margin + 2, currentY);
+          currentY += (splitObj.length * 5) + 2;
+        });
+      }
+
+      // --- FIRMA GERENTE ---
+      const footerY = pageHeight - 40;
+      doc.setDrawColor(30, 41, 59);
+      doc.setLineWidth(0.2);
+      doc.line(margin + 20, footerY, pageWidth - margin - 20, footerY);
+      
+      doc.setFontSize(10).setFont('helvetica', 'bold');
+      doc.text(docMetadata.managerName.toUpperCase(), pageWidth / 2, footerY + 5, { align: 'center' });
+      doc.setFontSize(8).setFont('helvetica', 'normal');
+      doc.text("GERENTE GENERAL / REPRESENTANTE LEGAL", pageWidth / 2, footerY + 9, { align: 'center' });
+
+      doc.save(`Politica_${policy.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+      toast.success('Política descargada exitosamente');
+    } catch (error) {
+      console.error('Error generating single policy PDF:', error);
+      toast.error('Error al generar el PDF de la política');
     }
   };
 
@@ -591,6 +692,15 @@ export default function PoliticasPage() {
                         onClick={() => { setSelectedPolicy(policy); setNewPolicy(policy); setShowNew(true); }}
                       >
                         <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        onClick={() => handlePrintPolicy(policy)}
+                        title="Imprimir Política"
+                      >
+                        <Download className="h-4 w-4 text-red-500" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -910,7 +1020,14 @@ export default function PoliticasPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 flex justify-end">
+                  <div className="mt-6 flex justify-end gap-3">
+                    <Button 
+                      onClick={() => handlePrintPolicy(selectedPolicy)}
+                      variant="outline"
+                      className="border-slate-200 text-slate-700 hover:bg-slate-50 px-6 h-10 font-bold uppercase text-[9px] tracking-widest rounded-xl flex items-center gap-2"
+                    >
+                      <Download className="w-3.5 h-3.5 text-red-500" /> Imprimir PDF
+                    </Button>
                     <Button onClick={() => setShowDetail(false)} className="bg-slate-900 hover:bg-black text-white px-6 h-10 font-bold uppercase text-[9px] tracking-widest rounded-xl">Cerrar Ficha</Button>
                   </div>
                 </div>
@@ -1039,6 +1156,16 @@ export default function PoliticasPage() {
             </div>
 
             <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Gerente / Representante Legal (Para Firma)</Label>
+              <Input
+                value={docMetadata.managerName}
+                onChange={e => setDocMetadata({ ...docMetadata, managerName: e.target.value.toUpperCase() })}
+                className="h-12 border-slate-100 bg-slate-50 font-black text-slate-800 uppercase text-center text-sm tracking-wider"
+                placeholder="NOMBRE DEL GERENTE"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Código Final (Generado o Manual)</Label>
               <Input
                 value={docMetadata.code}
@@ -1072,7 +1199,31 @@ export default function PoliticasPage() {
           </div>
 
           <div className="p-6 bg-slate-50 flex justify-end gap-3 border-t">
-            <Button onClick={() => setShowConfig(false)} className="bg-slate-900 text-white font-black uppercase text-[10px] px-8 h-12 rounded-xl">Aplicar Configuración</Button>
+            <Button 
+              onClick={async () => {
+                if (!tenant?.id) return toast.error('Error: Empresa no identificada');
+                try {
+                  const res = await fetch('/api/formatos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      tenantId: tenant.id,
+                      moduleKey: '5.2',
+                      ...docMetadata
+                    }),
+                  });
+                  const data = await res.json();
+                  if (data.error) throw new Error(data.error);
+                  setShowConfig(false);
+                  toast.success('Configuración guardada correctamente');
+                } catch (error) {
+                  toast.error('Error al guardar la configuración');
+                }
+              }}
+              className="bg-[#136dec] hover:bg-blue-600 text-white font-black uppercase text-[10px] px-8 h-12 rounded-xl"
+            >
+              Aplicar Configuración
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
