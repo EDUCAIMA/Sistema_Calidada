@@ -398,7 +398,7 @@ export default function PoliticasPage() {
       const footerY = pageHeight - 40;
       doc.setDrawColor(30, 41, 59);
       doc.setLineWidth(0.2);
-      doc.line(margin + 20, footerY, pageWidth - margin - 20, footerY);
+      doc.line(pageWidth / 2 - 40, footerY, pageWidth / 2 + 40, footerY);
       
       doc.setFontSize(10).setFont('helvetica', 'bold');
       doc.text(docMetadata.managerName.toUpperCase(), pageWidth / 2, footerY + 5, { align: 'center' });
