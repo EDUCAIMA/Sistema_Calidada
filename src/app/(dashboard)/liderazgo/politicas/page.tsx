@@ -216,7 +216,7 @@ export default function PoliticasPage() {
           version: newPolicy.version || '1.0',
           status: newPolicy.status || 'EN_REVISION',
           author: newPolicy.author || 'Sin asignar',
-          objectives: newPolicy.objectives || [],
+          objectives: (newPolicy.objectives || []).filter(o => o.trim()),
         }),
       });
       const data = await res.json();
@@ -830,7 +830,7 @@ export default function PoliticasPage() {
                 className="resize-none bg-white border-slate-200 rounded-xl p-5 focus-visible:ring-1 focus-visible:ring-[#136dec] font-medium text-slate-700 min-h-[100px] text-sm"
                 placeholder="Garantizar la satisfacción del cliente&#10;Cumplir requisitos legales&#10;Mejorar continuamente"
                 value={newPolicy.objectives?.join('\n') || ''}
-                onChange={e => setNewPolicy({ ...newPolicy, objectives: e.target.value.split('\n').filter(o => o.trim()) })}
+                onChange={e => setNewPolicy({ ...newPolicy, objectives: e.target.value.split('\n') })}
               />
             </div>
           </div>
