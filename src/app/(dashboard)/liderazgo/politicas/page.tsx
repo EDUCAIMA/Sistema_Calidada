@@ -343,9 +343,11 @@ export default function PoliticasPage() {
       doc.line(margin + col1Width + col2Width, margin, margin + col1Width + col2Width, margin + headerHeight);
 
       // --- LOGO O NOMBRE DE EMPRESA ---
-      if (tenant?.logo) {
+      const logoData = tenant?.logo || tenant?.logoUrl;
+      if (logoData) {
         try {
-          doc.addImage(tenant.logo, 'PNG', margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
+          const format = logoData.includes('data:image/jpeg') || logoData.includes('.jpg') || logoData.includes('.jpeg') ? 'JPEG' : 'PNG';
+          doc.addImage(logoData, format, margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
         } catch (e) {
           doc.setFontSize(9).setFont('helvetica', 'bold');
           doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
@@ -437,9 +439,11 @@ export default function PoliticasPage() {
       doc.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
       doc.line(margin + col1Width + col2Width, margin, margin + col1Width + col2Width, margin + headerHeight);
 
-      if (tenant?.logo) {
+      const logoData = tenant?.logo || tenant?.logoUrl;
+      if (logoData) {
         try {
-          doc.addImage(tenant.logo, 'PNG', margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
+          const format = logoData.includes('data:image/jpeg') || logoData.includes('.jpg') || logoData.includes('.jpeg') ? 'JPEG' : 'PNG';
+          doc.addImage(logoData, format, margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
         } catch (e) {
           doc.setFontSize(9).setFont('helvetica', 'bold');
           doc.text(safeTenantName.toUpperCase(), margin + col1Width / 2, margin + headerHeight / 2 + 2, { align: 'center', maxWidth: col1Width - 4 });
