@@ -325,7 +325,7 @@ export default function PoliticasPage() {
       const doc = new jsPDF('p', 'mm', 'letter');
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 20;
+      const margin = 25.4; // 1 pulgada (2.54 cm)
 
       // --- 1. ENCABEZADO FORMAL ISO ---
       const headerHeight = 22;
@@ -420,7 +420,7 @@ export default function PoliticasPage() {
       const doc = new jsPDF('p', 'mm', 'letter');
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 20;
+      const margin = 25.4; // 1 pulgada (2.54 cm)
 
       // --- HEADER ---
       const headerHeight = 22;
