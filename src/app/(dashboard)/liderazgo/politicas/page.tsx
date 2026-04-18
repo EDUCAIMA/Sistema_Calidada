@@ -402,7 +402,7 @@ export default function PoliticasPage() {
       
       doc.setFontSize(10).setFont('helvetica', 'bold');
       doc.text(docMetadata.managerName.toUpperCase(), pageWidth / 2, footerY + 5, { align: 'center' });
-      doc.setFontSize(8).setFont('helvetica', 'normal');
+      doc.setFontSize(7).setFont('helvetica', 'normal');
       doc.text("GERENTE GENERAL / REPRESENTANTE LEGAL", pageWidth / 2, footerY + 9, { align: 'center' });
 
       doc.save(`Politica_${policy.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
