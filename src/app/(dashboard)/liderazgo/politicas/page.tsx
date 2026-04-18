@@ -368,11 +368,11 @@ export default function PoliticasPage() {
       let currentY = margin + headerHeight + 15;
 
       // --- CONTENIDO DE LA POLÍTICA ---
-      doc.setFontSize(10).setFont('helvetica', 'normal');
+      doc.setFontSize(12).setFont('helvetica', 'normal');
       doc.setTextColor(51, 65, 85);
       const splitContent = doc.splitTextToSize(policy.content, pageWidth - (margin * 2));
       doc.text(splitContent, margin, currentY);
-      currentY += (splitContent.length * 5) + 15;
+      currentY += (splitContent.length * 6) + 15;
 
       // --- OBJETIVOS ASOCIADOS ---
       if (policy.objectives && policy.objectives.length > 0) {
@@ -381,7 +381,7 @@ export default function PoliticasPage() {
         doc.text("Objetivos Asociados", margin, currentY);
         currentY += 8;
 
-        doc.setFontSize(10).setFont('helvetica', 'normal');
+        doc.setFontSize(12).setFont('helvetica', 'normal');
         doc.setTextColor(51, 65, 85);
         policy.objectives.forEach((obj) => {
           if (currentY > pageHeight - 40) {
@@ -390,7 +390,7 @@ export default function PoliticasPage() {
           }
           const splitObj = doc.splitTextToSize(`• ${obj}`, pageWidth - (margin * 2) - 5);
           doc.text(splitObj, margin + 2, currentY);
-          currentY += (splitObj.length * 5) + 2;
+          currentY += (splitObj.length * 6) + 2;
         });
       }
 
