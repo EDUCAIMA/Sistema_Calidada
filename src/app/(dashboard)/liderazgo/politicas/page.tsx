@@ -368,11 +368,6 @@ export default function PoliticasPage() {
       let currentY = margin + headerHeight + 15;
 
       // --- CONTENIDO DE LA POLÍTICA ---
-      doc.setFontSize(12).setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text("Declaración de la Política", margin, currentY);
-      currentY += 8;
-
       doc.setFontSize(10).setFont('helvetica', 'normal');
       doc.setTextColor(51, 65, 85);
       const splitContent = doc.splitTextToSize(policy.content, pageWidth - (margin * 2));
