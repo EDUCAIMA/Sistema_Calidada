@@ -336,7 +336,7 @@ export default function PoliticasPage() {
       doc.rect(margin, margin, pageWidth - (margin * 2), headerHeight);
       
       const col1Width = 40;
-      const col3Width = 60;
+      const col3Width = 45;
       const col2Width = pageWidth - (margin * 2) - col1Width - col3Width;
 
       doc.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
@@ -431,7 +431,7 @@ export default function PoliticasPage() {
       doc.rect(margin, margin, pageWidth - (margin * 2), headerHeight);
 
       const col1Width = 40;
-      const col3Width = 60;
+      const col3Width = 45;
       const col2Width = pageWidth - (margin * 2) - col1Width - col3Width;
 
       doc.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
