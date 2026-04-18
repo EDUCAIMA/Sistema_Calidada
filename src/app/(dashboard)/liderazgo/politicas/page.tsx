@@ -105,7 +105,8 @@ export default function PoliticasPage() {
     code: 'DIR-REG-005',
     version: '01',
     approvalDate: '2026-03-21',
-    managerName: 'GERENTE GENERAL'
+    managerName: 'GERENTE GENERAL',
+    managerPosition: 'GERENTE GENERAL / REPRESENTANTE LEGAL'
   });
 
   // Coding Standard States
@@ -156,7 +157,8 @@ export default function PoliticasPage() {
               code: data.code,
               version: data.version,
               approvalDate: data.approvalDate,
-              managerName: data.managerName || 'GERENTE GENERAL'
+              managerName: data.managerName || 'GERENTE GENERAL',
+              managerPosition: data.managerPosition || 'GERENTE GENERAL / REPRESENTANTE LEGAL'
             });
           }
         } catch (error) { console.error(error); }
@@ -403,7 +405,7 @@ export default function PoliticasPage() {
       doc.setFontSize(10).setFont('helvetica', 'bold');
       doc.text(docMetadata.managerName.toUpperCase(), pageWidth / 2, footerY + 5, { align: 'center' });
       doc.setFontSize(7).setFont('helvetica', 'normal');
-      doc.text("GERENTE GENERAL / REPRESENTANTE LEGAL", pageWidth / 2, footerY + 9, { align: 'center' });
+      doc.text(docMetadata.managerPosition.toUpperCase(), pageWidth / 2, footerY + 9, { align: 'center' });
 
       doc.save(`Politica_${policy.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
       toast.success('Política descargada exitosamente');
@@ -1150,14 +1152,25 @@ export default function PoliticasPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Gerente / Representante Legal (Para Firma)</Label>
-              <Input
-                value={docMetadata.managerName}
-                onChange={e => setDocMetadata({ ...docMetadata, managerName: e.target.value.toUpperCase() })}
-                className="h-12 border-slate-100 bg-slate-50 font-black text-slate-800 uppercase text-center text-sm tracking-wider"
-                placeholder="NOMBRE DEL GERENTE"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nombre de quien Firma</Label>
+                <Input
+                  value={docMetadata.managerName}
+                  onChange={e => setDocMetadata({ ...docMetadata, managerName: e.target.value.toUpperCase() })}
+                  className="h-12 border-slate-100 bg-slate-50 font-black text-slate-800 uppercase text-center text-xs tracking-wider"
+                  placeholder="NOMBRE"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cargo de quien Firma</Label>
+                <Input
+                  value={docMetadata.managerPosition}
+                  onChange={e => setDocMetadata({ ...docMetadata, managerPosition: e.target.value.toUpperCase() })}
+                  className="h-12 border-slate-100 bg-slate-50 font-black text-slate-800 uppercase text-center text-xs tracking-wider"
+                  placeholder="CARGO"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
