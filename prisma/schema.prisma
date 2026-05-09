@@ -7,29 +7,30 @@ datasource db {
 }
 
 model Tenant {
-  id           String        @id @default(cuid())
-  name         String
-  slug         String        @unique
-  logo         String?
-  industry     String?
-  timezone     String?       @default("America/Bogota")
-  currency     String?       @default("USD")
-  phone        String?
-  plan         PlanType      @default(BASICO)
-  active       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  audits       Audit[]
-  dofaItems    DOFAItem[]
-  documents    Document[]
-  processes    Process[]
-  risks        Risk[]
-  riskMatrices RiskMatrix[]
-  sgcScopes    SGCScope[]
-  stakeholders Stakeholder[]
-  users        User[]
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  logo           String?
+  plan           PlanType        @default(BASICO)
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  currency       String?         @default("USD")
+  industry       String?
+  phone          String?
+  timezone       String?         @default("America/Bogota")
+  audits         Audit[]
+  dofaItems      DOFAItem[]
+  documents      Document[]
   formatControls FormatControl[]
-  policies     Policy[]
+  policies       Policy[]
+  processes      Process[]
+  risks          Risk[]
+  riskMatrices   RiskMatrix[]
+  sgcScopes      SGCScope[]
+  stakeholders   Stakeholder[]
+  users          User[]
+  qualityObjectives QualityObjective[]
 }
 
 model User {
@@ -39,12 +40,12 @@ model User {
   password             String?
   name                 String
   position             String?
-  phone                String?
   role                 Role      @default(USUARIO)
   avatar               String?
   active               Boolean   @default(true)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
+  phone                String?
   processesResponsible Process[] @relation("ProcessResponsible")
   tenant               Tenant    @relation(fields: [tenantId], references: [id])
 }
@@ -105,9 +106,9 @@ model Document {
   createdByName  String?
   approvedBy     String?
   approvedDate   DateTime?
-  nextReviewDate DateTime?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
+  nextReviewDate DateTime?
   process        Process?          @relation(fields: [processId], references: [id])
   tenant         Tenant            @relation(fields: [tenantId], references: [id])
   versions       DocumentVersion[]
@@ -264,25 +265,24 @@ model FormatControl {
   approvalDate String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
   tenant       Tenant   @relation(fields: [tenantId], references: [id])
+
   @@unique([tenantId, moduleKey])
 }
 
 model Policy {
-  id             String              @id @default(cuid())
+  id             String                @id @default(cuid())
   tenantId       String
   title          String
   content        String
-  type           String              @default("General")
-  version        String              @default("1.0")
-  status         PolicyStatus        @default(EN_REVISION)
+  type           String                @default("General")
+  version        String                @default("1.0")
+  status         PolicyStatus          @default(EN_REVISION)
   author         String
   objectives     Json?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-
-  tenant         Tenant              @relation(fields: [tenantId], references: [id])
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  tenant         Tenant                @relation(fields: [tenantId], references: [id])
   communications PolicyCommunication[]
 }
 
@@ -296,7 +296,6 @@ model PolicyCommunication {
   responsibleName String
   notes           String?
   createdAt       DateTime @default(now())
-
   policy          Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
 }
 
@@ -321,9 +320,9 @@ enum DocumentType {
   INSTRUCTIVO
   FORMATO
   POLITICA
-  GUIA
   REGISTRO
   OTRO
+  GUIA
 }
 
 enum ProcessCategory {
@@ -398,3 +397,33 @@ enum StakeholderInfluence {
   MEDIA
   BAJA
 }
+
+model QualityObjective {
+  id              String   @id @default(cuid())
+  tenantId        String
+  description     String   // ¿Qué se va a hacer?
+  indicator       String   // ¿Cómo se medirá?
+  target          String   // Meta
+  actual          String?  // Valor actual
+  resources       String?  // ¿Qué recursos se necesitarán?
+  responsibleId   String?  // ¿Quién será responsable?
+  responsibleName String?
+  deadline        DateTime // ¿Cuándo se finalizará?
+  evaluationFreq  String?  // ¿Cómo se evaluarán los resultados?
+  status          String   @default("EN_PROGRESO") // EN_PROGRESO, CUMPLIDO, NO_CUMPLIDO
+  progress        Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  tracking        ObjectiveTracking[]
+}
+
+model ObjectiveTracking {
+  id          String   @id @default(cuid())
+  objectiveId String
+  date        DateTime @default(now())
+  note        String
+  progress    Int
+  objective   QualityObjective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+}
+
