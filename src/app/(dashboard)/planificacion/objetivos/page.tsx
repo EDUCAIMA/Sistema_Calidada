@@ -239,7 +239,7 @@ export default function ObjetivosPage() {
                 },
                 didDrawPage: (data) => {
                     // Footer with page number
-                    const str = "Página " + doc.internal.getNumberOfPages();
+                    const str = "Página " + doc.getNumberOfPages();
                     doc.setFontSize(7);
                     doc.setTextColor(150);
                     doc.text(str, pageWidth - margin - 20, pageHeight - 10);
