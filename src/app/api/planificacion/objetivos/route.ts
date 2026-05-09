@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
                     indicator: indicator || '',
                     target,
                     responsibleName: responsible,
-                    deadline: deadline ? new Date(deadline) : null,
+                    deadline: deadline ? new Date(deadline) : undefined,
                     evaluationFreq,
                     resources,
                     status: status || 'En progreso',
