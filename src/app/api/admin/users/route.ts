@@ -2,11 +2,34 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const tenantId = searchParams.get('tenantId');
         const users = await prisma.user.findMany({
-            include: {
-                tenant: true,
+            where: tenantId ? { tenantId, active: true } : undefined,
+            select: {
+                id: true,
+                tenantId: true,
+                email: true,
+                name: true,
+                position: true,
+                role: true,
+                avatar: true,
+                active: true,
+                createdAt: true,
+                updatedAt: true,
+                phone: true,
+                tenant: {
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        plan: true,
+                        active: true,
+                        createdAt: true,
+                    },
+                },
             },
             orderBy: {
                 createdAt: 'desc',
@@ -54,9 +77,9 @@ export async function POST(request: Request) {
         });
 
         return NextResponse.json(user, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error creating user:', error);
-        if (error.code === 'P2002') {
+        if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
             return NextResponse.json(
                 { error: 'El email ya está registrado' },
                 { status: 400 }

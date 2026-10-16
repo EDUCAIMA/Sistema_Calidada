@@ -1,809 +1,502 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '@/context/app-context';
 import { toast } from 'sonner';
 import {
-    Target, Plus, Search, Filter, MoreVertical,
-    Edit, Trash2, Eye, LineChart, CheckCircle2, AlertCircle,
-    Calendar, User, ClipboardList, TrendingUp, History,
-    Save, X, ArrowRight, Download
+    Calendar, ClipboardList, Download, Edit, Eye, Filter,
+    MoreVertical, Plus, Save, Search, Target, Trash2, User,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { DocumentHeader } from '@/components/DocumentHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-    DropdownMenuTrigger, DropdownMenuSeparator
+    DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-    Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-} from "@/components/ui/sheet";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from '@/lib/utils';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+type Lookup = { id: string; name?: string; title?: string; email?: string; code?: string; status?: string };
+type Tracking = { id: string; date: string; note: string; progress: number; actual?: string | null };
+type Objective = {
+    id: string;
+    tenantId: string;
+    policyId?: string | null;
+    processId?: string | null;
+    organizationalLevel?: string | null;
+    description: string;
+    indicator: string;
+    target: string;
+    actual?: string | null;
+    applicableRequirements?: string | null;
+    relevance?: string | null;
+    resources?: string | null;
+    responsibleId?: string | null;
+    responsibleName?: string | null;
+    deadline: string;
+    evaluationFreq?: string | null;
+    nextEvaluationDate?: string | null;
+    communicationRecipients?: string | null;
+    communicationDate?: string | null;
+    communicationEvidence?: string | null;
+    status: string;
+    progress: number;
+    tracking: Tracking[];
+};
+
+type FormState = {
+    policyId: string;
+    processId: string;
+    organizationalLevel: string;
+    description: string;
+    indicator: string;
+    target: string;
+    actual: string;
+    applicableRequirements: string;
+    relevance: string;
+    resources: string;
+    responsibleId: string;
+    deadline: string;
+    evaluationFreq: string;
+    communicationRecipients: string;
+    communicationDate: string;
+    communicationEvidence: string;
+};
+
+const emptyForm = (): FormState => ({
+    policyId: '',
+    processId: '',
+    organizationalLevel: '',
+    description: '',
+    indicator: '',
+    target: '',
+    actual: '',
+    applicableRequirements: '',
+    relevance: '',
+    resources: '',
+    responsibleId: '',
+    deadline: '',
+    evaluationFreq: '',
+    communicationRecipients: '',
+    communicationDate: '',
+    communicationEvidence: '',
+});
+
+const toDateInput = (value?: string | null) => value ? new Date(value).toISOString().split('T')[0] : '';
+const displayDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('es-CO') : '—';
 
 export default function ObjetivosPage() {
     const { tenant } = useApp();
-    const [searchTerm, setSearchTerm] = useState('');
-    const [objectives, setObjectives] = useState<any[]>([]);
+    const [objectives, setObjectives] = useState<Objective[]>([]);
+    const [policies, setPolicies] = useState<Lookup[]>([]);
+    const [processes, setProcesses] = useState<Lookup[]>([]);
+    const [users, setUsers] = useState<Lookup[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [selectedObjective, setSelectedObjective] = useState<any>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('TODOS');
+    const [processFilter, setProcessFilter] = useState('TODOS');
+    const [showFilters, setShowFilters] = useState(false);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [formData, setFormData] = useState<FormState>(emptyForm());
+    const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
-    const [trackingData, setTrackingData] = useState({
-        note: '',
-        progress: 0
-    });
-
-    // Document Metadata State (ISO Header)
+    const [trackingData, setTrackingData] = useState({ note: '', progress: 0, actual: '' });
     const [docMetadata, setDocMetadata] = useState({
         code: 'PLA-REG-001',
         version: '01',
-        approvalDate: new Date().toISOString().split('T')[0]
-    });
-
-    // Form State
-    const [formData, setFormData] = useState({
-        description: '',
-        indicator: '',
-        target: '',
-        responsible: '',
-        deadline: '',
-        evaluationFreq: '',
-        resources: ''
+        approvalDate: new Date().toISOString().split('T')[0],
     });
 
     useEffect(() => {
-        const fetchObjectives = async () => {
-            if (!tenant?.id) return;
+        if (!tenant?.id) return;
+        const loadData = async () => {
+            setLoading(true);
             try {
-                const res = await fetch(`/api/planificacion/objetivos?tenantId=${tenant.id}`, {
-                    cache: 'no-store',
-                    headers: { 'Pragma': 'no-cache' }
-                });
-                const data = await res.json();
-                if (data && !data.error) {
-                    // Normalize responsibleName → responsible for display
-                    const normalized = data.map((obj: any) => ({
-                        ...obj,
-                        responsible: obj.responsibleName || obj.responsible || '',
-                        deadline: obj.deadline ? new Date(obj.deadline).toISOString().split('T')[0] : ''
-                    }));
-                    setObjectives(normalized);
+                const query = `tenantId=${encodeURIComponent(tenant.id)}`;
+                const [objectivesRes, policiesRes, processesRes, usersRes, metadataRes] = await Promise.all([
+                    fetch(`/api/planificacion/objetivos?${query}`, { cache: 'no-store' }),
+                    fetch(`/api/liderazgo/politicas?${query}`, { cache: 'no-store' }),
+                    fetch(`/api/procesos?${query}`, { cache: 'no-store' }),
+                    fetch(`/api/admin/users?${query}`, { cache: 'no-store' }),
+                    fetch(`/api/formatos?${query}&moduleKey=6.2`, { cache: 'no-store' }),
+                ]);
+                const [objectiveData, policyData, processData, userData, metadata] = await Promise.all([
+                    objectivesRes.json(), policiesRes.json(), processesRes.json(), usersRes.json(), metadataRes.json(),
+                ]);
+                if (!objectivesRes.ok) throw new Error(objectiveData.error || 'No fue posible cargar los objetivos.');
+                setObjectives(objectiveData);
+                setPolicies(Array.isArray(policyData) ? policyData : []);
+                setProcesses(Array.isArray(processData) ? processData : []);
+                setUsers(Array.isArray(userData) ? userData : []);
+                if (metadata && !metadata.error) {
+                    setDocMetadata({
+                        code: metadata.code || 'PLA-REG-001',
+                        version: metadata.version || '01',
+                        approvalDate: metadata.approvalDate || new Date().toISOString().split('T')[0],
+                    });
                 }
             } catch (error) {
-                console.error('Error fetching objectives:', error);
-                toast.error('Error al cargar objetivos');
+                toast.error(error instanceof Error ? error.message : 'Error al cargar el módulo.');
             } finally {
                 setLoading(false);
             }
         };
-
-        fetchObjectives();
-        
-        const fetchMetadata = async () => {
-            if (!tenant?.id) return;
-            try {
-                const res = await fetch(`/api/formatos?tenantId=${tenant.id}&moduleKey=6.2`);
-                const data = await res.json();
-                if (data && !data.error) {
-                    setDocMetadata({
-                        code: data.code || 'PLA-REG-001',
-                        version: data.version || '01',
-                        approvalDate: data.approvalDate || new Date().toISOString().split('T')[0]
-                    });
-                }
-            } catch (error) {
-                console.error('Error fetching metadata:', error);
-            }
-        };
-        fetchMetadata();
+        void loadData();
     }, [tenant?.id]);
 
-    const handleDownloadPDF = async () => {
-        try {
-            toast.loading('Preparando documento...', { id: 'pdf-gen' });
-            
-            // portrait, millimeters, letter
-            const doc = new jsPDF('p', 'mm', 'letter');
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const margin = 15;
-
-            const safeTenantName = tenant?.name || "SISTEMA DE GESTIÓN DE CALIDAD";
-            const safeCode = docMetadata.code || 'PLA-REG-001';
-            const safeVersion = docMetadata.version || '01';
-            const safeDate = docMetadata.approvalDate || new Date().toISOString().split('T')[0];
-
-            // --- 1. ENCABEZADO FORMAL ISO (ESTILO TABLA) ---
-            const headerHeight = 24;
-            const col1Width = 40; // Logo
-            const col3Width = 55; // Metadata
-            const col2Width = pageWidth - (margin * 2) - col1Width - col3Width; // Title
-
-            // Outer box
-            doc.setDrawColor(30, 41, 59);
-            doc.setLineWidth(0.5);
-            doc.rect(margin, margin, pageWidth - (margin * 2), headerHeight);
-            
-            // Vertical separators
-            doc.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
-            doc.line(margin + col1Width + col2Width, margin, margin + col1Width + col2Width, margin + headerHeight);
-
-            // Metadata grid (sub-cells in 3rd column)
-            const rowH = headerHeight / 3;
-            doc.line(margin + col1Width + col2Width, margin + rowH, pageWidth - margin, margin + rowH);
-            doc.line(margin + col1Width + col2Width, margin + 2 * rowH, pageWidth - margin, margin + 2 * rowH);
-            
-            const labelW = 15;
-            doc.line(margin + col1Width + col2Width + labelW, margin, margin + col1Width + col2Width + labelW, margin + headerHeight);
-
-            // --- CONTENT: LOGO ---
-            if (tenant?.logo) {
-                try {
-                    // Pre-load image to ensure it renders in PDF
-                    const img = new Image();
-                    img.crossOrigin = "anonymous";
-                    img.src = tenant.logo;
-                    await new Promise((resolve, reject) => {
-                        img.onload = resolve;
-                        img.onerror = reject;
-                        // Timeout after 3s to not block forever
-                        setTimeout(resolve, 3000);
-                    });
-                    doc.addImage(img, 'PNG', margin + 5, margin + 3, col1Width - 10, headerHeight - 6, undefined, 'FAST');
-                } catch (e) {
-                    doc.setFontSize(7).setFont('helvetica', 'bold');
-                    doc.text(safeTenantName.substring(0, 15).toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-                }
-            } else {
-                doc.setFontSize(7).setFont('helvetica', 'bold');
-                doc.text(safeTenantName.substring(0, 15).toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-            }
-
-            // --- CONTENT: TITLE ---
-            doc.setFontSize(11).setFont('helvetica', 'bold');
-            doc.text("MATRIZ DE OBJETIVOS DE CALIDAD", margin + col1Width + col2Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col2Width - 4 });
-
-            // --- CONTENT: METADATA ---
-            doc.setFontSize(7).setFont('helvetica', 'bold');
-            const metaXLabel = margin + col1Width + col2Width + 2;
-            const metaXValue = margin + col1Width + col2Width + labelW + (col3Width - labelW)/2;
-            
-            // Row 1: Code
-            doc.text("CÓDIGO", metaXLabel, margin + rowH/2 + 1.5);
-            doc.setFont('helvetica', 'normal').text(safeCode, metaXValue, margin + rowH/2 + 1.5, { align: 'center' });
-            
-            // Row 2: Version
-            doc.setFont('helvetica', 'bold').text("VERSIÓN", metaXLabel, margin + rowH + rowH/2 + 1.5);
-            doc.setFont('helvetica', 'normal').text(String(safeVersion), metaXValue, margin + rowH + rowH/2 + 1.5, { align: 'center' });
-            
-            // Row 3: Date
-            doc.setFont('helvetica', 'bold').text("FECHA", metaXLabel, margin + 2*rowH + rowH/2 + 1.5);
-            doc.setFont('helvetica', 'normal').text(safeDate, metaXValue, margin + 2*rowH + rowH/2 + 1.5, { align: 'center' });
-
-            let currentY = margin + headerHeight + 10;
-
-            // --- 2. TABLA DE OBJETIVOS ---
-            const tableData = objectives.map(obj => [
-                obj.description.toUpperCase(),
-                `${obj.target}\n(${obj.indicator})`,
-                obj.responsibleName || obj.responsible || 'N/A',
-                obj.deadline ? new Date(obj.deadline).toLocaleDateString('es-ES') : 'N/A',
-                `${obj.progress}%`,
-                obj.status.toUpperCase()
-            ]);
-
-            autoTable(doc, {
-                startY: currentY,
-                margin: { left: margin, right: margin },
-                head: [['OBJETIVO / QUÉ SE VA A HACER', 'META / INDICADOR', 'RESPONSABLE', 'FECHA LÍMITE', 'AVANCE', 'ESTADO']],
-                body: tableData,
-                theme: 'grid',
-                headStyles: { 
-                    fillColor: [30, 41, 59], 
-                    textColor: [255, 255, 255], 
-                    fontSize: 7, 
-                    fontStyle: 'bold',
-                    halign: 'center',
-                    valign: 'middle'
-                },
-                styles: { 
-                    fontSize: 6.5, 
-                    cellPadding: 3,
-                    overflow: 'linebreak',
-                    textColor: [51, 65, 85]
-                },
-                columnStyles: {
-                    0: { cellWidth: 'auto' }, // Objetivo
-                    1: { cellWidth: 35 },      // Meta
-                    2: { cellWidth: 32 },      // Responsable
-                    3: { cellWidth: 22, halign: 'center' }, // Fecha
-                    4: { cellWidth: 14, halign: 'center' }, // Avance
-                    5: { cellWidth: 22, halign: 'center' }  // Estado
-                },
-                didDrawPage: (data) => {
-                    // Footer with page number
-                    const str = "Página " + doc.getNumberOfPages();
-                    doc.setFontSize(7);
-                    doc.setTextColor(150);
-                    doc.text(str, pageWidth - margin - 20, pageHeight - 10);
-                    doc.text("Generado por SGC SaaS", margin, pageHeight - 10);
-                }
-            });
-
-            // --- 3. SECCIÓN DE FIRMA ---
-            const finalY = (doc as any).lastAutoTable.finalY || currentY;
-            const spaceNeeded = 40;
-            
-            // Check if there is enough space on the current page, otherwise add a new one
-            if (finalY + spaceNeeded > pageHeight - margin) {
-                doc.addPage();
-                doc.setDrawColor(30, 41, 59);
-                doc.setLineWidth(0.5);
-                // Redraw header on the new page if it's for signature? (Optional, usually not needed)
-            }
-
-            const signatureY = Math.max(finalY + 25, pageHeight - 45);
-            doc.setDrawColor(0, 0, 0);
-            doc.setLineWidth(0.5);
-            doc.line(margin + 60, signatureY, margin + 130, signatureY);
-            doc.setFontSize(8).setFont('helvetica', 'bold');
-            doc.text("FIRMA REPRESENTANTE LEGAL", margin + 95, signatureY + 5, { align: 'center' });
-
-            doc.save(`OBJETIVOS_CALIDAD_${safeTenantName.replace(/ /g, '_').toUpperCase()}.pdf`);
-            toast.success('Documento descargado exitosamente');
-        } catch (error) {
-            console.error('Error generando PDF:', error);
-            toast.error('Error al generar el PDF');
-        }
+    const getPolicyName = (id?: string | null) => policies.find((item) => item.id === id)?.title || '—';
+    const getProcessName = (id?: string | null) => {
+        const process = processes.find((item) => item.id === id);
+        return process ? `${process.code ? `${process.code} · ` : ''}${process.name}` : '—';
     };
 
-    const filteredObjectives = objectives.filter(obj =>
-        obj.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (obj.responsibleName || obj.responsible || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredObjectives = useMemo(() => objectives.filter((objective) => {
+        const term = searchTerm.toLowerCase();
+        const matchesTerm = [objective.description, objective.indicator, objective.responsibleName]
+            .some((value) => value?.toLowerCase().includes(term));
+        const matchesStatus = statusFilter === 'TODOS' || objective.status === statusFilter;
+        const matchesProcess = processFilter === 'TODOS' || objective.processId === processFilter;
+        return matchesTerm && matchesStatus && matchesProcess;
+    }), [objectives, processFilter, searchTerm, statusFilter]);
+
+    const openNew = () => {
+        setEditingId(null);
+        setFormData(emptyForm());
+        setIsFormOpen(true);
+    };
+
+    const openEdit = (objective: Objective) => {
+        setEditingId(objective.id);
+        setFormData({
+            policyId: objective.policyId || '',
+            processId: objective.processId || '',
+            organizationalLevel: objective.organizationalLevel || '',
+            description: objective.description,
+            indicator: objective.indicator,
+            target: objective.target,
+            actual: objective.actual || '',
+            applicableRequirements: objective.applicableRequirements || '',
+            relevance: objective.relevance || '',
+            resources: objective.resources || '',
+            responsibleId: objective.responsibleId || '',
+            deadline: toDateInput(objective.deadline),
+            evaluationFreq: objective.evaluationFreq || '',
+            communicationRecipients: objective.communicationRecipients || '',
+            communicationDate: toDateInput(objective.communicationDate),
+            communicationEvidence: objective.communicationEvidence || '',
+        });
+        setIsDetailOpen(false);
+        setIsFormOpen(true);
+    };
 
     const handleSave = async () => {
-        if (!formData.description || !formData.target) {
-            toast.error('La descripción y la meta son obligatorias');
+        const required: Array<[keyof FormState, string]> = [
+            ['policyId', 'Política'], ['processId', 'Proceso'], ['organizationalLevel', 'Nivel organizacional'],
+            ['description', 'Descripción'], ['indicator', 'Indicador'], ['target', 'Meta'],
+            ['applicableRequirements', 'Requisitos aplicables'], ['relevance', 'Relevancia'],
+            ['resources', 'Recursos'], ['responsibleId', 'Responsable'], ['deadline', 'Fecha límite'],
+            ['evaluationFreq', 'Frecuencia'], ['communicationRecipients', 'Destinatarios'],
+            ['communicationDate', 'Fecha de comunicación'],
+        ];
+        const missing = required.filter(([key]) => !formData[key].trim()).map(([, label]) => label);
+        if (missing.length) {
+            toast.error(`Completa los campos obligatorios: ${missing.join(', ')}.`);
             return;
         }
 
         try {
-            const res = await fetch('/api/planificacion/objetivos', {
+            const response = await fetch('/api/planificacion/objetivos', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tenantId: tenant.id,
-                    ...formData
-                }),
+                body: JSON.stringify({ id: editingId, tenantId: tenant.id, ...formData }),
             });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-
-            setObjectives([
-                { ...data, responsible: data.responsibleName || data.responsible || '', deadline: data.deadline ? new Date(data.deadline).toISOString().split('T')[0] : '' },
-                ...objectives
-            ]);
-            setFormData({
-                description: '',
-                indicator: '',
-                target: '',
-                responsible: '',
-                deadline: '',
-                evaluationFreq: '',
-                resources: ''
-            });
-            setIsCreateOpen(false);
-            toast.success('Objetivo guardado exitosamente');
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'No fue posible guardar el objetivo.');
+            setObjectives((current) => editingId
+                ? current.map((objective) => objective.id === editingId ? data : objective)
+                : [data, ...current]);
+            setSelectedObjective((current) => current?.id === editingId ? data : current);
+            setIsFormOpen(false);
+            setEditingId(null);
+            setFormData(emptyForm());
+            toast.success(editingId ? 'Objetivo actualizado.' : 'Objetivo creado y documentado.');
         } catch (error) {
-            toast.error('Error al guardar el objetivo');
+            toast.error(error instanceof Error ? error.message : 'Error al guardar el objetivo.');
         }
     };
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = async (objective: Objective) => {
+        if (!window.confirm(`¿Eliminar el objetivo “${objective.description}”? Esta acción también elimina su historial.`)) return;
         try {
-            const res = await fetch(`/api/planificacion/objetivos?id=${id}`, {
-                method: 'DELETE',
-            });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-
-            setObjectives(objectives.filter(obj => obj.id !== id));
-            toast.success('Objetivo eliminado');
+            const response = await fetch(
+                `/api/planificacion/objetivos?id=${encodeURIComponent(objective.id)}&tenantId=${encodeURIComponent(tenant.id)}`,
+                { method: 'DELETE' },
+            );
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'No fue posible eliminar el objetivo.');
+            setObjectives((current) => current.filter((item) => item.id !== objective.id));
+            toast.success('Objetivo eliminado.');
         } catch (error) {
-            toast.error('Error al eliminar el objetivo');
+            toast.error(error instanceof Error ? error.message : 'Error al eliminar el objetivo.');
         }
+    };
+
+    const openDetail = (objective: Objective) => {
+        setSelectedObjective(objective);
+        setTrackingData({ note: '', progress: objective.progress || 0, actual: objective.actual || '' });
+        setIsDetailOpen(true);
     };
 
     const handleSaveTracking = async () => {
-        if (!selectedObjective || !trackingData.note) {
-            toast.error('La nota de seguimiento es obligatoria');
+        if (!selectedObjective || !trackingData.note.trim() || !trackingData.actual.trim()) {
+            toast.error('El resultado actual y la nota de seguimiento son obligatorios.');
             return;
         }
-        
         try {
-            const res = await fetch('/api/planificacion/objetivos/tracking', {
+            const response = await fetch('/api/planificacion/objetivos/tracking', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    objectiveId: selectedObjective.id,
-                    ...trackingData
-                }),
+                body: JSON.stringify({ objectiveId: selectedObjective.id, tenantId: tenant.id, ...trackingData }),
             });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-
-            // Actualizar estado local
-            const updatedObjectives = objectives.map(obj => {
-                if (obj.id === selectedObjective.id) {
-                    return {
-                        ...obj,
-                        progress: trackingData.progress,
-                        tracking: [data, ...(obj.tracking || [])]
-                    };
-                }
-                return obj;
-            });
-            setObjectives(updatedObjectives);
-            setSelectedObjective({
-                ...selectedObjective, 
-                progress: trackingData.progress, 
-                tracking: [data, ...(selectedObjective.tracking || [])]
-            });
-            setTrackingData({ ...trackingData, note: '' });
-            toast.success('Seguimiento registrado exitosamente');
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'No fue posible guardar el seguimiento.');
+            setObjectives((current) => current.map((item) => item.id === data.objective.id ? data.objective : item));
+            setSelectedObjective(data.objective);
+            setTrackingData({ note: '', progress: data.objective.progress, actual: data.objective.actual || '' });
+            toast.success('Seguimiento registrado y estado actualizado.');
         } catch (error) {
-            toast.error('Error al registrar el seguimiento');
+            toast.error(error instanceof Error ? error.message : 'Error al registrar el seguimiento.');
         }
     };
 
     const getStatusBadge = (status: string) => {
-        switch (status) {
-            case 'Logrado':
-                return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 rounded-full px-3 py-1 font-medium shadow-none flex items-center gap-1.5 w-fit">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    🟢 Al día
-                </Badge>;
-            case 'En Riesgo':
-                return <Badge className="bg-amber-50 text-amber-700 border-amber-200 rounded-full px-3 py-1 font-medium shadow-none flex items-center gap-1.5 w-fit">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    🟡 En Riesgo
-                </Badge>;
-            case 'Retrasado':
-                return <Badge className="bg-rose-50 text-rose-700 border-rose-200 rounded-full px-3 py-1 font-medium shadow-none flex items-center gap-1.5 w-fit">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                    🔴 Atrasado
-                </Badge>;
-            default:
-                return <Badge className="bg-blue-50 text-blue-700 border-blue-200 rounded-full px-3 py-1 font-medium shadow-none flex items-center gap-1.5 w-fit">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                    🔵 En progreso
-                </Badge>;
-        }
+        const styles: Record<string, { label: string; className: string }> = {
+            CUMPLIDO: { label: 'Cumplido', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+            Logrado: { label: 'Cumplido', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+            EN_RIESGO: { label: 'En riesgo', className: 'bg-amber-50 text-amber-700 border-amber-200' },
+            'En Riesgo': { label: 'En riesgo', className: 'bg-amber-50 text-amber-700 border-amber-200' },
+            ATRASADO: { label: 'Atrasado', className: 'bg-rose-50 text-rose-700 border-rose-200' },
+            Retrasado: { label: 'Atrasado', className: 'bg-rose-50 text-rose-700 border-rose-200' },
+            EN_PROGRESO: { label: 'En progreso', className: 'bg-blue-50 text-blue-700 border-blue-200' },
+            'En progreso': { label: 'En progreso', className: 'bg-blue-50 text-blue-700 border-blue-200' },
+        };
+        const config = styles[status] || styles.EN_PROGRESO;
+        return <Badge variant="outline" className={`${config.className} rounded-full px-3 py-1`}>{config.label}</Badge>;
     };
 
-    const handleRowClick = (obj: any) => {
-        setSelectedObjective(obj);
-        setTrackingData({
-            note: '',
-            progress: obj.progress || 0
+    const handleDownloadPDF = () => {
+        const doc = new jsPDF('l', 'mm', 'letter');
+        const tenantName = tenant?.name || 'SISTEMA DE GESTIÓN DE CALIDAD';
+        doc.setFontSize(15).setFont('helvetica', 'bold');
+        doc.text('MATRIZ DE OBJETIVOS DE CALIDAD — ISO 9001:2015, 6.2', 14, 16);
+        doc.setFontSize(8).setFont('helvetica', 'normal');
+        doc.text(`${tenantName} · Código ${docMetadata.code} · Versión ${docMetadata.version} · Aprobación ${docMetadata.approvalDate}`, 14, 22);
+        autoTable(doc, {
+            startY: 27,
+            head: [['Objetivo', 'Política / proceso', 'Indicador / meta', 'Responsable', 'Plazo / evaluación', 'Actual / avance', 'Estado']],
+            body: filteredObjectives.map((objective) => [
+                objective.description,
+                `${getPolicyName(objective.policyId)}\n${getProcessName(objective.processId)}`,
+                `${objective.indicator}\nMeta: ${objective.target}`,
+                objective.responsibleName || '—',
+                `${displayDate(objective.deadline)}\n${objective.evaluationFreq || '—'}`,
+                `${objective.actual || '—'}\n${objective.progress}%`,
+                getStatusLabel(objective.status),
+            ]),
+            theme: 'grid',
+            headStyles: { fillColor: [30, 41, 59], fontSize: 7 },
+            styles: { fontSize: 6.5, cellPadding: 2, overflow: 'linebreak' },
         });
-        setIsDetailOpen(true);
+        doc.save(`OBJETIVOS_CALIDAD_${tenantName.replace(/\s+/g, '_').toUpperCase()}.pdf`);
+        toast.success('Matriz de objetivos descargada.');
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center p-20 min-h-screen">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-        );
+        return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600" /></div>;
     }
 
     return (
-        <div className="flex flex-col h-full bg-white animate-fade-in min-h-screen">
-            {/* Header Moderno y Minimalista */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between px-8 py-8 border-b border-slate-100 bg-slate-50/30">
-                <div className="space-y-1">
-                    <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">6.2 Objetivos de <span className="text-blue-600">Calidad</span></h1>
-                    <p className="text-sm text-slate-500 font-medium flex items-center gap-2">
-                        <Badge variant="outline" className="bg-white text-[10px] font-bold uppercase tracking-wider">ISO 9001:2015</Badge>
-                        Planeación y control de metas institucionales
-                    </p>
+        <div className="flex min-h-screen flex-col bg-white">
+            <div className="flex flex-col gap-5 border-b border-slate-100 bg-slate-50/40 px-8 py-8 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-3xl font-extrabold text-slate-900">6.2 Objetivos de <span className="text-blue-600">Calidad</span></h1>
+                    <p className="mt-2 text-sm text-slate-500">Registro, planificación, comunicación y seguimiento conforme a 6.2.1 y 6.2.2.</p>
                 </div>
-
-                <div className="flex items-center gap-3">
-                    <Button 
-                        onClick={handleDownloadPDF}
-                        variant="outline" 
-                        className="h-12 rounded-xl border-slate-200 text-slate-700 font-bold px-5 shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2"
-                    >
-                        <Download className="w-5 h-5 text-red-500" />
-                        Descargar PDF
-                    </Button>
-                    <Button 
-                        onClick={() => setIsCreateOpen(true)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 h-12 rounded-xl font-bold shadow-lg shadow-blue-100 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                        <Plus className="w-5 h-5 mr-2" />
-                        Nuevo Objetivo
-                    </Button>
+                <div className="flex gap-3">
+                    <Button variant="outline" className="h-11 rounded-xl" onClick={handleDownloadPDF}><Download className="mr-2 h-4 w-4 text-red-500" />Descargar PDF</Button>
+                    <Button className="h-11 rounded-xl bg-blue-600" onClick={openNew}><Plus className="mr-2 h-4 w-4" />Nuevo objetivo</Button>
                 </div>
             </div>
 
-            {/* Barra de Búsqueda y Filtros */}
-            <div className="px-8 py-6 flex items-center gap-4 bg-slate-50/50">
-                <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                        placeholder="Buscar por descripción o responsable..."
-                        className="pl-11 h-11 bg-white border-slate-200 rounded-xl focus:ring-blue-500 transition-all"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+            <div className="space-y-4 bg-slate-50/50 px-8 py-5">
+                <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="relative max-w-xl flex-1">
+                        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input className="h-11 rounded-xl bg-white pl-11" placeholder="Buscar objetivo, indicador o responsable..." value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
+                    </div>
+                    <Button variant="outline" className="h-11 rounded-xl" onClick={() => setShowFilters((value) => !value)}><Filter className="mr-2 h-4 w-4" />Filtros</Button>
                 </div>
-                <Button variant="outline" className="h-11 rounded-xl border-slate-200 text-slate-600 font-medium px-4">
-                    <Filter className="h-4 w-4 mr-2" />
-                    Filtros
-                </Button>
+                {showFilters && (
+                    <div className="grid max-w-3xl gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2">
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="TODOS">Todos los estados</SelectItem>
+                                <SelectItem value="EN_PROGRESO">En progreso</SelectItem>
+                                <SelectItem value="EN_RIESGO">En riesgo</SelectItem>
+                                <SelectItem value="ATRASADO">Atrasado</SelectItem>
+                                <SelectItem value="CUMPLIDO">Cumplido</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select value={processFilter} onValueChange={setProcessFilter}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="TODOS">Todos los procesos</SelectItem>
+                                {processes.map((process) => <SelectItem key={process.id} value={process.id}>{process.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
             </div>
 
-            {/* Tabla Principal */}
             <div className="flex-1 px-8 pb-10">
-                <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-white">
+                <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
                     <Table>
-                        <TableHeader>
-                            <TableRow className="bg-slate-50/80 border-b border-slate-100 hover:bg-slate-50/80">
-                                <TableHead className="font-bold text-slate-600 h-14 pl-6">Objetivo / Qué se va a hacer</TableHead>
-                                <TableHead className="font-bold text-slate-600 h-14">Meta / Indicador</TableHead>
-                                <TableHead className="font-bold text-slate-600 h-14">Responsable</TableHead>
-                                <TableHead className="font-bold text-slate-600 h-14">Cumplimiento</TableHead>
-                                <TableHead className="font-bold text-slate-600 h-14">Estado</TableHead>
-                                <TableHead className="font-bold text-slate-600 h-14 text-right pr-6">Acciones</TableHead>
-                            </TableRow>
-                        </TableHeader>
+                        <TableHeader><TableRow className="bg-slate-50/80">
+                            <TableHead className="pl-6">Objetivo / proceso</TableHead><TableHead>Meta / indicador</TableHead>
+                            <TableHead>Responsable</TableHead><TableHead>Avance</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Acciones</TableHead>
+                        </TableRow></TableHeader>
                         <TableBody>
-                            {filteredObjectives.map((obj) => (
-                                <TableRow 
-                                    key={obj.id} 
-                                    onClick={() => handleRowClick(obj)}
-                                    className="group cursor-pointer hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0"
-                                >
-                                    <TableCell className="pl-6 py-6 max-w-sm">
-                                        <div className="space-y-1">
-                                            <p className="text-sm font-semibold text-slate-900 leading-snug group-hover:text-blue-700 transition-colors">
-                                                {obj.description}
-                                            </p>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-bold text-slate-700">{obj.target}</span>
-                                            <span className="text-[11px] text-slate-500 italic">{obj.indicator}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-                                                <User className="w-4 h-4" />
-                                            </div>
-                                            <span className="text-sm font-medium text-slate-600">{obj.responsible}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex flex-col gap-1.5 w-32">
-                                            <div className="flex justify-between text-[11px] font-bold">
-                                                <span className="text-slate-400 uppercase tracking-tighter">Progreso</span>
-                                                <span className="text-blue-600">{obj.progress}%</span>
-                                            </div>
-                                            <Progress value={obj.progress} className="h-1.5 bg-slate-100" />
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {getStatusBadge(obj.status)}
-                                    </TableCell>
-                                    <TableCell className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" className="h-9 w-9 p-0 hover:bg-white hover:shadow-md rounded-lg">
-                                                    <MoreVertical className="h-5 w-5 text-slate-400" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-100 shadow-xl">
-                                                <DropdownMenuItem onClick={() => handleRowClick(obj)} className="gap-2 py-2.5 font-medium cursor-pointer">
-                                                    <Eye className="h-4 w-4 text-blue-500" /> Seguimiento
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem className="gap-2 py-2.5 font-medium cursor-pointer">
-                                                    <Edit className="h-4 w-4 text-slate-500" /> Editar
-                                                </DropdownMenuItem>
+                            {filteredObjectives.map((objective) => (
+                                <TableRow key={objective.id} className="cursor-pointer" onClick={() => openDetail(objective)}>
+                                    <TableCell className="max-w-sm py-5 pl-6"><p className="font-semibold text-slate-900">{objective.description}</p><p className="mt-1 text-xs text-slate-500">{getProcessName(objective.processId)}</p></TableCell>
+                                    <TableCell><p className="font-semibold">{objective.target}</p><p className="text-xs text-slate-500">{objective.indicator}</p></TableCell>
+                                    <TableCell>{objective.responsibleName || '—'}</TableCell>
+                                    <TableCell><div className="w-32"><div className="mb-1 flex justify-between text-xs"><span>Progreso</span><b>{objective.progress}%</b></div><Progress value={objective.progress} /></div></TableCell>
+                                    <TableCell>{getStatusBadge(objective.status)}</TableCell>
+                                    <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                                        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => openDetail(objective)}><Eye className="mr-2 h-4 w-4" />Seguimiento</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => openEdit(objective)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
                                                 <DropdownMenuSeparator />
-                                                <DropdownMenuItem 
-                                                    onClick={() => handleDelete(obj.id)}
-                                                    className="gap-2 py-2.5 font-medium cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50"
-                                                >
-                                                    <Trash2 className="h-4 w-4" /> Eliminar
-                                                </DropdownMenuItem>
+                                                <DropdownMenuItem className="text-rose-600" onClick={() => void handleDelete(objective)}><Trash2 className="mr-2 h-4 w-4" />Eliminar</DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
                             ))}
+                            {!filteredObjectives.length && <TableRow><TableCell colSpan={6} className="h-40 text-center text-slate-500">No hay objetivos que coincidan con la búsqueda. Registre el primero desde “Nuevo objetivo”.</TableCell></TableRow>}
                         </TableBody>
                     </Table>
                 </div>
             </div>
 
-            {/* Modal de Creación (Panel Lateral) */}
-            <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <SheetContent className="sm:max-w-[540px] overflow-y-auto">
-                    <SheetHeader className="pb-6 border-b border-slate-100">
-                        <SheetTitle className="text-2xl font-bold flex items-center gap-3">
-                            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-                                <Target className="w-6 h-6" />
-                            </div>
-                            Planificación de Objetivo
-                        </SheetTitle>
-                        <SheetDescription>
-                            Define los parámetros requeridos por la norma ISO 9001:2015 para la gestión de calidad.
-                        </SheetDescription>
+            <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
+                <SheetContent className="overflow-y-auto sm:max-w-[680px]">
+                    <SheetHeader className="border-b pb-5"><SheetTitle className="flex items-center gap-3 text-2xl"><span className="rounded-lg bg-blue-50 p-2 text-blue-600"><Target className="h-6 w-6" /></span>{editingId ? 'Editar objetivo de calidad' : 'Planificar objetivo de calidad'}</SheetTitle>
+                        <SheetDescription>Todos los campos marcados con * respaldan los requisitos de ISO 9001:2015, 6.2.1 y 6.2.2.</SheetDescription>
                     </SheetHeader>
-
-                    <div className="grid gap-6 py-8">
-                        <div className="space-y-3">
-                            <Label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                <ClipboardList className="w-4 h-4 text-blue-500" />
-                                ¿Qué se va a hacer? (Descripción)
-                            </Label>
-                            <Textarea 
-                                placeholder="Ej: Aumentar la eficiencia en el proceso de ensamblaje..."
-                                className="min-h-[100px] rounded-xl focus:ring-blue-500 border-slate-200"
-                                value={formData.description}
-                                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-3">
-                                <Label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                    <TrendingUp className="w-4 h-4 text-blue-500" />
-                                    ¿Cómo se medirá?
-                                </Label>
-                                <Input 
-                                    placeholder="Nombre del indicador" 
-                                    className="rounded-xl" 
-                                    value={formData.indicator}
-                                    onChange={(e) => setFormData({...formData, indicator: e.target.value})}
-                                />
+                    <div className="space-y-7 py-7">
+                        <FormSection title="Alineación y alcance — 6.2.1">
+                            <Field label="Política de calidad *"><Select value={formData.policyId} onValueChange={(value) => setFormData({ ...formData, policyId: value })}><SelectTrigger><SelectValue placeholder="Seleccionar política" /></SelectTrigger><SelectContent>{policies.filter((policy) => policy.status === 'VIGENTE').map((policy) => <SelectItem key={policy.id} value={policy.id}>{policy.title}</SelectItem>)}</SelectContent></Select></Field>
+                            {!policies.some((policy) => policy.status === 'VIGENTE') && <p className="text-xs text-amber-700">Primero debe existir una política con estado VIGENTE.</p>}
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field label="Proceso o función pertinente *"><Select value={formData.processId} onValueChange={(value) => setFormData({ ...formData, processId: value })}><SelectTrigger><SelectValue placeholder="Seleccionar proceso" /></SelectTrigger><SelectContent>{processes.map((process) => <SelectItem key={process.id} value={process.id}>{getProcessName(process.id)}</SelectItem>)}</SelectContent></Select></Field>
+                                <Field label="Nivel organizacional *"><Select value={formData.organizationalLevel} onValueChange={(value) => setFormData({ ...formData, organizationalLevel: value })}><SelectTrigger><SelectValue placeholder="Seleccionar nivel" /></SelectTrigger><SelectContent>{['Organización', 'Proceso', 'Área', 'Cargo'].map((level) => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select></Field>
                             </div>
-                            <div className="space-y-3">
-                                <Label className="text-sm font-bold text-slate-700">Meta esperada</Label>
-                                <Input 
-                                    placeholder="Ej: > 90%" 
-                                    className="rounded-xl" 
-                                    value={formData.target}
-                                    onChange={(e) => setFormData({...formData, target: e.target.value})}
-                                />
-                            </div>
-                        </div>
+                            <Field label="Requisitos aplicables considerados *"><Textarea value={formData.applicableRequirements} onChange={(event) => setFormData({ ...formData, applicableRequirements: event.target.value })} placeholder="Requisitos legales, reglamentarios, contractuales o del cliente..." /></Field>
+                            <Field label="Relevancia para la conformidad y satisfacción del cliente *"><Textarea value={formData.relevance} onChange={(event) => setFormData({ ...formData, relevance: event.target.value })} placeholder="Explique cómo contribuye el objetivo..." /></Field>
+                        </FormSection>
 
-                        <div className="space-y-3">
-                            <Label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                <User className="w-4 h-4 text-blue-500" />
-                                ¿Quién es el responsable?
-                            </Label>
-                            <Input 
-                                placeholder="Nombre del cargo o responsable" 
-                                className="rounded-xl" 
-                                value={formData.responsible}
-                                onChange={(e) => setFormData({...formData, responsible: e.target.value})}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-3">
-                                <Label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                    <Calendar className="w-4 h-4 text-blue-500" />
-                                    ¿Cuándo finalizará?
-                                </Label>
-                                <Input 
-                                    type="date" 
-                                    className="rounded-xl" 
-                                    value={formData.deadline}
-                                    onChange={(e) => setFormData({...formData, deadline: e.target.value})}
-                                />
+                        <FormSection title="Objetivo medible">
+                            <Field label="¿Qué se va a lograr? *"><Textarea value={formData.description} onChange={(event) => setFormData({ ...formData, description: event.target.value })} placeholder="Ej.: Reducir las devoluciones por defectos..." /></Field>
+                            <div className="grid gap-4 sm:grid-cols-3">
+                                <Field label="Indicador *"><Input value={formData.indicator} onChange={(event) => setFormData({ ...formData, indicator: event.target.value })} placeholder="% devoluciones" /></Field>
+                                <Field label="Meta *"><Input value={formData.target} onChange={(event) => setFormData({ ...formData, target: event.target.value })} placeholder="≤ 2%" /></Field>
+                                <Field label="Resultado actual"><Input value={formData.actual} onChange={(event) => setFormData({ ...formData, actual: event.target.value })} placeholder="4,5%" /></Field>
                             </div>
-                            <div className="space-y-3">
-                                <Label className="text-sm font-bold text-slate-700">Frecuencia de Evaluación</Label>
-                                <Select 
-                                    value={formData.evaluationFreq}
-                                    onValueChange={(val) => setFormData({...formData, evaluationFreq: val})}
-                                >
-                                    <SelectTrigger className="rounded-xl">
-                                        <SelectValue placeholder="Seleccionar..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Mensual">Mensual</SelectItem>
-                                        <SelectItem value="Trimestral">Trimestral</SelectItem>
-                                        <SelectItem value="Semestral">Semestral</SelectItem>
-                                        <SelectItem value="Anual">Anual</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
+                        </FormSection>
 
-                        <div className="space-y-3">
-                            <Label className="text-sm font-bold text-slate-700">¿Qué recursos se requerirán?</Label>
-                            <Textarea 
-                                placeholder="Personal, herramientas, presupuesto, etc."
-                                className="rounded-xl border-slate-200"
-                                value={formData.resources}
-                                onChange={(e) => setFormData({...formData, resources: e.target.value})}
-                            />
-                        </div>
+                        <FormSection title="Plan para lograrlo — 6.2.2">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field label="Responsable *"><Select value={formData.responsibleId} onValueChange={(value) => setFormData({ ...formData, responsibleId: value })}><SelectTrigger><SelectValue placeholder="Seleccionar usuario" /></SelectTrigger><SelectContent>{users.map((user) => <SelectItem key={user.id} value={user.id}>{user.name}{user.email ? ` · ${user.email}` : ''}</SelectItem>)}</SelectContent></Select></Field>
+                                <Field label="Fecha límite *"><Input type="date" value={formData.deadline} onChange={(event) => setFormData({ ...formData, deadline: event.target.value })} /></Field>
+                            </div>
+                            <Field label="Recursos requeridos *"><Textarea value={formData.resources} onChange={(event) => setFormData({ ...formData, resources: event.target.value })} placeholder="Personas, presupuesto, equipos, formación..." /></Field>
+                            <Field label="Frecuencia de evaluación *"><Select value={formData.evaluationFreq} onValueChange={(value) => setFormData({ ...formData, evaluationFreq: value })}><SelectTrigger><SelectValue placeholder="Seleccionar frecuencia" /></SelectTrigger><SelectContent>{['Mensual', 'Trimestral', 'Semestral', 'Anual'].map((frequency) => <SelectItem key={frequency} value={frequency}>{frequency}</SelectItem>)}</SelectContent></Select></Field>
+                        </FormSection>
+
+                        <FormSection title="Comunicación y evidencia — 6.2.1">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field label="Personas o grupos comunicados *"><Input value={formData.communicationRecipients} onChange={(event) => setFormData({ ...formData, communicationRecipients: event.target.value })} placeholder="Equipo comercial y producción" /></Field>
+                                <Field label="Fecha de comunicación *"><Input type="date" value={formData.communicationDate} onChange={(event) => setFormData({ ...formData, communicationDate: event.target.value })} /></Field>
+                            </div>
+                            <Field label="Evidencia o ubicación del soporte"><Input value={formData.communicationEvidence} onChange={(event) => setFormData({ ...formData, communicationEvidence: event.target.value })} placeholder="Acta, correo, enlace o código documental" /></Field>
+                        </FormSection>
                     </div>
-
-                    <div className="flex gap-3 pt-6 border-t border-slate-100">
-                        <Button variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
-                        <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-12 font-bold" onClick={handleSave}>Guardar Objetivo</Button>
-                    </div>
+                    <div className="flex gap-3 border-t pt-5"><Button variant="outline" className="flex-1" onClick={() => setIsFormOpen(false)}>Cancelar</Button><Button className="flex-1 bg-blue-600" onClick={() => void handleSave()}>{editingId ? 'Actualizar objetivo' : 'Guardar objetivo'}</Button></div>
                 </SheetContent>
             </Sheet>
 
-            {/* Panel de Detalle y Seguimiento (Seguimiento Simple) */}
             <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-                <SheetContent className="sm:max-w-[600px] overflow-y-auto">
-                    {selectedObjective && (
-                        <>
-                            <SheetHeader className="pb-6 border-b border-slate-100">
-                                <div className="flex items-center gap-2 mb-2">
-                                    {getStatusBadge(selectedObjective.status)}
-                                </div>
-                                <SheetTitle className="text-2xl font-bold leading-tight">
-                                    {selectedObjective.description}
-                                </SheetTitle>
-                                <SheetDescription className="pt-2">
-                                    Seguimiento y Plan de Acción - ISO 9001:2015
-                                </SheetDescription>
-                            </SheetHeader>
-
-                            <div className="py-8 space-y-8">
-                                {/* Info Clave */}
-                                <div className="grid grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Meta</p>
-                                        <p className="text-xl font-black text-slate-900 italic">{selectedObjective.target}</p>
-                                        <p className="text-[11px] text-slate-500">{selectedObjective.indicator}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Actual</p>
-                                        <p className="text-xl font-black text-blue-600 italic">{selectedObjective.actual}</p>
-                                        <div className="w-full h-1.5 bg-blue-100 rounded-full mt-2">
-                                            <div className="h-full bg-blue-600 rounded-full" style={{ width: `${selectedObjective.progress}%` }} />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Detalles de Planeación */}
-                                <div className="space-y-4">
-                                    <h4 className="text-xs font-bold uppercase tracking-widest text-slate-900 flex items-center gap-2">
-                                        <ClipboardList className="w-4 h-4 text-blue-500" />
-                                        Detalles de Planeación
-                                    </h4>
-                                    <div className="grid gap-4">
-                                        <div className="flex items-start gap-3 p-4 bg-white border border-slate-100 rounded-xl">
-                                            <User className="w-4 h-4 text-slate-400 mt-0.5" />
-                                            <div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase">Responsable</p>
-                                                <p className="text-sm font-semibold">{selectedObjective.responsible}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-start gap-3 p-4 bg-white border border-slate-100 rounded-xl">
-                                            <Calendar className="w-4 h-4 text-slate-400 mt-0.5" />
-                                            <div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase">Fecha Límite</p>
-                                                <p className="text-sm font-semibold">{selectedObjective.deadline}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-start gap-3 p-4 bg-white border border-slate-100 rounded-xl">
-                                            <TrendingUp className="w-4 h-4 text-slate-400 mt-0.5" />
-                                            <div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase">Recursos Asignados</p>
-                                                <p className="text-sm font-medium text-slate-600 italic">{selectedObjective.resources}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Sección de Seguimiento / Plan de Acción */}
-                                <div className="space-y-4 pt-4">
-                                    <h4 className="text-xs font-bold uppercase tracking-widest text-slate-900 flex items-center gap-2">
-                                        <History className="w-4 h-4 text-blue-500" />
-                                        Historial de Seguimiento
-                                    </h4>
-                                    
-                                    {/* Campo para nueva actualización */}
-                                    <div className="p-5 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-[11px] font-bold text-blue-700 uppercase tracking-tight">Registrar nueva actualización</p>
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Nuevo Progreso:</span>
-                                                <input 
-                                                    type="number" 
-                                                    min="0" 
-                                                    max="100"
-                                                    value={trackingData.progress}
-                                                    onChange={(e) => setTrackingData({...trackingData, progress: parseInt(e.target.value) || 0})}
-                                                    className="w-16 h-8 bg-white border border-blue-200 rounded-lg text-center text-xs font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                />
-                                                <span className="text-xs font-bold text-blue-600">%</span>
-                                            </div>
-                                        </div>
-                                        <Textarea 
-                                            placeholder="Ej: Medición de Junio: 94% - Se optimizaron los procesos..."
-                                            className="bg-white rounded-xl border-blue-200 focus:ring-blue-500 text-sm"
-                                            value={trackingData.note}
-                                            onChange={(e) => setTrackingData({...trackingData, note: e.target.value})}
-                                        />
-                                        <div className="flex justify-end">
-                                            <Button 
-                                                onClick={handleSaveTracking}
-                                                size="sm" 
-                                                className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 font-bold"
-                                            >
-                                                <Save className="w-3.5 h-3.5 mr-2" /> Guardar Seguimiento
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    {/* Lista de actualizaciones previas */}
-                                    <div className="space-y-3 mt-6">
-                                        {selectedObjective.tracking?.map((item: any, idx: number) => (
-                                            <div key={idx} className="relative pl-6 pb-6 border-l border-slate-100 last:pb-0">
-                                                <div className="absolute left-[-5px] top-0 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-white" />
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                                                                {new Date(item.date).toLocaleDateString()}
-                                                            </span>
-                                                            <Badge variant="outline" className="text-[9px] font-bold h-4 px-1 bg-slate-50">
-                                                                {item.progress}% Avance
-                                                            </Badge>
-                                                        </div>
-                                                    </div>
-                                                    <p className="text-sm text-slate-600 font-medium bg-slate-50 p-3 rounded-lg border border-slate-100 leading-relaxed">
-                                                        {item.note}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="pt-6 border-t border-slate-100">
-                                <Button variant="outline" className="w-full rounded-xl h-12 font-bold" onClick={() => setIsDetailOpen(false)}>Cerrar Detalles</Button>
-                            </div>
-                        </>
-                    )}
+                <SheetContent className="overflow-y-auto sm:max-w-[640px]">
+                    {selectedObjective && <>
+                        <SheetHeader className="border-b pb-5"><div>{getStatusBadge(selectedObjective.status)}</div><SheetTitle className="pt-2 text-2xl">{selectedObjective.description}</SheetTitle><SheetDescription>{getPolicyName(selectedObjective.policyId)} · {getProcessName(selectedObjective.processId)}</SheetDescription></SheetHeader>
+                        <div className="space-y-7 py-7">
+                            <div className="grid grid-cols-2 gap-4 rounded-2xl border bg-slate-50 p-5"><Metric label="Meta" value={selectedObjective.target} detail={selectedObjective.indicator} /><Metric label="Resultado actual" value={selectedObjective.actual || 'Sin medición'} detail={`${selectedObjective.progress}% de avance`} /><div className="col-span-2"><Progress value={selectedObjective.progress} /></div></div>
+                            <FormSection title="Planificación documentada">
+                                <Detail icon={<User className="h-4 w-4" />} label="Responsable" value={selectedObjective.responsibleName} />
+                                <Detail icon={<Calendar className="h-4 w-4" />} label="Fecha límite" value={displayDate(selectedObjective.deadline)} />
+                                <Detail icon={<Calendar className="h-4 w-4" />} label="Próxima evaluación" value={`${displayDate(selectedObjective.nextEvaluationDate)} · ${selectedObjective.evaluationFreq || '—'}`} />
+                                <Detail icon={<ClipboardList className="h-4 w-4" />} label="Recursos" value={selectedObjective.resources} />
+                                <Detail icon={<ClipboardList className="h-4 w-4" />} label="Requisitos aplicables" value={selectedObjective.applicableRequirements} />
+                                <Detail icon={<ClipboardList className="h-4 w-4" />} label="Relevancia" value={selectedObjective.relevance} />
+                                <Detail icon={<ClipboardList className="h-4 w-4" />} label="Comunicación" value={`${selectedObjective.communicationRecipients || '—'} · ${displayDate(selectedObjective.communicationDate)}${selectedObjective.communicationEvidence ? ` · ${selectedObjective.communicationEvidence}` : ''}`} />
+                            </FormSection>
+                            <FormSection title="Nuevo seguimiento">
+                                <div className="grid gap-4 sm:grid-cols-2"><Field label="Resultado actual *"><Input value={trackingData.actual} onChange={(event) => setTrackingData({ ...trackingData, actual: event.target.value })} placeholder="Ej.: 2,8%" /></Field><Field label="Progreso (0–100) *"><Input type="number" min="0" max="100" value={trackingData.progress} onChange={(event) => setTrackingData({ ...trackingData, progress: Number(event.target.value) })} /></Field></div>
+                                <Field label="Análisis y evidencia *"><Textarea value={trackingData.note} onChange={(event) => setTrackingData({ ...trackingData, note: event.target.value })} placeholder="Resultado de la medición, análisis y acciones tomadas..." /></Field>
+                                <Button className="bg-blue-600" onClick={() => void handleSaveTracking()}><Save className="mr-2 h-4 w-4" />Guardar seguimiento</Button>
+                            </FormSection>
+                            <FormSection title="Historial de seguimiento">
+                                {selectedObjective.tracking.length ? selectedObjective.tracking.map((item) => <div key={item.id} className="rounded-xl border p-4"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">{displayDate(item.date)}</span><Badge variant="outline">{item.progress}%</Badge></div><p className="text-sm font-semibold">Resultado: {item.actual || '—'}</p><p className="mt-1 text-sm text-slate-600">{item.note}</p></div>) : <p className="text-sm text-slate-500">Aún no hay mediciones registradas.</p>}
+                            </FormSection>
+                        </div>
+                        <div className="flex gap-3 border-t pt-5"><Button variant="outline" className="flex-1" onClick={() => setIsDetailOpen(false)}>Cerrar</Button><Button className="flex-1" onClick={() => openEdit(selectedObjective)}><Edit className="mr-2 h-4 w-4" />Editar planificación</Button></div>
+                    </>}
                 </SheetContent>
             </Sheet>
         </div>
     );
+}
+
+function getStatusLabel(status: string) {
+    return ({ EN_PROGRESO: 'En progreso', EN_RIESGO: 'En riesgo', ATRASADO: 'Atrasado', CUMPLIDO: 'Cumplido' } as Record<string, string>)[status] || status;
+}
+
+function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
+    return <section className="space-y-4"><h3 className="border-b pb-2 text-xs font-bold uppercase tracking-widest text-slate-700">{title}</h3>{children}</section>;
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return <div className="space-y-2"><Label className="text-sm font-semibold text-slate-700">{label}</Label>{children}</div>;
+}
+
+function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
+    return <div><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p><p className="mt-1 text-xl font-black text-slate-900">{value}</p><p className="mt-1 text-xs text-slate-500">{detail}</p></div>;
+}
+
+function Detail({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string | null }) {
+    return <div className="flex gap-3 rounded-xl border p-4"><span className="mt-0.5 text-slate-400">{icon}</span><div><p className="text-[10px] font-bold uppercase text-slate-400">{label}</p><p className="mt-1 text-sm font-medium text-slate-700">{value || '—'}</p></div></div>;
 }
