@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/app-context';
 import { toast } from 'sonner';
 import {
-    Calendar, ChevronLeft, ChevronRight, ClipboardList, Download, Edit, Eye, Filter,
-    Info, MoreVertical, Plus, Save, Search, Target, Trash2, User,
+    AlertCircle, Building2, Calendar, Check, ChevronLeft, ChevronRight, ClipboardList,
+    Download, Edit, Eye, Filter, Info, Loader2, MoreVertical, Plus, RefreshCw,
+    Save, Search, ShieldCheck, Target, Trash2, User,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -74,6 +76,31 @@ type FormState = {
     communicationEvidence: string;
 };
 
+type FormTab = 'alignment' | 'measurement' | 'planning';
+
+const STEP_ORDER: FormTab[] = ['alignment', 'measurement', 'planning'];
+const STEP_FIELDS: Record<FormTab, Array<keyof FormState>> = {
+    alignment: ['policyId', 'processId', 'organizationalLevel', 'applicableRequirements', 'relevance'],
+    measurement: ['description', 'indicator', 'target'],
+    planning: ['responsibleId', 'deadline', 'evaluationFreq', 'resources', 'communicationRecipients', 'communicationDate'],
+};
+const FIELD_LABELS: Partial<Record<keyof FormState, string>> = {
+    policyId: 'Selecciona una política vigente.',
+    processId: 'Selecciona el proceso o función.',
+    organizationalLevel: 'Selecciona el nivel organizacional.',
+    applicableRequirements: 'Describe los requisitos aplicables.',
+    relevance: 'Explica la contribución a la conformidad y al cliente.',
+    description: 'Describe qué se va a lograr.',
+    indicator: 'Define el indicador de medición.',
+    target: 'Define la meta esperada.',
+    responsibleId: 'Selecciona la persona responsable.',
+    deadline: 'Indica la fecha límite.',
+    evaluationFreq: 'Selecciona la frecuencia de evaluación.',
+    resources: 'Describe los recursos requeridos.',
+    communicationRecipients: 'Indica a quiénes se comunicará.',
+    communicationDate: 'Indica la fecha de comunicación.',
+};
+
 const emptyForm = (): FormState => ({
     policyId: '',
     processId: '',
@@ -98,6 +125,7 @@ const displayDate = (value?: string | null) => value ? new Date(value).toLocaleD
 
 export default function ObjetivosPage() {
     const { tenant } = useApp();
+    const router = useRouter();
     const [objectives, setObjectives] = useState<Objective[]>([]);
     const [policies, setPolicies] = useState<Lookup[]>([]);
     const [processes, setProcesses] = useState<Lookup[]>([]);
@@ -108,7 +136,10 @@ export default function ObjetivosPage() {
     const [processFilter, setProcessFilter] = useState('TODOS');
     const [showFilters, setShowFilters] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [formTab, setFormTab] = useState('alignment');
+    const [formTab, setFormTab] = useState<FormTab>('alignment');
+    const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+    const [refreshingPolicies, setRefreshingPolicies] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState<FormState>(emptyForm());
     const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
@@ -172,11 +203,98 @@ export default function ObjetivosPage() {
         return matchesTerm && matchesStatus && matchesProcess;
     }), [objectives, processFilter, searchTerm, statusFilter]);
 
+    const currentStepIndex = STEP_ORDER.indexOf(formTab);
+    const currentStepNumber = currentStepIndex + 1;
+    const vigentePolicies = useMemo(
+        () => policies.filter((policy) => policy.status === 'VIGENTE'),
+        [policies],
+    );
+
+    const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+        setFormData((current) => ({ ...current, [key]: value }));
+        setFormErrors((current) => {
+            if (!current[key]) return current;
+            const next = { ...current };
+            delete next[key];
+            return next;
+        });
+    };
+
+    const validateFields = (fields: Array<keyof FormState>) => {
+        const nextErrors: Partial<Record<keyof FormState, string>> = {};
+        fields.forEach((key) => {
+            if (!formData[key].trim()) nextErrors[key] = FIELD_LABELS[key] || 'Este campo es obligatorio.';
+        });
+        setFormErrors((current) => {
+            const next = { ...current };
+            fields.forEach((key) => delete next[key]);
+            return { ...next, ...nextErrors };
+        });
+        return Object.keys(nextErrors).length === 0;
+    };
+
+    const isStepComplete = (step: FormTab) => STEP_FIELDS[step].every((key) => formData[key].trim());
+
+    const refreshPolicies = async (showFeedback = true) => {
+        if (!tenant?.id) return;
+        setRefreshingPolicies(true);
+        try {
+            const response = await fetch(`/api/liderazgo/politicas?tenantId=${encodeURIComponent(tenant.id)}`, { cache: 'no-store' });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'No fue posible consultar las políticas.');
+            const items = Array.isArray(data) ? data : [];
+            const activePolicies = items.filter((policy: Lookup) => policy.status === 'VIGENTE');
+            setPolicies(items);
+            if (activePolicies.length === 1) {
+                updateField('policyId', activePolicies[0].id);
+            }
+            if (showFeedback) {
+                if (activePolicies.length) toast.success(`${activePolicies.length} política${activePolicies.length === 1 ? '' : 's'} vigente${activePolicies.length === 1 ? '' : 's'} disponible${activePolicies.length === 1 ? '' : 's'}.`);
+                else toast.info(`No se encontraron políticas vigentes para ${tenant.name}.`);
+            }
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Error al consultar las políticas.');
+        } finally {
+            setRefreshingPolicies(false);
+        }
+    };
+
+    const handleStepChange = (nextStep: string) => {
+        const next = nextStep as FormTab;
+        const nextIndex = STEP_ORDER.indexOf(next);
+        if (nextIndex > currentStepIndex && !validateFields(STEP_FIELDS[formTab])) {
+            toast.error('Completa los campos señalados antes de continuar.');
+            return;
+        }
+        setFormTab(next);
+    };
+
+    const handleNextStep = () => {
+        if (!validateFields(STEP_FIELDS[formTab])) {
+            toast.error('Completa los campos señalados antes de continuar.');
+            return;
+        }
+        const next = STEP_ORDER[currentStepIndex + 1];
+        if (next) setFormTab(next);
+    };
+
+    const handlePreviousStep = () => {
+        const previous = STEP_ORDER[currentStepIndex - 1];
+        if (previous) setFormTab(previous);
+    };
+
+    const handleManagePolicies = () => {
+        setIsFormOpen(false);
+        router.push('/liderazgo/politicas');
+    };
+
     const openNew = () => {
         setEditingId(null);
         setFormData(emptyForm());
+        setFormErrors({});
         setFormTab('alignment');
         setIsFormOpen(true);
+        void refreshPolicies(false);
     };
 
     const openEdit = (objective: Objective) => {
@@ -199,34 +317,22 @@ export default function ObjetivosPage() {
             communicationDate: toDateInput(objective.communicationDate),
             communicationEvidence: objective.communicationEvidence || '',
         });
+        setFormErrors({});
         setFormTab('alignment');
         setIsDetailOpen(false);
         setIsFormOpen(true);
     };
 
     const handleSave = async () => {
-        const required: Array<[keyof FormState, string]> = [
-            ['policyId', 'Política'], ['processId', 'Proceso'], ['organizationalLevel', 'Nivel organizacional'],
-            ['description', 'Descripción'], ['indicator', 'Indicador'], ['target', 'Meta'],
-            ['applicableRequirements', 'Requisitos aplicables'], ['relevance', 'Relevancia'],
-            ['resources', 'Recursos'], ['responsibleId', 'Responsable'], ['deadline', 'Fecha límite'],
-            ['evaluationFreq', 'Frecuencia'], ['communicationRecipients', 'Destinatarios'],
-            ['communicationDate', 'Fecha de comunicación'],
-        ];
-        const missing = required.filter(([key]) => !formData[key].trim()).map(([, label]) => label);
-        if (missing.length) {
-            const firstMissingKey = required.find(([key]) => !formData[key].trim())?.[0];
-            if (firstMissingKey && ['description', 'indicator', 'target'].includes(firstMissingKey)) {
-                setFormTab('measurement');
-            } else if (firstMissingKey && ['resources', 'responsibleId', 'deadline', 'evaluationFreq', 'communicationRecipients', 'communicationDate'].includes(firstMissingKey)) {
-                setFormTab('planning');
-            } else {
-                setFormTab('alignment');
-            }
-            toast.error(`Completa los campos obligatorios: ${missing.join(', ')}.`);
+        const allRequired = STEP_ORDER.flatMap((step) => STEP_FIELDS[step]);
+        if (!validateFields(allRequired)) {
+            const firstInvalidStep = STEP_ORDER.find((step) => STEP_FIELDS[step].some((key) => !formData[key].trim()));
+            if (firstInvalidStep) setFormTab(firstInvalidStep);
+            toast.error('Revisa los campos señalados para guardar el objetivo.');
             return;
         }
 
+        setSaving(true);
         try {
             const response = await fetch('/api/planificacion/objetivos', {
                 method: 'POST',
@@ -242,9 +348,12 @@ export default function ObjetivosPage() {
             setIsFormOpen(false);
             setEditingId(null);
             setFormData(emptyForm());
+            setFormErrors({});
             toast.success(editingId ? 'Objetivo actualizado.' : 'Objetivo creado y documentado.');
         } catch (error) {
             toast.error(error instanceof Error ? error.message : 'Error al guardar el objetivo.');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -415,81 +524,106 @@ export default function ObjetivosPage() {
                 </div>
             </div>
 
-            <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) setFormTab('alignment'); }}>
-                <DialogContent className="grid max-h-[92vh] min-w-0 w-[calc(100vw-1.5rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-5xl">
-                    <DialogHeader className="min-w-0 border-b bg-slate-50/70 px-4 py-4 pr-10 sm:px-8 sm:py-5 sm:pr-14">
-                        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-                            <span className="shrink-0 rounded-xl bg-blue-100 p-2 text-blue-600 sm:p-2.5"><Target className="h-5 w-5 sm:h-6 sm:w-6" /></span>
-                            <div className="min-w-0 space-y-1.5 text-left">
-                                <DialogTitle className="break-words text-lg font-bold leading-tight text-slate-900 sm:text-2xl">{editingId ? 'Editar objetivo de calidad' : 'Planificar objetivo de calidad'}</DialogTitle>
-                                <DialogDescription className="text-xs sm:text-sm">Complete los tres pasos para documentar los requisitos de ISO 9001:2015.</DialogDescription>
-                                <div className="flex flex-wrap gap-2 pt-1"><Badge variant="outline" className="bg-white text-[10px]">6.2.1 Objetivos</Badge><Badge variant="outline" className="bg-white text-[10px]">6.2.2 Planificación</Badge></div>
+            <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { setFormTab('alignment'); setFormErrors({}); } }}>
+                <DialogContent className="grid max-h-[94vh] min-w-0 w-[calc(100vw-1rem)] max-w-4xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-3xl border-0 p-0 shadow-2xl sm:max-w-4xl">
+                    <DialogHeader className="min-w-0 border-b bg-gradient-to-r from-blue-50 via-white to-slate-50 px-4 py-4 pr-11 sm:px-7 sm:py-5 sm:pr-14">
+                        <div className="flex min-w-0 items-start justify-between gap-4">
+                            <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                                <span className="shrink-0 rounded-2xl bg-blue-600 p-2.5 text-white shadow-lg shadow-blue-200 sm:p-3"><Target className="h-5 w-5 sm:h-6 sm:w-6" /></span>
+                                <div className="min-w-0 space-y-1 text-left">
+                                    <DialogTitle className="break-words text-lg font-extrabold leading-tight text-slate-950 sm:text-2xl">{editingId ? 'Editar objetivo de calidad' : 'Planificar objetivo de calidad'}</DialogTitle>
+                                    <DialogDescription className="text-xs leading-relaxed text-slate-600 sm:text-sm">Asistente de planificación conforme a ISO 9001:2015, numerales 6.2.1 y 6.2.2.</DialogDescription>
+                                    <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                                        <Badge className="border-blue-200 bg-blue-100 text-[10px] font-bold text-blue-700 hover:bg-blue-100">ISO 9001:2015</Badge>
+                                        <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-slate-500"><Building2 className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{tenant?.name || 'Organización'}</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="hidden w-32 shrink-0 pt-1 sm:block">
+                                <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-slate-500"><span>Paso {currentStepNumber} de 3</span><span>{Math.round((currentStepNumber / 3) * 100)}%</span></div>
+                                <Progress value={(currentStepNumber / 3) * 100} className="h-1.5 bg-slate-200" />
                             </div>
                         </div>
                     </DialogHeader>
 
-                    <Tabs value={formTab} onValueChange={setFormTab} className="min-h-0 min-w-0 gap-0 overflow-hidden">
-                        <div className="min-w-0 border-b bg-white px-2 py-3 sm:px-8">
-                            <TabsList className="grid h-auto min-w-0 w-full grid-cols-3 bg-slate-100 p-1">
-                                <TabsTrigger value="alignment" className="min-h-10 min-w-0 whitespace-normal px-1 text-[11px] sm:px-2 sm:text-sm"><span className="mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold shadow-sm sm:mr-1.5">1</span>Alineación</TabsTrigger>
-                                <TabsTrigger value="measurement" className="min-h-10 min-w-0 whitespace-normal px-1 text-[11px] sm:px-2 sm:text-sm"><span className="mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold shadow-sm sm:mr-1.5">2</span>Medición</TabsTrigger>
-                                <TabsTrigger value="planning" className="min-h-10 min-w-0 whitespace-normal px-1 text-[11px] leading-tight sm:px-2 sm:text-sm"><span className="mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold shadow-sm sm:mr-1.5">3</span>Plan y comunicación</TabsTrigger>
+                    <Tabs value={formTab} onValueChange={handleStepChange} className="min-h-0 min-w-0 gap-0 overflow-hidden bg-slate-50/70">
+                        <div className="min-w-0 border-b bg-white px-2 py-2.5 sm:px-6 sm:py-3">
+                            <TabsList className="grid h-auto min-w-0 w-full grid-cols-3 gap-1.5 bg-transparent p-0 sm:gap-2">
+                                <WizardStepTrigger value="alignment" number={1} title="Alineación" subtitle="Política y alcance" complete={isStepComplete('alignment')} />
+                                <WizardStepTrigger value="measurement" number={2} title="Medición" subtitle="Indicador y meta" complete={isStepComplete('measurement')} />
+                                <WizardStepTrigger value="planning" number={3} title="Plan y comunicación" subtitle="Responsables y recursos" complete={isStepComplete('planning')} />
                             </TabsList>
                         </div>
 
-                        <div className="min-h-0 min-w-0 overflow-y-auto px-4 py-5 sm:px-8 sm:py-6">
-                            <TabsContent value="alignment" className="m-0 min-w-0 space-y-5">
-                                <StepHeading title="Alineación y alcance" description="Vincule el objetivo con la política, el proceso y los requisitos aplicables." />
-                                <Field label="Política de calidad *"><Select value={formData.policyId} onValueChange={(value) => setFormData({ ...formData, policyId: value })}><SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar política vigente" /></SelectTrigger><SelectContent>{policies.filter((policy) => policy.status === 'VIGENTE').map((policy) => <SelectItem key={policy.id} value={policy.id}>{policy.title}</SelectItem>)}</SelectContent></Select></Field>
-                                {!policies.some((policy) => policy.status === 'VIGENTE') && <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"><Info className="mt-0.5 h-4 w-4 shrink-0" /><span>Para crear el objetivo debe registrar o aprobar primero una política con estado <b>VIGENTE</b>.</span></div>}
-                                <div className="grid gap-5 md:grid-cols-2">
-                                    <Field label="Proceso o función pertinente *"><Select value={formData.processId} onValueChange={(value) => setFormData({ ...formData, processId: value })}><SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar proceso" /></SelectTrigger><SelectContent>{processes.map((process) => <SelectItem key={process.id} value={process.id}>{getProcessName(process.id)}</SelectItem>)}</SelectContent></Select></Field>
-                                    <Field label="Nivel organizacional *"><Select value={formData.organizationalLevel} onValueChange={(value) => setFormData({ ...formData, organizationalLevel: value })}><SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar nivel" /></SelectTrigger><SelectContent>{['Organización', 'Proceso', 'Área', 'Cargo'].map((level) => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select></Field>
-                                </div>
-                                <div className="grid gap-5 md:grid-cols-2">
-                                    <Field label="Requisitos aplicables considerados *"><Textarea className="min-h-28 resize-none" value={formData.applicableRequirements} onChange={(event) => setFormData({ ...formData, applicableRequirements: event.target.value })} placeholder="Legales, reglamentarios, contractuales o del cliente..." /></Field>
-                                    <Field label="Relevancia para la conformidad y el cliente *"><Textarea className="min-h-28 resize-none" value={formData.relevance} onChange={(event) => setFormData({ ...formData, relevance: event.target.value })} placeholder="Explique cómo contribuye el objetivo..." /></Field>
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="measurement" className="m-0 min-w-0 space-y-5">
-                                <StepHeading title="Objetivo medible" description="Defina con claridad qué se logrará y cómo se comprobará el resultado." />
-                                <Field label="¿Qué se va a lograr? *"><Textarea className="min-h-28 resize-none" value={formData.description} onChange={(event) => setFormData({ ...formData, description: event.target.value })} placeholder="Ej.: Reducir las devoluciones por defectos..." /></Field>
-                                <div className="grid gap-5 md:grid-cols-3">
-                                    <Field label="Indicador *"><Input value={formData.indicator} onChange={(event) => setFormData({ ...formData, indicator: event.target.value })} placeholder="% devoluciones" /></Field>
-                                    <Field label="Meta esperada *"><Input value={formData.target} onChange={(event) => setFormData({ ...formData, target: event.target.value })} placeholder="≤ 2%" /></Field>
-                                    <Field label="Resultado actual"><Input value={formData.actual} onChange={(event) => setFormData({ ...formData, actual: event.target.value })} placeholder="4,5%" /></Field>
-                                </div>
-                                <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-sm leading-relaxed text-blue-900"><b>Sugerencia:</b> indique unidad, fórmula o fuente dentro del indicador y use la misma unidad en la meta y el resultado actual.</div>
-                            </TabsContent>
-
-                            <TabsContent value="planning" className="m-0 min-w-0 space-y-6">
-                                <StepHeading title="Plan y comunicación" description="Asigne recursos, responsables, plazos, evaluación y evidencia de comunicación." />
-                                <div className="grid gap-5 md:grid-cols-3">
-                                    <Field label="Responsable *"><Select value={formData.responsibleId} onValueChange={(value) => setFormData({ ...formData, responsibleId: value })}><SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar usuario" /></SelectTrigger><SelectContent>{users.map((user) => <SelectItem key={user.id} value={user.id}>{user.name}{user.email ? ` · ${user.email}` : ''}</SelectItem>)}</SelectContent></Select></Field>
-                                    <Field label="Fecha límite *"><Input type="date" value={formData.deadline} onChange={(event) => setFormData({ ...formData, deadline: event.target.value })} /></Field>
-                                    <Field label="Frecuencia de evaluación *"><Select value={formData.evaluationFreq} onValueChange={(value) => setFormData({ ...formData, evaluationFreq: value })}><SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar frecuencia" /></SelectTrigger><SelectContent>{['Mensual', 'Trimestral', 'Semestral', 'Anual'].map((frequency) => <SelectItem key={frequency} value={frequency}>{frequency}</SelectItem>)}</SelectContent></Select></Field>
-                                </div>
-                                <Field label="Recursos requeridos *"><Textarea className="min-h-24 resize-none" value={formData.resources} onChange={(event) => setFormData({ ...formData, resources: event.target.value })} placeholder="Personas, presupuesto, equipos, formación..." /></Field>
-                                <div className="border-t pt-5">
-                                    <p className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-600">Comunicación del objetivo</p>
-                                    <div className="grid gap-5 md:grid-cols-2">
-                                        <Field label="Personas o grupos comunicados *"><Input value={formData.communicationRecipients} onChange={(event) => setFormData({ ...formData, communicationRecipients: event.target.value })} placeholder="Equipo comercial y producción" /></Field>
-                                        <Field label="Fecha de comunicación *"><Input type="date" value={formData.communicationDate} onChange={(event) => setFormData({ ...formData, communicationDate: event.target.value })} /></Field>
+                        <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-5">
+                            <TabsContent value="alignment" className="m-0 min-w-0">
+                                <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                                    <StepHeading step="Paso 1" title="Alineación y alcance" description="Relacione el objetivo con la política de calidad, el proceso y los requisitos aplicables." />
+                                    <Field label="Política de calidad *" error={formErrors.policyId} hint={vigentePolicies.length ? `${vigentePolicies.length} política${vigentePolicies.length === 1 ? '' : 's'} vigente${vigentePolicies.length === 1 ? '' : 's'} disponible${vigentePolicies.length === 1 ? '' : 's'}.` : undefined}>
+                                        <Select value={formData.policyId} onValueChange={(value) => updateField('policyId', value)} disabled={!vigentePolicies.length || refreshingPolicies}><SelectTrigger className="h-11 w-full" aria-invalid={Boolean(formErrors.policyId)}><SelectValue placeholder={refreshingPolicies ? 'Consultando políticas...' : 'Seleccionar política vigente'} /></SelectTrigger><SelectContent>{vigentePolicies.map((policy) => <SelectItem key={policy.id} value={policy.id}>{policy.title}</SelectItem>)}</SelectContent></Select>
+                                    </Field>
+                                    {!vigentePolicies.length && (
+                                        <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+                                            <div className="flex gap-3"><span className="rounded-full bg-amber-100 p-2 text-amber-700"><Info className="h-4 w-4" /></span><div className="min-w-0"><p className="font-bold text-amber-950">No hay una política vigente en {tenant?.name || 'esta organización'}</p><p className="mt-1 text-sm leading-relaxed text-amber-800">Regístrela o apruébela en Liderazgo 5.2 para garantizar la trazabilidad del objetivo.</p></div></div>
+                                            <div className="mt-3 flex flex-wrap gap-2 pl-0 sm:pl-11"><Button type="button" size="sm" variant="outline" className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100" onClick={() => void refreshPolicies()} disabled={refreshingPolicies}>{refreshingPolicies ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}Recargar</Button><Button type="button" size="sm" className="bg-amber-700 text-white hover:bg-amber-800" onClick={handleManagePolicies}>Gestionar políticas<ChevronRight className="ml-1 h-4 w-4" /></Button></div>
+                                        </div>
+                                    )}
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <Field label="Proceso o función pertinente *" error={formErrors.processId}><Select value={formData.processId} onValueChange={(value) => updateField('processId', value)}><SelectTrigger className="h-11 w-full" aria-invalid={Boolean(formErrors.processId)}><SelectValue placeholder="Seleccionar proceso" /></SelectTrigger><SelectContent>{processes.map((process) => <SelectItem key={process.id} value={process.id}>{getProcessName(process.id)}</SelectItem>)}</SelectContent></Select></Field>
+                                        <Field label="Nivel organizacional *" error={formErrors.organizationalLevel}><Select value={formData.organizationalLevel} onValueChange={(value) => updateField('organizationalLevel', value)}><SelectTrigger className="h-11 w-full" aria-invalid={Boolean(formErrors.organizationalLevel)}><SelectValue placeholder="Seleccionar nivel" /></SelectTrigger><SelectContent>{['Organización', 'Proceso', 'Área', 'Cargo'].map((level) => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select></Field>
                                     </div>
-                                    <div className="mt-5"><Field label="Evidencia o ubicación del soporte"><Input value={formData.communicationEvidence} onChange={(event) => setFormData({ ...formData, communicationEvidence: event.target.value })} placeholder="Acta, correo, enlace o código documental" /></Field></div>
-                                </div>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <Field label="Requisitos aplicables considerados *" error={formErrors.applicableRequirements}><Textarea className="min-h-24 resize-none" aria-invalid={Boolean(formErrors.applicableRequirements)} value={formData.applicableRequirements} onChange={(event) => updateField('applicableRequirements', event.target.value)} placeholder="Legales, reglamentarios, contractuales o del cliente..." /></Field>
+                                        <Field label="Relevancia para la conformidad y el cliente *" error={formErrors.relevance}><Textarea className="min-h-24 resize-none" aria-invalid={Boolean(formErrors.relevance)} value={formData.relevance} onChange={(event) => updateField('relevance', event.target.value)} placeholder="Explique cómo contribuye el objetivo..." /></Field>
+                                    </div>
+                                </section>
+                            </TabsContent>
+
+                            <TabsContent value="measurement" className="m-0 min-w-0">
+                                <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                                    <StepHeading step="Paso 2" title="Objetivo medible" description="Defina el resultado esperado y la forma objetiva de comprobarlo." />
+                                    <Field label="¿Qué se va a lograr? *" error={formErrors.description} hint={`${formData.description.length}/500 caracteres`}><Textarea maxLength={500} className="min-h-28 resize-none" aria-invalid={Boolean(formErrors.description)} value={formData.description} onChange={(event) => updateField('description', event.target.value)} placeholder="Ej.: Reducir las devoluciones por defectos de fabricación..." /></Field>
+                                    <div className="grid gap-4 md:grid-cols-3">
+                                        <Field label="Indicador *" error={formErrors.indicator}><Input className="h-11" aria-invalid={Boolean(formErrors.indicator)} value={formData.indicator} onChange={(event) => updateField('indicator', event.target.value)} placeholder="% de devoluciones" /></Field>
+                                        <Field label="Meta esperada *" error={formErrors.target}><Input className="h-11" aria-invalid={Boolean(formErrors.target)} value={formData.target} onChange={(event) => updateField('target', event.target.value)} placeholder="≤ 2%" /></Field>
+                                        <Field label="Línea base / resultado actual" hint="Opcional"><Input className="h-11" value={formData.actual} onChange={(event) => updateField('actual', event.target.value)} placeholder="4,5%" /></Field>
+                                    </div>
+                                    <div className="flex gap-3 rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-sm leading-relaxed text-blue-900"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" /><p><b>Objetivo verificable:</b> use la misma unidad en el indicador, la meta y el resultado actual. Incluya la fuente o fórmula cuando sea necesario.</p></div>
+                                </section>
+                            </TabsContent>
+
+                            <TabsContent value="planning" className="m-0 min-w-0">
+                                <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                                    <StepHeading step="Paso 3" title="Plan y comunicación" description="Determine responsables, recursos, plazos, evaluación y evidencia de comunicación." />
+                                    <div className="grid gap-4 md:grid-cols-3">
+                                        <Field label="Responsable *" error={formErrors.responsibleId}><Select value={formData.responsibleId} onValueChange={(value) => updateField('responsibleId', value)}><SelectTrigger className="h-11 w-full" aria-invalid={Boolean(formErrors.responsibleId)}><SelectValue placeholder="Seleccionar usuario" /></SelectTrigger><SelectContent>{users.map((user) => <SelectItem key={user.id} value={user.id}>{user.name}{user.email ? ` · ${user.email}` : ''}</SelectItem>)}</SelectContent></Select></Field>
+                                        <Field label="Fecha límite *" error={formErrors.deadline}><Input className="h-11" type="date" aria-invalid={Boolean(formErrors.deadline)} value={formData.deadline} onChange={(event) => updateField('deadline', event.target.value)} /></Field>
+                                        <Field label="Frecuencia de evaluación *" error={formErrors.evaluationFreq}><Select value={formData.evaluationFreq} onValueChange={(value) => updateField('evaluationFreq', value)}><SelectTrigger className="h-11 w-full" aria-invalid={Boolean(formErrors.evaluationFreq)}><SelectValue placeholder="Seleccionar frecuencia" /></SelectTrigger><SelectContent>{['Mensual', 'Trimestral', 'Semestral', 'Anual'].map((frequency) => <SelectItem key={frequency} value={frequency}>{frequency}</SelectItem>)}</SelectContent></Select></Field>
+                                    </div>
+                                    <Field label="Recursos requeridos *" error={formErrors.resources}><Textarea className="min-h-20 resize-none" aria-invalid={Boolean(formErrors.resources)} value={formData.resources} onChange={(event) => updateField('resources', event.target.value)} placeholder="Personas, presupuesto, equipos, tecnología o formación..." /></Field>
+                                    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+                                        <div className="mb-4 flex items-center gap-2"><span className="rounded-lg bg-white p-2 text-slate-600 shadow-sm"><ClipboardList className="h-4 w-4" /></span><div><p className="text-sm font-bold text-slate-900">Comunicación del objetivo</p><p className="text-xs text-slate-500">Registre destinatarios, fecha y evidencia.</p></div></div>
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <Field label="Personas o grupos comunicados *" error={formErrors.communicationRecipients}><Input className="h-11 bg-white" aria-invalid={Boolean(formErrors.communicationRecipients)} value={formData.communicationRecipients} onChange={(event) => updateField('communicationRecipients', event.target.value)} placeholder="Equipo comercial y producción" /></Field>
+                                            <Field label="Fecha de comunicación *" error={formErrors.communicationDate}><Input className="h-11 bg-white" type="date" aria-invalid={Boolean(formErrors.communicationDate)} value={formData.communicationDate} onChange={(event) => updateField('communicationDate', event.target.value)} /></Field>
+                                        </div>
+                                        <div className="mt-4"><Field label="Evidencia o ubicación del soporte" hint="Opcional"><Input className="h-11 bg-white" value={formData.communicationEvidence} onChange={(event) => updateField('communicationEvidence', event.target.value)} placeholder="Acta, correo, enlace o código documental" /></Field></div>
+                                    </div>
+                                </section>
                             </TabsContent>
                         </div>
                     </Tabs>
 
-                    <DialogFooter className="min-w-0 flex-row items-center justify-between gap-2 border-t bg-white px-4 py-3 sm:px-8 sm:py-4">
-                        <Button variant="ghost" onClick={() => setIsFormOpen(false)}>Cancelar</Button>
-                        <div className="flex min-w-0 gap-2">
-                            {formTab !== 'alignment' && <Button variant="outline" className="px-3 sm:px-4" onClick={() => setFormTab(formTab === 'planning' ? 'measurement' : 'alignment')}><ChevronLeft className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Anterior</span></Button>}
-                            {formTab !== 'planning'
-                                ? <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setFormTab(formTab === 'alignment' ? 'measurement' : 'planning')}>Siguiente<ChevronRight className="ml-1 h-4 w-4" /></Button>
-                                : <Button className="bg-blue-600 px-3 hover:bg-blue-700 sm:px-4" onClick={() => void handleSave()}><Save className="mr-1 h-4 w-4 sm:mr-2" /><span className="sm:hidden">{editingId ? 'Actualizar' : 'Guardar'}</span><span className="hidden sm:inline">{editingId ? 'Actualizar objetivo' : 'Guardar objetivo'}</span></Button>}
+                    <DialogFooter className="min-w-0 flex-row items-center justify-between gap-2 border-t bg-white px-4 py-3 sm:px-7 sm:py-4">
+                        <div className="hidden min-w-0 sm:block"><p className="text-xs font-bold text-slate-700">Paso {currentStepNumber} de 3</p><p className="truncate text-[11px] text-slate-500">Los campos marcados con * son obligatorios.</p></div>
+                        <div className="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:justify-end">
+                            <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancelar</Button>
+                            <div className="flex min-w-0 gap-2">
+                                {formTab !== 'alignment' && <Button type="button" variant="outline" className="px-3 sm:px-4" onClick={handlePreviousStep}><ChevronLeft className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Anterior</span></Button>}
+                                {formTab !== 'planning'
+                                    ? <Button type="button" className="bg-blue-600 shadow-sm hover:bg-blue-700" onClick={handleNextStep} disabled={refreshingPolicies || (formTab === 'alignment' && !vigentePolicies.length)}>Siguiente<ChevronRight className="ml-1 h-4 w-4" /></Button>
+                                    : <Button type="button" className="bg-blue-600 px-3 shadow-sm hover:bg-blue-700 sm:px-4" onClick={() => void handleSave()} disabled={saving}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4 sm:mr-2" />}<span className="sm:hidden">{editingId ? 'Actualizar' : 'Guardar'}</span><span className="hidden sm:inline">{editingId ? 'Actualizar objetivo' : 'Guardar objetivo'}</span></Button>}
+                            </div>
                         </div>
                     </DialogFooter>
                 </DialogContent>
@@ -535,12 +669,21 @@ function FormSection({ title, children }: { title: string; children: React.React
     return <section className="space-y-4"><h3 className="border-b pb-2 text-xs font-bold uppercase tracking-widest text-slate-700">{title}</h3>{children}</section>;
 }
 
-function StepHeading({ title, description }: { title: string; description: string }) {
-    return <div className="space-y-1"><h3 className="text-lg font-bold text-slate-900">{title}</h3><p className="text-sm text-slate-500">{description}</p></div>;
+function WizardStepTrigger({ value, number, title, subtitle, complete }: { value: FormTab; number: number; title: string; subtitle: string; complete: boolean }) {
+    return (
+        <TabsTrigger value={value} className="h-auto min-w-0 justify-start gap-2 rounded-xl border border-transparent px-2 py-2.5 text-left whitespace-normal data-[state=active]:border-blue-200 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:shadow-none sm:gap-3 sm:px-3">
+            <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black transition-colors ${complete ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500 group-data-[state=active]/tabs-trigger:bg-blue-600 group-data-[state=active]/tabs-trigger:text-white'}`}>{complete ? <Check className="h-4 w-4" /> : number}</span>
+            <span className="min-w-0"><span className="block text-[11px] font-bold leading-tight sm:text-sm">{title}</span><span className="mt-0.5 hidden truncate text-[10px] font-normal text-slate-500 sm:block">{subtitle}</span></span>
+        </TabsTrigger>
+    );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return <div className="min-w-0 space-y-2"><Label className="text-sm font-semibold text-slate-700">{label}</Label>{children}</div>;
+function StepHeading({ step, title, description }: { step: string; title: string; description: string }) {
+    return <div className="flex items-start gap-3 border-b border-slate-100 pb-4"><span className="mt-0.5 shrink-0 whitespace-nowrap rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-blue-700">{step}</span><div className="min-w-0"><h3 className="text-lg font-extrabold text-slate-950">{title}</h3><p className="mt-1 text-sm leading-relaxed text-slate-500">{description}</p></div></div>;
+}
+
+function Field({ label, children, error, hint }: { label: string; children: React.ReactNode; error?: string; hint?: string }) {
+    return <div className="min-w-0 space-y-2"><div className="flex items-end justify-between gap-3"><Label className="text-sm font-semibold text-slate-700">{label}</Label>{hint && !error && <span className="shrink-0 text-[10px] font-medium text-slate-400">{hint}</span>}</div>{children}{error && <p className="flex items-start gap-1.5 text-xs font-medium text-rose-600"><AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />{error}</p>}</div>;
 }
 
 function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
