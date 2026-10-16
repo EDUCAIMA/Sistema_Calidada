@@ -4,8 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '@/context/app-context';
 import { toast } from 'sonner';
 import {
-    Calendar, ClipboardList, Download, Edit, Eye, Filter,
-    MoreVertical, Plus, Save, Search, Target, Trash2, User,
+    Calendar, ChevronLeft, ChevronRight, ClipboardList, Download, Edit, Eye, Filter,
+    Info, MoreVertical, Plus, Save, Search, Target, Trash2, User,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -21,9 +21,11 @@ import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type Lookup = { id: string; name?: string; title?: string; email?: string; code?: string; status?: string };
 type Tracking = { id: string; date: string; note: string; progress: number; actual?: string | null };
@@ -106,6 +108,7 @@ export default function ObjetivosPage() {
     const [processFilter, setProcessFilter] = useState('TODOS');
     const [showFilters, setShowFilters] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [formTab, setFormTab] = useState('alignment');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState<FormState>(emptyForm());
     const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
@@ -172,6 +175,7 @@ export default function ObjetivosPage() {
     const openNew = () => {
         setEditingId(null);
         setFormData(emptyForm());
+        setFormTab('alignment');
         setIsFormOpen(true);
     };
 
@@ -195,6 +199,7 @@ export default function ObjetivosPage() {
             communicationDate: toDateInput(objective.communicationDate),
             communicationEvidence: objective.communicationEvidence || '',
         });
+        setFormTab('alignment');
         setIsDetailOpen(false);
         setIsFormOpen(true);
     };
@@ -210,6 +215,14 @@ export default function ObjetivosPage() {
         ];
         const missing = required.filter(([key]) => !formData[key].trim()).map(([, label]) => label);
         if (missing.length) {
+            const firstMissingKey = required.find(([key]) => !formData[key].trim())?.[0];
+            if (firstMissingKey && ['description', 'indicator', 'target'].includes(firstMissingKey)) {
+                setFormTab('measurement');
+            } else if (firstMissingKey && ['resources', 'responsibleId', 'deadline', 'evaluationFreq', 'communicationRecipients', 'communicationDate'].includes(firstMissingKey)) {
+                setFormTab('planning');
+            } else {
+                setFormTab('alignment');
+            }
             toast.error(`Completa los campos obligatorios: ${missing.join(', ')}.`);
             return;
         }
@@ -402,52 +415,85 @@ export default function ObjetivosPage() {
                 </div>
             </div>
 
-            <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <SheetContent className="overflow-y-auto sm:max-w-[680px]">
-                    <SheetHeader className="border-b pb-5"><SheetTitle className="flex items-center gap-3 text-2xl"><span className="rounded-lg bg-blue-50 p-2 text-blue-600"><Target className="h-6 w-6" /></span>{editingId ? 'Editar objetivo de calidad' : 'Planificar objetivo de calidad'}</SheetTitle>
-                        <SheetDescription>Todos los campos marcados con * respaldan los requisitos de ISO 9001:2015, 6.2.1 y 6.2.2.</SheetDescription>
-                    </SheetHeader>
-                    <div className="space-y-7 py-7">
-                        <FormSection title="Alineación y alcance — 6.2.1">
-                            <Field label="Política de calidad *"><Select value={formData.policyId} onValueChange={(value) => setFormData({ ...formData, policyId: value })}><SelectTrigger><SelectValue placeholder="Seleccionar política" /></SelectTrigger><SelectContent>{policies.filter((policy) => policy.status === 'VIGENTE').map((policy) => <SelectItem key={policy.id} value={policy.id}>{policy.title}</SelectItem>)}</SelectContent></Select></Field>
-                            {!policies.some((policy) => policy.status === 'VIGENTE') && <p className="text-xs text-amber-700">Primero debe existir una política con estado VIGENTE.</p>}
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <Field label="Proceso o función pertinente *"><Select value={formData.processId} onValueChange={(value) => setFormData({ ...formData, processId: value })}><SelectTrigger><SelectValue placeholder="Seleccionar proceso" /></SelectTrigger><SelectContent>{processes.map((process) => <SelectItem key={process.id} value={process.id}>{getProcessName(process.id)}</SelectItem>)}</SelectContent></Select></Field>
-                                <Field label="Nivel organizacional *"><Select value={formData.organizationalLevel} onValueChange={(value) => setFormData({ ...formData, organizationalLevel: value })}><SelectTrigger><SelectValue placeholder="Seleccionar nivel" /></SelectTrigger><SelectContent>{['Organización', 'Proceso', 'Área', 'Cargo'].map((level) => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select></Field>
+            <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) setFormTab('alignment'); }}>
+                <DialogContent className="grid max-h-[92vh] min-w-0 w-[calc(100vw-1.5rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-5xl">
+                    <DialogHeader className="min-w-0 border-b bg-slate-50/70 px-4 py-4 pr-10 sm:px-8 sm:py-5 sm:pr-14">
+                        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                            <span className="shrink-0 rounded-xl bg-blue-100 p-2 text-blue-600 sm:p-2.5"><Target className="h-5 w-5 sm:h-6 sm:w-6" /></span>
+                            <div className="min-w-0 space-y-1.5 text-left">
+                                <DialogTitle className="break-words text-lg font-bold leading-tight text-slate-900 sm:text-2xl">{editingId ? 'Editar objetivo de calidad' : 'Planificar objetivo de calidad'}</DialogTitle>
+                                <DialogDescription className="text-xs sm:text-sm">Complete los tres pasos para documentar los requisitos de ISO 9001:2015.</DialogDescription>
+                                <div className="flex flex-wrap gap-2 pt-1"><Badge variant="outline" className="bg-white text-[10px]">6.2.1 Objetivos</Badge><Badge variant="outline" className="bg-white text-[10px]">6.2.2 Planificación</Badge></div>
                             </div>
-                            <Field label="Requisitos aplicables considerados *"><Textarea value={formData.applicableRequirements} onChange={(event) => setFormData({ ...formData, applicableRequirements: event.target.value })} placeholder="Requisitos legales, reglamentarios, contractuales o del cliente..." /></Field>
-                            <Field label="Relevancia para la conformidad y satisfacción del cliente *"><Textarea value={formData.relevance} onChange={(event) => setFormData({ ...formData, relevance: event.target.value })} placeholder="Explique cómo contribuye el objetivo..." /></Field>
-                        </FormSection>
+                        </div>
+                    </DialogHeader>
 
-                        <FormSection title="Objetivo medible">
-                            <Field label="¿Qué se va a lograr? *"><Textarea value={formData.description} onChange={(event) => setFormData({ ...formData, description: event.target.value })} placeholder="Ej.: Reducir las devoluciones por defectos..." /></Field>
-                            <div className="grid gap-4 sm:grid-cols-3">
-                                <Field label="Indicador *"><Input value={formData.indicator} onChange={(event) => setFormData({ ...formData, indicator: event.target.value })} placeholder="% devoluciones" /></Field>
-                                <Field label="Meta *"><Input value={formData.target} onChange={(event) => setFormData({ ...formData, target: event.target.value })} placeholder="≤ 2%" /></Field>
-                                <Field label="Resultado actual"><Input value={formData.actual} onChange={(event) => setFormData({ ...formData, actual: event.target.value })} placeholder="4,5%" /></Field>
-                            </div>
-                        </FormSection>
+                    <Tabs value={formTab} onValueChange={setFormTab} className="min-h-0 min-w-0 gap-0 overflow-hidden">
+                        <div className="min-w-0 border-b bg-white px-2 py-3 sm:px-8">
+                            <TabsList className="grid h-auto min-w-0 w-full grid-cols-3 bg-slate-100 p-1">
+                                <TabsTrigger value="alignment" className="min-h-10 min-w-0 whitespace-normal px-1 text-[11px] sm:px-2 sm:text-sm"><span className="mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold shadow-sm sm:mr-1.5">1</span>Alineación</TabsTrigger>
+                                <TabsTrigger value="measurement" className="min-h-10 min-w-0 whitespace-normal px-1 text-[11px] sm:px-2 sm:text-sm"><span className="mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold shadow-sm sm:mr-1.5">2</span>Medición</TabsTrigger>
+                                <TabsTrigger value="planning" className="min-h-10 min-w-0 whitespace-normal px-1 text-[11px] leading-tight sm:px-2 sm:text-sm"><span className="mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold shadow-sm sm:mr-1.5">3</span>Plan y comunicación</TabsTrigger>
+                            </TabsList>
+                        </div>
 
-                        <FormSection title="Plan para lograrlo — 6.2.2">
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <Field label="Responsable *"><Select value={formData.responsibleId} onValueChange={(value) => setFormData({ ...formData, responsibleId: value })}><SelectTrigger><SelectValue placeholder="Seleccionar usuario" /></SelectTrigger><SelectContent>{users.map((user) => <SelectItem key={user.id} value={user.id}>{user.name}{user.email ? ` · ${user.email}` : ''}</SelectItem>)}</SelectContent></Select></Field>
-                                <Field label="Fecha límite *"><Input type="date" value={formData.deadline} onChange={(event) => setFormData({ ...formData, deadline: event.target.value })} /></Field>
-                            </div>
-                            <Field label="Recursos requeridos *"><Textarea value={formData.resources} onChange={(event) => setFormData({ ...formData, resources: event.target.value })} placeholder="Personas, presupuesto, equipos, formación..." /></Field>
-                            <Field label="Frecuencia de evaluación *"><Select value={formData.evaluationFreq} onValueChange={(value) => setFormData({ ...formData, evaluationFreq: value })}><SelectTrigger><SelectValue placeholder="Seleccionar frecuencia" /></SelectTrigger><SelectContent>{['Mensual', 'Trimestral', 'Semestral', 'Anual'].map((frequency) => <SelectItem key={frequency} value={frequency}>{frequency}</SelectItem>)}</SelectContent></Select></Field>
-                        </FormSection>
+                        <div className="min-h-0 min-w-0 overflow-y-auto px-4 py-5 sm:px-8 sm:py-6">
+                            <TabsContent value="alignment" className="m-0 min-w-0 space-y-5">
+                                <StepHeading title="Alineación y alcance" description="Vincule el objetivo con la política, el proceso y los requisitos aplicables." />
+                                <Field label="Política de calidad *"><Select value={formData.policyId} onValueChange={(value) => setFormData({ ...formData, policyId: value })}><SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar política vigente" /></SelectTrigger><SelectContent>{policies.filter((policy) => policy.status === 'VIGENTE').map((policy) => <SelectItem key={policy.id} value={policy.id}>{policy.title}</SelectItem>)}</SelectContent></Select></Field>
+                                {!policies.some((policy) => policy.status === 'VIGENTE') && <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"><Info className="mt-0.5 h-4 w-4 shrink-0" /><span>Para crear el objetivo debe registrar o aprobar primero una política con estado <b>VIGENTE</b>.</span></div>}
+                                <div className="grid gap-5 md:grid-cols-2">
+                                    <Field label="Proceso o función pertinente *"><Select value={formData.processId} onValueChange={(value) => setFormData({ ...formData, processId: value })}><SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar proceso" /></SelectTrigger><SelectContent>{processes.map((process) => <SelectItem key={process.id} value={process.id}>{getProcessName(process.id)}</SelectItem>)}</SelectContent></Select></Field>
+                                    <Field label="Nivel organizacional *"><Select value={formData.organizationalLevel} onValueChange={(value) => setFormData({ ...formData, organizationalLevel: value })}><SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar nivel" /></SelectTrigger><SelectContent>{['Organización', 'Proceso', 'Área', 'Cargo'].map((level) => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select></Field>
+                                </div>
+                                <div className="grid gap-5 md:grid-cols-2">
+                                    <Field label="Requisitos aplicables considerados *"><Textarea className="min-h-28 resize-none" value={formData.applicableRequirements} onChange={(event) => setFormData({ ...formData, applicableRequirements: event.target.value })} placeholder="Legales, reglamentarios, contractuales o del cliente..." /></Field>
+                                    <Field label="Relevancia para la conformidad y el cliente *"><Textarea className="min-h-28 resize-none" value={formData.relevance} onChange={(event) => setFormData({ ...formData, relevance: event.target.value })} placeholder="Explique cómo contribuye el objetivo..." /></Field>
+                                </div>
+                            </TabsContent>
 
-                        <FormSection title="Comunicación y evidencia — 6.2.1">
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <Field label="Personas o grupos comunicados *"><Input value={formData.communicationRecipients} onChange={(event) => setFormData({ ...formData, communicationRecipients: event.target.value })} placeholder="Equipo comercial y producción" /></Field>
-                                <Field label="Fecha de comunicación *"><Input type="date" value={formData.communicationDate} onChange={(event) => setFormData({ ...formData, communicationDate: event.target.value })} /></Field>
-                            </div>
-                            <Field label="Evidencia o ubicación del soporte"><Input value={formData.communicationEvidence} onChange={(event) => setFormData({ ...formData, communicationEvidence: event.target.value })} placeholder="Acta, correo, enlace o código documental" /></Field>
-                        </FormSection>
-                    </div>
-                    <div className="flex gap-3 border-t pt-5"><Button variant="outline" className="flex-1" onClick={() => setIsFormOpen(false)}>Cancelar</Button><Button className="flex-1 bg-blue-600" onClick={() => void handleSave()}>{editingId ? 'Actualizar objetivo' : 'Guardar objetivo'}</Button></div>
-                </SheetContent>
-            </Sheet>
+                            <TabsContent value="measurement" className="m-0 min-w-0 space-y-5">
+                                <StepHeading title="Objetivo medible" description="Defina con claridad qué se logrará y cómo se comprobará el resultado." />
+                                <Field label="¿Qué se va a lograr? *"><Textarea className="min-h-28 resize-none" value={formData.description} onChange={(event) => setFormData({ ...formData, description: event.target.value })} placeholder="Ej.: Reducir las devoluciones por defectos..." /></Field>
+                                <div className="grid gap-5 md:grid-cols-3">
+                                    <Field label="Indicador *"><Input value={formData.indicator} onChange={(event) => setFormData({ ...formData, indicator: event.target.value })} placeholder="% devoluciones" /></Field>
+                                    <Field label="Meta esperada *"><Input value={formData.target} onChange={(event) => setFormData({ ...formData, target: event.target.value })} placeholder="≤ 2%" /></Field>
+                                    <Field label="Resultado actual"><Input value={formData.actual} onChange={(event) => setFormData({ ...formData, actual: event.target.value })} placeholder="4,5%" /></Field>
+                                </div>
+                                <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-sm leading-relaxed text-blue-900"><b>Sugerencia:</b> indique unidad, fórmula o fuente dentro del indicador y use la misma unidad en la meta y el resultado actual.</div>
+                            </TabsContent>
+
+                            <TabsContent value="planning" className="m-0 min-w-0 space-y-6">
+                                <StepHeading title="Plan y comunicación" description="Asigne recursos, responsables, plazos, evaluación y evidencia de comunicación." />
+                                <div className="grid gap-5 md:grid-cols-3">
+                                    <Field label="Responsable *"><Select value={formData.responsibleId} onValueChange={(value) => setFormData({ ...formData, responsibleId: value })}><SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar usuario" /></SelectTrigger><SelectContent>{users.map((user) => <SelectItem key={user.id} value={user.id}>{user.name}{user.email ? ` · ${user.email}` : ''}</SelectItem>)}</SelectContent></Select></Field>
+                                    <Field label="Fecha límite *"><Input type="date" value={formData.deadline} onChange={(event) => setFormData({ ...formData, deadline: event.target.value })} /></Field>
+                                    <Field label="Frecuencia de evaluación *"><Select value={formData.evaluationFreq} onValueChange={(value) => setFormData({ ...formData, evaluationFreq: value })}><SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar frecuencia" /></SelectTrigger><SelectContent>{['Mensual', 'Trimestral', 'Semestral', 'Anual'].map((frequency) => <SelectItem key={frequency} value={frequency}>{frequency}</SelectItem>)}</SelectContent></Select></Field>
+                                </div>
+                                <Field label="Recursos requeridos *"><Textarea className="min-h-24 resize-none" value={formData.resources} onChange={(event) => setFormData({ ...formData, resources: event.target.value })} placeholder="Personas, presupuesto, equipos, formación..." /></Field>
+                                <div className="border-t pt-5">
+                                    <p className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-600">Comunicación del objetivo</p>
+                                    <div className="grid gap-5 md:grid-cols-2">
+                                        <Field label="Personas o grupos comunicados *"><Input value={formData.communicationRecipients} onChange={(event) => setFormData({ ...formData, communicationRecipients: event.target.value })} placeholder="Equipo comercial y producción" /></Field>
+                                        <Field label="Fecha de comunicación *"><Input type="date" value={formData.communicationDate} onChange={(event) => setFormData({ ...formData, communicationDate: event.target.value })} /></Field>
+                                    </div>
+                                    <div className="mt-5"><Field label="Evidencia o ubicación del soporte"><Input value={formData.communicationEvidence} onChange={(event) => setFormData({ ...formData, communicationEvidence: event.target.value })} placeholder="Acta, correo, enlace o código documental" /></Field></div>
+                                </div>
+                            </TabsContent>
+                        </div>
+                    </Tabs>
+
+                    <DialogFooter className="min-w-0 flex-row items-center justify-between gap-2 border-t bg-white px-4 py-3 sm:px-8 sm:py-4">
+                        <Button variant="ghost" onClick={() => setIsFormOpen(false)}>Cancelar</Button>
+                        <div className="flex min-w-0 gap-2">
+                            {formTab !== 'alignment' && <Button variant="outline" className="px-3 sm:px-4" onClick={() => setFormTab(formTab === 'planning' ? 'measurement' : 'alignment')}><ChevronLeft className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Anterior</span></Button>}
+                            {formTab !== 'planning'
+                                ? <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setFormTab(formTab === 'alignment' ? 'measurement' : 'planning')}>Siguiente<ChevronRight className="ml-1 h-4 w-4" /></Button>
+                                : <Button className="bg-blue-600 px-3 hover:bg-blue-700 sm:px-4" onClick={() => void handleSave()}><Save className="mr-1 h-4 w-4 sm:mr-2" /><span className="sm:hidden">{editingId ? 'Actualizar' : 'Guardar'}</span><span className="hidden sm:inline">{editingId ? 'Actualizar objetivo' : 'Guardar objetivo'}</span></Button>}
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
                 <SheetContent className="overflow-y-auto sm:max-w-[640px]">
@@ -489,8 +535,12 @@ function FormSection({ title, children }: { title: string; children: React.React
     return <section className="space-y-4"><h3 className="border-b pb-2 text-xs font-bold uppercase tracking-widest text-slate-700">{title}</h3>{children}</section>;
 }
 
+function StepHeading({ title, description }: { title: string; description: string }) {
+    return <div className="space-y-1"><h3 className="text-lg font-bold text-slate-900">{title}</h3><p className="text-sm text-slate-500">{description}</p></div>;
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return <div className="space-y-2"><Label className="text-sm font-semibold text-slate-700">{label}</Label>{children}</div>;
+    return <div className="min-w-0 space-y-2"><Label className="text-sm font-semibold text-slate-700">{label}</Label>{children}</div>;
 }
 
 function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
