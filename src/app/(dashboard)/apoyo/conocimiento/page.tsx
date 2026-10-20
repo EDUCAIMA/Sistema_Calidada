@@ -1,10 +1,9 @@
 "use client";
 
+import { ModulePage, ModuleHeader, ModuleContent } from "@/components/sgc/module-layout";
+
 import React, { useState } from 'react';
-import {
-    Lightbulb, Plus, Search, Filter, MoreVertical, Trash2,
-    FileText, Tag, Calendar, User, Eye, Download, BookOpen
-} from 'lucide-react';
+import { Lightbulb, Plus, Search, Filter, MoreVertical, Trash2, FileText, Tag, Calendar, User, Eye, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +11,7 @@ import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
     DropdownMenuTrigger, DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Mock data for lessons learned
@@ -65,30 +64,30 @@ export default function ConocimientoPage() {
     );
 
     return (
-        <div className="flex-1 space-y-6 p-8 pt-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Conocimiento Organizacional</h2>
-                    <p className="text-muted-foreground mt-1">
-                        Repositorio de lecciones aprendidas y mejores prácticas del Sistema de Gestión (ISO 9001: 7.1.6).
-                    </p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Button variant="outline" className="gap-2 shadow-sm">
+        <ModulePage>
+            <ModuleHeader
+                clause="7.1.6"
+                title="Conocimiento organizacional"
+                description="Consulte lecciones aprendidas y mejores prácticas del sistema de gestión."
+                actions={<>
+
+                    <Button variant="outline" className="gap-2 shadow-sm h-11 rounded-xl font-medium text-sm">
                         <Download className="w-4 h-4" />
                         <span className="hidden sm:inline">Exportar Base</span>
                     </Button>
-                    <Button className="gap-2 shadow-md">
+                    <Button className="gap-2 shadow-sm h-11 rounded-xl font-medium text-sm">
                         <Plus className="w-4 h-4" />
                         <span>Nueva Lección</span>
                     </Button>
-                </div>
-            </div>
+
+                </>}
+            />
+            <ModuleContent>
 
             <Tabs defaultValue="wiki" className="space-y-6">
-                <TabsList className="bg-slate-100/50 dark:bg-slate-800/50 border shadow-sm">
-                    <TabsTrigger value="wiki" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Wiki y Lecciones (Grid)</TabsTrigger>
-                    <TabsTrigger value="lista" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Vista de Lista</TabsTrigger>
+                <TabsList className="border shadow-sm h-auto w-full justify-start flex-wrap gap-2 bg-slate-50 p-1.5 rounded-xl">
+                    <TabsTrigger value="wiki" className="min-h-11 rounded-xl text-sm font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm">Wiki y Lecciones (Grid)</TabsTrigger>
+                    <TabsTrigger value="lista" className="min-h-11 rounded-xl text-sm font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm">Vista de Lista</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="wiki" className="space-y-4 m-0">
@@ -98,12 +97,12 @@ export default function ConocimientoPage() {
                             <Input
                                 type="text"
                                 placeholder="Buscar por título, tag o contenido..."
-                                className="pl-9 bg-white dark:bg-slate-950 shadow-sm"
+                                className="pl-9 bg-white dark:bg-slate-950 shadow-sm h-11 rounded-xl font-medium text-sm border border-slate-200"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <Button variant="outline" size="icon" className="shrink-0 bg-white dark:bg-slate-950 shadow-sm">
+                        <Button variant="outline" size="icon" className="shrink-0 bg-white dark:bg-slate-950 shadow-sm font-medium text-sm">
                             <Filter className="h-4 w-4" />
                         </Button>
                     </div>
@@ -111,15 +110,15 @@ export default function ConocimientoPage() {
                     {filteredKnowledge.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {filteredKnowledge.map((item) => (
-                                <Card key={item.id} className="border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-slate-900/50 hover:shadow-lg transition-all flex flex-col h-full group">
+                                <Card key={item.id} className="shadow-sm bg-white/50 backdrop-blur-sm dark:bg-slate-900/50 hover:shadow-md transition-all flex flex-col h-full group border border-slate-100 rounded-2xl">
                                     <CardHeader className="pb-3 border-b border-border/50 bg-muted/20">
-                                        <div className="flex justify-between items-start">
-                                            <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 text-[10px] font-semibold">
+                                        <div className="flex justify-between items-start flex-wrap gap-3">
+                                            <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 text-xs font-semibold">
                                                 {item.category}
                                             </Badge>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Button variant="ghost" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity font-medium text-sm">
                                                         <MoreVertical className="h-4 w-4 text-slate-500" />
                                                     </Button>
                                                 </DropdownMenuTrigger>
@@ -149,7 +148,7 @@ export default function ConocimientoPage() {
                                                 </span>
                                             ))}
                                         </div>
-                                        <div className="flex items-center justify-between w-full">
+                                        <div className="flex items-center justify-between w-full flex-wrap gap-3">
                                             <span className="flex items-center gap-1.5">
                                                 <User className="w-3.5 h-3.5 opacity-70" /> {item.author.split(' ')[0]}
                                             </span>
@@ -162,7 +161,7 @@ export default function ConocimientoPage() {
                             ))}
                         </div>
                     ) : (
-                        <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-slate-900/50 py-12">
+                        <Card className="shadow-sm bg-white/50 backdrop-blur-sm dark:bg-slate-900/50 py-12 border border-slate-100 rounded-2xl">
                             <div className="text-center text-muted-foreground flex flex-col items-center justify-center">
                                 <Lightbulb className="h-10 w-10 text-slate-300 mb-3" />
                                 <p>No se encontraron lecciones que coincidan con la búsqueda.</p>
@@ -172,7 +171,7 @@ export default function ConocimientoPage() {
                 </TabsContent>
 
                 <TabsContent value="lista" className="m-0">
-                    <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-slate-900/50 h-[400px] flex items-center justify-center">
+                    <Card className="shadow-sm bg-white/50 backdrop-blur-sm dark:bg-slate-900/50 h-[400px] flex items-center justify-center border border-slate-100 rounded-2xl">
                         <div className="text-center space-y-3">
                             <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-primary">
                                 <FileText className="w-8 h-8" />
@@ -185,6 +184,7 @@ export default function ConocimientoPage() {
                     </Card>
                 </TabsContent>
             </Tabs>
-        </div>
+        </ModuleContent>
+        </ModulePage>
     );
 }

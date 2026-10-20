@@ -1,5 +1,7 @@
 "use client";
 
+import { ModulePage, ModuleHeader, ModuleContent } from "@/components/sgc/module-layout";
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, ArrowLeft, Download, Loader2, Plus, Save, Settings2, Trash2, Upload } from 'lucide-react';
@@ -225,19 +227,21 @@ function EstandarDocumentalContent() {
     const example = formatDocumentCode(config, config.documentTypes.find(type => type.active)?.prefix || 'FO', 1);
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                    <Link href="/apoyo/documentos" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Listado maestro</Link>
-                    <h1 className="text-2xl font-bold">Estándar documental</h1>
-                    <p className="mt-1 text-sm text-muted-foreground">Identidad, encabezados y codificación de {companyName}. Numeral 7.5.2.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
+        <ModulePage>
+            <ModuleHeader
+                clause="7.5.2"
+                title="Estándar documental"
+                description={`Identidad, encabezados y codificación de ${companyName}.`}
+                actions={<>
+
+                    <Button asChild variant="outline"><Link href="/apoyo/documentos"><ArrowLeft className="h-4 w-4" /> Listado maestro</Link></Button>
                     {(dirty || Object.values(formatDirty).some(Boolean)) && <Badge variant="secondary">Cambios sin guardar</Badge>}
                     <Button variant="outline" disabled={dirty || exporting || saving || !!savingFormat || Object.values(formatDirty).some(Boolean)} onClick={() => void downloadStandard()}><Download className="mr-2 h-4 w-4" /> {exporting ? 'Generando...' : 'Descargar estándar PDF'}</Button>
                     {canEdit && <Button disabled={!dirty || saving || conflict || !!savingFormat} onClick={() => void saveStandard()}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Guardar estándar</Button>}
-                </div>
-            </div>
+
+                </>}
+            />
+            <ModuleContent>
 
             {!canEdit && <p className="rounded-lg border bg-muted/30 p-4 text-sm">Puede consultar el estándar. Su modificación corresponde al administrador de la empresa.</p>}
             {error && <div role="alert" className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"><p className="flex gap-2"><AlertCircle className="h-5 w-5 shrink-0" />{error}</p>{conflict && <Button variant="outline" onClick={() => void loadStandard()}>Recargar versión vigente (descarta cambios locales)</Button>}</div>}
@@ -249,10 +253,10 @@ function EstandarDocumentalContent() {
                         <div className="space-y-2"><Label htmlFor="standard-system-name">Nombre del sistema</Label><Input id="standard-system-name" value={config.systemName} maxLength={120} onChange={event => updateConfig({ systemName: event.target.value })} /></div>
                         <div className="space-y-2">
                             <Label htmlFor="standard-logo">Logo corporativo (PNG o JPEG, máximo 512 KB)</Label>
-                            <div className="flex flex-wrap items-center gap-3"><Upload className="h-5 w-5 text-muted-foreground" /><Input id="standard-logo" type="file" accept="image/png,image/jpeg" onChange={event => void uploadLogo(event.target.files?.[0])} className="max-w-sm" />{logo && <Button type="button" variant="ghost" onClick={() => { setLogo(''); setDirty(true); }}>Quitar logo</Button>}</div>
+                            <div className="flex flex-wrap items-center gap-3"><Upload className="h-5 w-5 text-muted-foreground" /><Input id="standard-logo" type="file" accept="image/png,image/jpeg" onChange={event => void uploadLogo(event.target.files?.[0])} className="max-w-sm h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white" />{logo && <Button type="button" variant="ghost" onClick={() => { setLogo(''); setDirty(true); }}>Quitar logo</Button>}</div>
                             <p className="text-xs text-muted-foreground">Este logo también actualiza la identidad corporativa de la empresa. Sin logo se mostrará su nombre.</p>
                         </div>
-                        <div className="space-y-2"><Label htmlFor="standard-color">Color corporativo</Label><div className="flex gap-3"><Input id="standard-color" type="color" value={config.primaryColor} className="h-10 w-16 p-1" onChange={event => updateConfig({ primaryColor: event.target.value })} /><Input aria-label="Color corporativo hexadecimal" value={config.primaryColor} maxLength={7} onChange={event => updateConfig({ primaryColor: event.target.value })} className="max-w-40 font-mono" /></div></div>
+                        <div className="space-y-2"><Label htmlFor="standard-color">Color corporativo</Label><div className="flex gap-3"><Input id="standard-color" type="color" value={config.primaryColor} className="w-16 p-1 h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white" onChange={event => updateConfig({ primaryColor: event.target.value })} /><Input aria-label="Color corporativo hexadecimal" value={config.primaryColor} maxLength={7} onChange={event => updateConfig({ primaryColor: event.target.value })} className="max-w-40 font-mono h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white" /></div></div>
                         <div className="space-y-2"><Label htmlFor="standard-footer">Leyenda del pie de página</Label><Input id="standard-footer" value={config.footerText} maxLength={180} onChange={event => updateConfig({ footerText: event.target.value })} /><p className="text-xs text-muted-foreground">El PDF también identifica su estado y número de página. La descarga no cambia el estado de aprobación.</p></div>
                     </CardContent>
                 </Card>
@@ -261,8 +265,8 @@ function EstandarDocumentalContent() {
                     <CardContent className="space-y-5">
                         <div className="space-y-2"><Label htmlFor="standard-prefix">Prefijo de la organización</Label><Input id="standard-prefix" value={config.organizationPrefix} maxLength={12} onChange={event => updateConfig({ organizationPrefix: event.target.value.toUpperCase() })} /></div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2"><Label htmlFor="standard-separator">Separador</Label><select id="standard-separator" className="h-10 w-full rounded-md border bg-background px-3" value={config.separator} onChange={event => updateConfig({ separator: event.target.value as '-' | '_' })}><option value="-">Guion (-)</option><option value="_">Guion bajo (_)</option></select></div>
-                            <div className="space-y-2"><Label htmlFor="standard-digits">Dígitos del consecutivo</Label><select id="standard-digits" className="h-10 w-full rounded-md border bg-background px-3" value={config.sequenceDigits} onChange={event => updateConfig({ sequenceDigits: Number(event.target.value) })}>{[3, 4, 5, 6].map(value => <option key={value} value={value}>{value}</option>)}</select></div>
+                            <div className="space-y-2"><Label htmlFor="standard-separator">Separador</Label><select id="standard-separator" className="w-full border px-3 h-11 rounded-xl font-medium text-sm border-slate-200 bg-white" value={config.separator} onChange={event => updateConfig({ separator: event.target.value as '-' | '_' })}><option value="-">Guion (-)</option><option value="_">Guion bajo (_)</option></select></div>
+                            <div className="space-y-2"><Label htmlFor="standard-digits">Dígitos del consecutivo</Label><select id="standard-digits" className="w-full border px-3 h-11 rounded-xl font-medium text-sm border-slate-200 bg-white" value={config.sequenceDigits} onChange={event => updateConfig({ sequenceDigits: Number(event.target.value) })}>{[3, 4, 5, 6].map(value => <option key={value} value={value}>{value}</option>)}</select></div>
                         </div>
                         <div className="rounded-xl border bg-muted/30 p-5"><p className="text-xs text-muted-foreground">Ejemplo ilustrativo; no reserva un código</p><p className="mt-2 break-all font-mono text-2xl font-bold">{example}</p><p className="mt-3 text-xs text-muted-foreground">Organización · Tipo documental · Consecutivo</p></div>
                         <p className="text-sm text-muted-foreground">Los códigos existentes se conservan. Una nueva versión mantiene el código del documento original. Desactive tipos que ya no utilice en lugar de eliminar su historial.</p>
@@ -272,12 +276,12 @@ function EstandarDocumentalContent() {
 
             <Card>
                 <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3"><div><CardTitle className="text-lg">Tipos documentales</CardTitle><CardDescription>Cree categorías propias y su prefijo, conservando una clasificación base.</CardDescription></div>{canEdit && <Button variant="outline" disabled={saving} onClick={() => updateConfig({ documentTypes: [...config.documentTypes, { id: `TIPO_${crypto.randomUUID().replaceAll('-', '').toUpperCase()}`, name: '', prefix: '', baseType: 'OTRO', active: true }] })}><Plus className="mr-2 h-4 w-4" /> Agregar tipo</Button>}</CardHeader>
-                <CardContent className="overflow-x-auto">
-                    <table className="w-full min-w-[620px] text-left text-sm"><thead><tr className="border-b"><th className="p-2">Nombre</th><th className="w-28 p-2">Prefijo</th><th className="w-44 p-2">Clasificación base</th><th className="w-28 p-2">Estado</th><th className="w-12 p-2"><span className="sr-only">Acciones</span></th></tr></thead><tbody>{config.documentTypes.map(type => <tr key={type.id} className="border-b last:border-0">
+                <CardContent className="relative overflow-x-auto">
+                    <table className="w-full min-w-[620px] text-left text-sm"><thead><tr className="border-b"><th className="p-2 text-sm font-semibold text-slate-600">Nombre</th><th className="w-28 p-2 text-sm font-semibold text-slate-600">Prefijo</th><th className="w-44 p-2 text-sm font-semibold text-slate-600">Clasificación base</th><th className="w-28 p-2 text-sm font-semibold text-slate-600">Estado</th><th className="w-12 p-2 text-sm font-semibold text-slate-600"><span className="sr-only">Acciones</span></th></tr></thead><tbody>{config.documentTypes.map(type => <tr key={type.id} className="border-b last:border-0">
                         <td className="p-2"><Input aria-label={`Nombre del tipo ${type.name || 'nuevo'}`} value={type.name} maxLength={80} disabled={!canEdit || saving} onChange={event => updateType(type.id, { name: event.target.value })} /></td>
-                        <td className="p-2"><Input aria-label={`Prefijo de ${type.name || 'nuevo tipo'}`} value={type.prefix} maxLength={10} disabled={!canEdit || saving} className="font-mono uppercase" onChange={event => updateType(type.id, { prefix: event.target.value.toUpperCase() })} /></td>
-                        <td className="p-2"><select aria-label={`Clasificación base de ${type.name || 'nuevo tipo'}`} className="h-10 w-full rounded-md border bg-background px-2" value={type.baseType} disabled={!canEdit || saving} onChange={event => updateType(type.id, { baseType: event.target.value as DocumentType })}>{Object.entries(BASE_TYPES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></td>
-                        <td className="p-2"><label className="flex cursor-pointer items-center gap-2"><input type="checkbox" checked={type.active} disabled={!canEdit || saving} onChange={event => updateType(type.id, { active: event.target.checked })} />{type.active ? 'Activo' : 'Inactivo'}</label></td>
+                        <td className="p-2"><Input aria-label={`Prefijo de ${type.name || 'nuevo tipo'}`} value={type.prefix} maxLength={10} disabled={!canEdit || saving} className="font-mono h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white" onChange={event => updateType(type.id, { prefix: event.target.value.toUpperCase() })} /></td>
+                        <td className="p-2"><select aria-label={`Clasificación base de ${type.name || 'nuevo tipo'}`} className="w-full border px-2 h-11 rounded-xl font-medium text-sm border-slate-200 bg-white" value={type.baseType} disabled={!canEdit || saving} onChange={event => updateType(type.id, { baseType: event.target.value as DocumentType })}>{Object.entries(BASE_TYPES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></td>
+                        <td className="p-2"><label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={type.active} disabled={!canEdit || saving} onChange={event => updateType(type.id, { active: event.target.checked })} />{type.active ? 'Activo' : 'Inactivo'}</label></td>
                         <td className="p-2">{canEdit && !savedTypeIds.includes(type.id) && <Button type="button" variant="ghost" size="icon" disabled={saving} aria-label={`Descartar tipo nuevo ${type.name}`} title="Descartar tipo nuevo sin guardar" onClick={() => updateConfig({ documentTypes: config.documentTypes.filter(item => item.id !== type.id) })}><Trash2 className="h-4 w-4 text-red-500" /></Button>}</td>
                     </tr>)}</tbody></table>
                     <p className="mt-4 text-xs text-muted-foreground">Los tipos inactivos permanecen en documentos históricos, pero no se ofrecen para nuevos registros. Los nombres y prefijos deben ser únicos.</p>
@@ -290,16 +294,16 @@ function EstandarDocumentalContent() {
                     <p className="rounded-lg border bg-muted/30 p-3 text-sm">La fecha corresponde a la aprobación del <strong>formato</strong>, no de sus registros. Déjela vacía si no existe una aprobación documentada. Las políticas, matrices y otros registros versionados conservan su código, versión y aprobación propios.</p>
                     {dirty && <p role="status" className="text-sm text-amber-700">Guarde primero los cambios del estándar corporativo antes de guardar identificaciones de formatos.</p>}
                     {formatError && <p role="alert" className="text-sm text-red-700">{formatError}</p>}
-                    <div className="overflow-x-auto">
+                    <div className="relative overflow-x-auto">
                         <table className="w-full min-w-[840px] text-left text-sm">
-                            <thead><tr className="border-b"><th className="p-2">Módulo</th><th className="min-w-48 p-2">Código del formato</th><th className="w-24 p-2">Versión</th><th className="w-44 p-2">Aprobación del formato</th><th className="w-28 p-2"><span className="sr-only">Guardar</span></th></tr></thead>
+                            <thead><tr className="border-b"><th className="p-2 text-sm font-semibold text-slate-600">Módulo</th><th className="min-w-48 p-2 text-sm font-semibold text-slate-600">Código del formato</th><th className="w-24 p-2 text-sm font-semibold text-slate-600">Versión</th><th className="w-44 p-2 text-sm font-semibold text-slate-600">Aprobación del formato</th><th className="w-28 p-2 text-sm font-semibold text-slate-600"><span className="sr-only">Guardar</span></th></tr></thead>
                             <tbody>{DOCUMENT_CATALOG.map(module => {
                                 const sourceControlled = module.key === '5.2' || module.key === '5.3';
                                 const draft = formats[module.key] || { code: '', version: '01', approvalDate: '' };
                                 return <tr key={module.key} className="border-b align-top last:border-0">
                                     <td className="p-2"><Link href={module.href} className="font-medium hover:underline">{module.clause} · {module.title}</Link></td>
                                     {sourceControlled ? <td colSpan={4} className="p-2 text-xs text-muted-foreground">Código, versión y aprobación tomados del registro en su módulo. No se sustituyen desde esta pantalla.</td> : <>
-                                        <td className="p-2"><Input aria-label={`Código del formato ${module.clause}`} value={draft.code} placeholder={moduleFallbackCode(module)} maxLength={100} disabled={!canEdit || saving || !!savingFormat} onChange={event => updateFormat(module.key, { code: event.target.value.toUpperCase() })} /><p className="mt-1 text-[11px] text-muted-foreground">{draft.code ? 'Identificación guardada o personalizada.' : 'Sin personalización: se usa el código automático del módulo.'}</p></td>
+                                        <td className="p-2"><Input aria-label={`Código del formato ${module.clause}`} value={draft.code} placeholder={moduleFallbackCode(module)} maxLength={100} disabled={!canEdit || saving || !!savingFormat} onChange={event => updateFormat(module.key, { code: event.target.value.toUpperCase() })} /><p className="mt-1 text-xs text-muted-foreground">{draft.code ? 'Identificación guardada o personalizada.' : 'Sin personalización: se usa el código automático del módulo.'}</p></td>
                                         <td className="p-2"><Input aria-label={`Versión del formato ${module.clause}`} value={draft.version} maxLength={30} disabled={!canEdit || saving || !!savingFormat} onChange={event => updateFormat(module.key, { version: event.target.value })} /></td>
                                         <td className="p-2"><Input aria-label={`Fecha de aprobación del formato ${module.clause}`} type="date" value={/^\d{4}-\d{2}-\d{2}/.test(draft.approvalDate) ? draft.approvalDate.slice(0, 10) : ''} disabled={!canEdit || saving || !!savingFormat} onChange={event => updateFormat(module.key, { approvalDate: event.target.value })} />{draft.approvalDate && !/^\d{4}-\d{2}-\d{2}/.test(draft.approvalDate) && <p className="mt-1 text-xs text-muted-foreground">Fecha histórica: {draft.approvalDate}. Se conserva hasta seleccionar una nueva fecha.</p>}</td>
                                         <td className="p-2">{canEdit && <Button variant="outline" size="sm" disabled={!formatDirty[module.key] || dirty || saving || !!savingFormat} onClick={() => void saveFormat(module)}>{savingFormat === module.key ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />} Guardar</Button>}</td>
@@ -328,6 +332,7 @@ function EstandarDocumentalContent() {
                     <p className="mt-5 text-xs text-muted-foreground">Los archivos originales adjuntos mantienen su formato. El listado maestro y sus fichas PDF usan este estándar sin modificar los originales.</p>
                 </CardContent>
             </Card>
-        </div>
+        </ModuleContent>
+        </ModulePage>
     );
 }

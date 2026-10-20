@@ -1,5 +1,6 @@
 "use client";
 
+import { ModulePage, ModuleHeader, ModuleToolbar, ModuleContent, ModulePanel } from '@/components/sgc/module-layout';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/app-context';
@@ -483,25 +484,21 @@ export default function ObjetivosPage() {
     }
 
     return (
-        <div className="flex min-h-screen flex-col bg-white">
-            <div className="flex flex-col gap-5 border-b border-slate-100 bg-slate-50/40 px-8 py-8 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-3xl font-extrabold text-slate-900">6.2 Objetivos de <span className="text-blue-600">Calidad</span></h1>
-                    <p className="mt-2 text-sm text-slate-500">Planifique acciones, comunique objetivos y evalúe resultados con evidencia.</p>
-                </div>
-                <div className="flex gap-3">
+        <ModulePage>
+            <ModuleHeader clause="6.2" title="Objetivos de calidad"
+                description="Planifique acciones, comunique objetivos y evalúe resultados con evidencia."
+                actions={<>
                     <Button variant="outline" className="h-11 rounded-xl" onClick={handleDownloadPDF}><Download className="mr-2 h-4 w-4 text-red-500" />Descargar PDF</Button>
                     {canWrite && <Button className="h-11 rounded-xl bg-blue-600" onClick={openNew}><Plus className="mr-2 h-4 w-4" />Nuevo objetivo</Button>}
-                </div>
-            </div>
+                </>} />
 
-            <div className="space-y-4 bg-slate-50/50 px-8 py-5">
+            <ModuleToolbar className="flex-col items-stretch">
                 <div className="flex flex-col gap-3 sm:flex-row">
-                    <div className="relative max-w-xl flex-1">
+                    <div className="relative min-w-0 max-w-xl flex-1">
                         <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                        <Input className="h-11 rounded-xl bg-white pl-11" placeholder="Buscar objetivo, indicador o responsable..." value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
+                        <Input aria-label="Buscar objetivos" className="h-11 rounded-xl bg-white pl-11" placeholder="Buscar objetivo, indicador o responsable..." value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
                     </div>
-                    <Button variant="outline" className="h-11 rounded-xl" onClick={() => setShowFilters((value) => !value)}><Filter className="mr-2 h-4 w-4" />Filtros</Button>
+                    <Button variant="outline" className="h-11 rounded-xl" aria-expanded={showFilters} onClick={() => setShowFilters((value) => !value)}><Filter className="mr-2 h-4 w-4" />Filtros</Button>
                 </div>
                 {showFilters && (
                     <div className="grid max-w-3xl gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2">
@@ -526,10 +523,10 @@ export default function ObjetivosPage() {
                         </Select>
                     </div>
                 )}
-            </div>
+            </ModuleToolbar>
 
-            <div className="flex-1 px-8 pb-10">
-                <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+            <ModuleContent>
+                <ModulePanel>
                     <Table>
                         <TableHeader><TableRow className="bg-slate-50/80">
                             <TableHead className="pl-6">Objetivo / proceso</TableHead><TableHead>Meta / indicador</TableHead>
@@ -544,7 +541,7 @@ export default function ObjetivosPage() {
                                     <TableCell><div className="w-32"><div className="mb-1 flex justify-between text-xs"><span>Progreso</span><b>{objective.progress}%</b></div><Progress value={objective.progress} /></div></TableCell>
                                     <TableCell>{getStatusBadge(objective.status)}</TableCell>
                                     <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
-                                        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                        <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label={`Acciones de ${objective.description}`} variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem onClick={() => openDetail(objective)}><Eye className="mr-2 h-4 w-4" />Seguimiento</DropdownMenuItem>
                                                 {canWrite && !objective.archivedAt && <DropdownMenuItem onClick={() => openEdit(objective)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>}
@@ -557,8 +554,8 @@ export default function ObjetivosPage() {
                             {!filteredObjectives.length && <TableRow><TableCell colSpan={6} className="h-40 text-center text-slate-500">No hay objetivos que coincidan con la búsqueda. Registre el primero desde “Nuevo objetivo”.</TableCell></TableRow>}
                         </TableBody>
                     </Table>
-                </div>
-            </div>
+                </ModulePanel>
+            </ModuleContent>
 
             <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { setFormTab('alignment'); setFormErrors({}); } }}>
                 <DialogContent className="grid max-h-[94vh] min-w-0 w-[calc(100vw-1rem)] max-w-4xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-3xl border-0 p-0 shadow-2xl sm:max-w-4xl">
@@ -701,7 +698,7 @@ export default function ObjetivosPage() {
                     </>}
                 </SheetContent>
             </Sheet>
-        </div>
+        </ModulePage>
     );
 }
 

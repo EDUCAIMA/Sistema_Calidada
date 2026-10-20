@@ -1,14 +1,9 @@
 "use client";
 
+import { ModulePage, ModuleHeader, ModuleContent } from "@/components/sgc/module-layout";
+
 import React, { useState, useEffect } from 'react';
-import {
-    Building2, Plus, Search, Filter, MoreVertical,
-    Edit, Trash2, Eye, Wrench, CheckCircle2, AlertCircle,
-    Users as UsersIcon, Thermometer, Ruler, PenTool, BookOpen,
-    Info, LayoutGrid, Clock, Download, HelpCircle, 
-    Settings, Upload, Activity, ShieldAlert,
-    UserPlus, Building, KeyRound, Check
-} from 'lucide-react';
+import { Building2, Plus, Search, Edit, Eye, CheckCircle2, AlertCircle, Users as UsersIcon, Thermometer, Ruler, BookOpen, Info, HelpCircle, Upload, ShieldAlert, UserPlus, Building, KeyRound, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -48,9 +43,8 @@ const mockUsuarios = [
 ];
 
 export default function RecursosPage() {
-    const [searchTerm, setSearchTerm] = useState('');
     const [showISOInfo, setShowISOInfo] = useState(false);
-    
+
     // States for 7.1.2 Personas
     const [activePersonasTab, setActivePersonasTab] = useState('organigrama');
     const [cargos, setCargos] = useState(mockCargos);
@@ -65,7 +59,7 @@ export default function RecursosPage() {
         // Inicializar con algo coherente si no hay en localStorage
         const initial: Record<string, Record<string, string[]>> = {};
         const modules = ['G. Documental', 'Indicadores', 'Auditorías', 'Riesgos'];
-        
+
         mockCargos.forEach(c => {
             initial[c.name] = {};
             modules.forEach(m => {
@@ -85,14 +79,14 @@ export default function RecursosPage() {
         setPermissions(prev => {
             const cargoPerms = { ...(prev[cargoName] || {}) };
             const modulePerms = [...(cargoPerms[module] || [])];
-            
+
             if (checked) {
                 if (!modulePerms.includes(perm)) modulePerms.push(perm);
             } else {
                 const index = modulePerms.indexOf(perm);
                 if (index > -1) modulePerms.splice(index, 1);
             }
-            
+
             return {
                 ...prev,
                 [cargoName]: {
@@ -109,7 +103,7 @@ export default function RecursosPage() {
             toast.success("Matriz de permisos guardada exitosamente", {
                 description: "Los cambios han sido persistidos localmente."
             });
-        } catch (e) {
+        } catch {
             toast.error("Error al guardar la matriz");
         }
     };
@@ -119,8 +113,10 @@ export default function RecursosPage() {
         const saved = localStorage.getItem('sig_permissions_matrix');
         if (saved) {
             try {
+                // Rehidratar la matriz local después del montaje evita diferencias con el HTML del servidor.
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setPermissions(JSON.parse(saved));
-            } catch (e) {
+            } catch {
                 console.error("Error parsing saved permissions");
             }
         }
@@ -143,98 +139,88 @@ export default function RecursosPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] -m-6 p-8 font-sans text-slate-900 pb-20">
+        <ModulePage>
             {/* Page Header (Matching Contexto) */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Apoyo y Recursos</h1>
-                        <button
-                            onClick={() => setShowISOInfo(true)}
-                            className="p-1.5 rounded-full hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-all active:scale-95"
-                            title="Ver información normativa ISO 9001:2015"
-                        >
-                            <HelpCircle className="w-5 h-5" />
-                        </button>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <span className="bg-[#136dec]/10 text-[#136dec] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 7.1</span>
-                        <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">Gestión de Apoyo</span>
-                        <div className="w-px h-4 bg-slate-300 mx-1"></div>
-                        <div className="flex items-center gap-2 group cursor-pointer">
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Código: SIG-REC-01</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <ModuleHeader
+                clause="7.1"
+                title="Recursos"
+                description="Gestione las personas, la infraestructura y los recursos necesarios para el sistema de gestión. Código: SIG-REC-01."
+                actions={<>
+
+                    <Button variant="outline" aria-label="Ver información normativa ISO 9001:2015" title="Ver información normativa ISO 9001:2015" onClick={() => setShowISOInfo(true)}>
+                        <HelpCircle className="h-4 w-4" /> Información ISO
+                    </Button>
+                </>}
+            />
+            <ModuleContent>
 
             <Tabs defaultValue="personas" className="space-y-6">
-                <TabsList className="bg-white p-1.5 border border-slate-200 h-auto flex flex-wrap gap-1.5 justify-start rounded-xl shadow-sm">
-                    <TabsTrigger value="generalidades" className="gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all rounded-lg"><Info className="w-4 h-4" /> 7.1.1 Generalidades</TabsTrigger>
-                    <TabsTrigger value="personas" className="gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide data-[state=active]:bg-[#136dec] data-[state=active]:text-white transition-all rounded-lg"><UsersIcon className="w-4 h-4" /> 7.1.2 Personas</TabsTrigger>
-                    <TabsTrigger value="infraestructura" className="gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all rounded-lg"><Building2 className="w-4 h-4" /> 7.1.3 Infra</TabsTrigger>
-                    <TabsTrigger value="ambiente" className="gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all rounded-lg"><Thermometer className="w-4 h-4" /> 7.1.4 Ambiente</TabsTrigger>
-                    <TabsTrigger value="medicion" className="gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all rounded-lg"><Ruler className="w-4 h-4" /> 7.1.5 Medición</TabsTrigger>
-                    <TabsTrigger value="conocimientos" className="gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all rounded-lg"><BookOpen className="w-4 h-4" /> 7.1.6 Conocimientos</TabsTrigger>
+                <TabsList className="p-1.5 border border-slate-100 h-auto flex flex-wrap justify-start rounded-xl shadow-sm w-full gap-2 bg-slate-50">
+                    <TabsTrigger value="generalidades" className="gap-2 px-4 py-2.5 transition-all min-h-11 rounded-xl text-sm font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"><Info className="w-4 h-4" /> 7.1.1 Generalidades</TabsTrigger>
+                    <TabsTrigger value="personas" className="gap-2 px-4 py-2.5 transition-all min-h-11 rounded-xl text-sm font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"><UsersIcon className="w-4 h-4" /> 7.1.2 Personas</TabsTrigger>
+                    <TabsTrigger value="infraestructura" className="gap-2 px-4 py-2.5 transition-all min-h-11 rounded-xl text-sm font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"><Building2 className="w-4 h-4" /> 7.1.3 Infra</TabsTrigger>
+                    <TabsTrigger value="ambiente" className="gap-2 px-4 py-2.5 transition-all min-h-11 rounded-xl text-sm font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"><Thermometer className="w-4 h-4" /> 7.1.4 Ambiente</TabsTrigger>
+                    <TabsTrigger value="medicion" className="gap-2 px-4 py-2.5 transition-all min-h-11 rounded-xl text-sm font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"><Ruler className="w-4 h-4" /> 7.1.5 Medición</TabsTrigger>
+                    <TabsTrigger value="conocimientos" className="gap-2 px-4 py-2.5 transition-all min-h-11 rounded-xl text-sm font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"><BookOpen className="w-4 h-4" /> 7.1.6 Conocimientos</TabsTrigger>
                 </TabsList>
 
                 {/* 7.1.2 PERSONAS (REDISEÑO PRINCIPAL) */}
                 <TabsContent value="personas" className="space-y-6 mt-6">
                     {/* Header Personas */}
-                    <div className="bg-white rounded-2xl border-2 border-slate-200 p-6 flex items-center justify-between shadow-sm">
+                    <div className="flex flex-col gap-5 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6 xl:flex-row xl:items-center xl:justify-between">
                         <div className="flex items-center gap-4">
                             <div className="h-12 w-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
                                 <UsersIcon className="h-6 w-6" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Gestión de Personas (IAM)</h2>
-                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Numeral 7.1.2 — Determinación y provisión de personal</p>
+                                <h2 className="text-xl font-semibold text-slate-800">Gestión de Personas (IAM)</h2>
+                                <p className="text-xs font-bold text-slate-500 mt-1">Numeral 7.1.2 — Determinación y provisión de personal</p>
                             </div>
                         </div>
                         <div className="flex gap-4">
                             <div className="flex flex-col items-end">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cargos Estructurados</p>
+                                <p className="text-xs font-bold text-slate-400 mb-1">Cargos Estructurados</p>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-2xl font-black text-slate-800">{cargos.length}</span>
+                                    <span className="text-2xl font-semibold text-slate-800">{cargos.length}</span>
                                     <span className="text-xs text-emerald-500 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">100% Cubiertos</span>
                                 </div>
                             </div>
                             <div className="w-px h-12 bg-slate-200"></div>
                             <div className="flex flex-col items-end">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Usuarios Activos</p>
+                                <p className="text-xs font-bold text-slate-400 mb-1">Usuarios Activos</p>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-2xl font-black text-[#136dec]">{usuarios.filter(u => u.status === 'Activo').length}</span>
+                                    <span className="text-2xl font-semibold text-blue-600">{usuarios.filter(u => u.status === 'Activo').length}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Sub-Tabs Personas */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="border-b border-slate-100 bg-slate-50/50 flex">
-                            <button 
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div className="flex flex-wrap gap-2 border-b border-slate-100 bg-slate-50/50 p-2">
+                            <button
                                 onClick={() => setActivePersonasTab('organigrama')}
                                 className={cn(
-                                    "flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all border-b-2 flex items-center justify-center gap-2",
-                                    activePersonasTab === 'organigrama' ? "border-[#136dec] text-[#136dec] bg-white" : "border-transparent text-slate-500 hover:bg-slate-100"
+                                    "flex-1 py-4 transition-all border-b-2 flex items-center justify-center gap-2 h-11 rounded-xl font-medium text-sm",
+                                    activePersonasTab === 'organigrama' ? "border-blue-600 text-blue-600 bg-white h-11 rounded-xl font-medium text-sm" : "border-transparent text-slate-500 hover:bg-slate-100 h-11 rounded-xl font-medium text-sm"
                                 )}
                             >
                                 <Building className="w-4 h-4" /> La Estructura (Cargos)
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setActivePersonasTab('usuarios')}
                                 className={cn(
-                                    "flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all border-b-2 flex items-center justify-center gap-2",
-                                    activePersonasTab === 'usuarios' ? "border-[#136dec] text-[#136dec] bg-white" : "border-transparent text-slate-500 hover:bg-slate-100"
+                                    "flex-1 py-4 transition-all border-b-2 flex items-center justify-center gap-2 h-11 rounded-xl font-medium text-sm",
+                                    activePersonasTab === 'usuarios' ? "border-blue-600 text-blue-600 bg-white h-11 rounded-xl font-medium text-sm" : "border-transparent text-slate-500 hover:bg-slate-100 h-11 rounded-xl font-medium text-sm"
                                 )}
                             >
                                 <UserPlus className="w-4 h-4" /> Las Personas (Usuarios)
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setActivePersonasTab('permisos')}
                                 className={cn(
-                                    "flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all border-b-2 flex items-center justify-center gap-2",
-                                    activePersonasTab === 'permisos' ? "border-[#136dec] text-[#136dec] bg-white" : "border-transparent text-slate-500 hover:bg-slate-100"
+                                    "flex-1 py-4 transition-all border-b-2 flex items-center justify-center gap-2 h-11 rounded-xl font-medium text-sm",
+                                    activePersonasTab === 'permisos' ? "border-blue-600 text-blue-600 bg-white h-11 rounded-xl font-medium text-sm" : "border-transparent text-slate-500 hover:bg-slate-100 h-11 rounded-xl font-medium text-sm"
                                 )}
                             >
                                 <KeyRound className="w-4 h-4" /> El Control (Permisos)
@@ -245,28 +231,28 @@ export default function RecursosPage() {
                             {/* PESTAÑA 1: ORGANIGRAMA / CARGOS */}
                             {activePersonasTab === 'organigrama' && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <div className="flex justify-between items-center">
+                                    <div className="flex justify-between items-center flex-wrap gap-3">
                                         <p className="text-sm font-medium text-slate-500 max-w-2xl">
                                             Define la estructura organizacional antes de asignar usuarios. Cada cargo creado servirá como base para definir responsabilidades (Num 5.3) y asignar accesos.
                                         </p>
-                                        <Button 
+                                        <Button
                                             onClick={() => setShowNewCargoModal(true)}
-                                            className="bg-[#136dec] hover:bg-blue-700 text-white font-bold uppercase text-xs tracking-wider shadow-lg shadow-blue-600/20 h-10 px-6 rounded-xl"
+                                            className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm px-6 rounded-xl h-11 font-medium text-sm"
                                         >
                                             <Plus className="w-4 h-4 mr-2" />
                                             Crear Perfil de Cargo
                                         </Button>
                                     </div>
 
-                                    <div className="border border-slate-200 rounded-xl overflow-hidden">
-                                        <table className="w-full text-left">
+                                    <div className="overflow-x-auto rounded-xl border border-slate-100">
+                                        <table className="w-full min-w-[640px] text-left text-sm">
                                             <thead>
-                                                <tr className="bg-slate-50 border-b border-slate-200">
-                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Nombre del Cargo</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Macroproceso (4.4)</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Jefe Inmediato</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Personas Asignadas</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Acciones</th>
+                                                <tr className="bg-slate-50 border-b border-slate-100">
+                                                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Nombre del Cargo</th>
+                                                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Macroproceso (4.4)</th>
+                                                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Jefe Inmediato</th>
+                                                    <th className="px-6 py-4 font-semibold text-center text-sm text-slate-600">Personas Asignadas</th>
+                                                    <th className="px-6 py-4 font-semibold text-right text-sm text-slate-600">Acciones</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100 bg-white">
@@ -276,14 +262,14 @@ export default function RecursosPage() {
                                                             <div className="font-bold text-slate-800">{cargo.name}</div>
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <Badge variant="outline" className="bg-slate-50 font-bold border-slate-200 text-slate-600 uppercase text-[9px] tracking-wider">{cargo.process}</Badge>
+                                                            <Badge variant="outline" className="bg-slate-50 font-bold border-slate-100 text-slate-600 text-xs">{cargo.process}</Badge>
                                                         </td>
                                                         <td className="px-6 py-4 text-sm text-slate-600 font-medium">{cargo.jefe}</td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <span className="inline-flex items-center justify-center bg-blue-50 text-blue-600 font-black text-xs h-6 w-6 rounded-full">{cargo.count}</span>
+                                                            <span className="inline-flex items-center justify-center bg-blue-50 text-blue-600 font-semibold text-xs h-6 w-6 rounded-full">{cargo.count}</span>
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#136dec] hover:bg-blue-50">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#136dec] hover:bg-blue-50 font-medium text-sm">
                                                                 <Edit className="h-4 w-4" />
                                                             </Button>
                                                         </td>
@@ -302,10 +288,10 @@ export default function RecursosPage() {
                                         <div className="flex items-center gap-3">
                                             <div className="relative">
                                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                                <Input placeholder="Buscar por nombre o correo..." className="pl-9 w-64 h-10 border-slate-200 bg-slate-50 focus-visible:ring-[#136dec] rounded-xl text-sm" />
+                                                <Input placeholder="Buscar por nombre o correo..." className="pl-9 w-64 focus-visible:ring-[#136dec] rounded-xl h-11 font-medium text-sm border border-slate-200 bg-white" />
                                             </div>
                                             <Select defaultValue="all">
-                                                <SelectTrigger className="w-[180px] h-10 border-slate-200 bg-slate-50 rounded-xl text-sm font-medium">
+                                                <SelectTrigger className="w-[180px] rounded-xl font-medium h-11 text-sm border border-slate-200 bg-white">
                                                     <SelectValue placeholder="Filtrar por Proceso" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -317,12 +303,12 @@ export default function RecursosPage() {
                                             </Select>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <Button variant="outline" className="h-10 px-4 text-xs font-bold uppercase tracking-wider border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-emerald-600 rounded-xl shadow-sm">
+                                            <Button variant="outline" className="px-4 border-slate-100 text-slate-600 hover:bg-slate-50 hover:text-emerald-600 rounded-xl shadow-sm h-11 font-medium text-sm">
                                                 <Upload className="w-4 h-4 mr-2" /> Cargar Excel
                                             </Button>
-                                            <Button 
+                                            <Button
                                                 onClick={() => setShowNewUserModal(true)}
-                                                className="bg-[#136dec] hover:bg-blue-700 text-white font-bold uppercase text-xs tracking-wider shadow-lg shadow-blue-600/20 h-10 px-6 rounded-xl"
+                                                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm px-6 rounded-xl h-11 font-medium text-sm"
                                             >
                                                 <UserPlus className="w-4 h-4 mr-2" />
                                                 Nuevo Usuario
@@ -330,16 +316,16 @@ export default function RecursosPage() {
                                         </div>
                                     </div>
 
-                                    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                                        <table className="w-full text-left">
+                                    <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-sm">
+                                        <table className="w-full min-w-[720px] text-left text-sm">
                                             <thead>
-                                                <tr className="bg-slate-50 border-b border-slate-200">
-                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Usuario</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Cargo Asignado</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Fecha Ingreso</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Firma</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Estado</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Detalle</th>
+                                                <tr className="bg-slate-50 border-b border-slate-100">
+                                                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Usuario</th>
+                                                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Cargo Asignado</th>
+                                                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Fecha Ingreso</th>
+                                                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Firma</th>
+                                                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Estado</th>
+                                                    <th className="px-6 py-4 font-semibold text-right text-sm text-slate-600">Detalle</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100 bg-white">
@@ -347,7 +333,7 @@ export default function RecursosPage() {
                                                     <tr key={usr.id} className="hover:bg-slate-50 transition-colors group">
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center gap-3">
-                                                                <div className="h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs border border-indigo-200">
+                                                                <div className="h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold text-xs border border-indigo-200">
                                                                     {usr.name.split(' ').map(n => n[0]).join('')}
                                                                 </div>
                                                                 <div>
@@ -361,14 +347,14 @@ export default function RecursosPage() {
                                                         </td>
                                                         <td className="px-6 py-4 text-sm text-slate-500 font-medium">{usr.date}</td>
                                                         <td className="px-6 py-4">
-                                                            {usr.status === 'Activo' ? 
-                                                                <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-none font-bold text-[9px] uppercase"><Check className="w-3 h-3 mr-1"/> Registrada</Badge> 
-                                                                : <Badge variant="outline" className="text-slate-400 border-dashed text-[9px] uppercase font-bold">Pendiente</Badge>
+                                                            {usr.status === 'Activo' ?
+                                                                <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-none font-bold text-xs"><Check className="w-3 h-3 mr-1"/> Registrada</Badge>
+                                                                : <Badge variant="outline" className="text-slate-400 border-dashed text-xs font-bold">Pendiente</Badge>
                                                             }
                                                         </td>
                                                         <td className="px-6 py-4">{getStatusBadge(usr.status)}</td>
                                                         <td className="px-6 py-4 text-right">
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#136dec] hover:bg-blue-50">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#136dec] hover:bg-blue-50 font-medium text-sm">
                                                                 <Eye className="h-4 w-4" />
                                                             </Button>
                                                         </td>
@@ -383,44 +369,44 @@ export default function RecursosPage() {
                             {/* PESTAÑA 3: MATRIZ DE PERMISOS */}
                             {activePersonasTab === 'permisos' && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <div className="flex justify-between items-center bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                                    <div className="flex justify-between items-center bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex-wrap gap-3">
                                         <div className="flex items-start gap-3">
                                             <ShieldAlert className="w-5 h-5 text-blue-600 mt-0.5" />
                                             <div>
                                                 <h4 className="font-bold text-blue-900 text-sm">Control de Accesos (RBAC)</h4>
                                                 <p className="text-xs text-blue-700 mt-1 max-w-3xl leading-relaxed">
-                                                    Garantice la integridad de su SGC definiendo qué puede hacer cada cargo dentro del sistema corporativo. 
+                                                    Garantice la integridad de su SGC definiendo qué puede hacer cada cargo dentro del sistema corporativo.
                                                     Los usuarios heredarán automáticamente los permisos del cargo que tengan asignado.
                                                 </p>
                                             </div>
                                         </div>
-                                        <Button 
+                                        <Button
                                             onClick={saveMatrix}
-                                            className="bg-slate-900 hover:bg-slate-800 text-white font-bold uppercase text-[10px] tracking-widest h-10 px-6 rounded-xl"
+                                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl h-11 font-medium text-sm"
                                         >
                                             Guardar Matriz
                                         </Button>
                                     </div>
 
-                                    <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
+                                    <div className="border border-slate-100 rounded-xl overflow-x-auto shadow-sm">
                                         <table className="w-full text-left bg-white border-collapse min-w-[800px]">
                                             <thead>
-                                                <tr className="bg-slate-800 text-white">
-                                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest w-[200px] border-r border-slate-700">CARGO \ MÓDULO</th>
-                                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700">G. Documental</th>
-                                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700">Indicadores</th>
-                                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700">Auditorías</th>
-                                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-center">Riesgos</th>
+                                                <tr className="bg-slate-50 text-slate-600">
+                                                    <th className="w-[200px] border-r border-slate-100 px-6 py-4 text-sm font-semibold">Cargo / Módulo</th>
+                                                    <th className="border-r border-slate-100 px-4 py-3 text-center text-sm font-semibold">G. Documental</th>
+                                                    <th className="border-r border-slate-100 px-4 py-3 text-center text-sm font-semibold">Indicadores</th>
+                                                    <th className="border-r border-slate-100 px-4 py-3 text-center text-sm font-semibold">Auditorías</th>
+                                                    <th className="px-4 py-3 font-semibold text-center text-sm text-slate-600">Riesgos</th>
                                                 </tr>
-                                                <tr className="bg-slate-700 text-slate-300 border-b border-slate-600">
-                                                    <th className="px-6 py-2 border-r border-slate-600"></th>
+                                                <tr className="border-b border-slate-100 bg-slate-50/50 text-slate-600">
+                                                    <th className="border-r border-slate-100 px-6 py-2 text-sm font-semibold"></th>
                                                     {['G. Documental', 'Indicadores', 'Auditorías', 'Riesgos'].map((mod, i) => (
-                                                        <th key={i} className="px-2 py-2 border-r border-slate-600 last:border-0">
-                                                            <div className="flex justify-around text-[9px] font-black uppercase">
+                                                        <th key={i} className="border-r border-slate-100 px-2 py-2 text-sm font-semibold last:border-0">
+                                                            <div className="flex justify-around text-xs font-semibold">
                                                                 <span title="Leer">L</span>
                                                                 <span title="Crear">C</span>
                                                                 <span title="Modificar">M</span>
-                                                                <span title="Aprobar" className="text-emerald-400">A</span>
+                                                                <span title="Aprobar" className="text-emerald-700">A</span>
                                                                 <span title="Eliminar" className="text-rose-400">E</span>
                                                             </div>
                                                         </th>
@@ -437,7 +423,7 @@ export default function RecursosPage() {
                                                             <td key={mod} className="px-2 py-4 border-r border-slate-100 last:border-0">
                                                                 <div className="flex justify-around items-center">
                                                                     {['L', 'C', 'M', 'A', 'E'].map(p => (
-                                                                        <Checkbox 
+                                                                        <Checkbox
                                                                             key={p}
                                                                             checked={(permissions[cargo.name]?.[mod] || []).includes(p)}
                                                                             onCheckedChange={(checked) => handlePermissionChange(cargo.name, mod, p, checked as boolean)}
@@ -445,7 +431,7 @@ export default function RecursosPage() {
                                                                                 "border-slate-300",
                                                                                 p === 'A' && "data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500",
                                                                                 p === 'E' && "data-[state=checked]:bg-rose-500 data-[state=checked]:border-rose-500"
-                                                                            )} 
+                                                                            )}
                                                                         />
                                                                     ))}
                                                                 </div>
@@ -456,7 +442,7 @@ export default function RecursosPage() {
                                             </tbody>
                                         </table>
                                     </div>
-                                    <div className="p-6 bg-slate-50 border-x border-b border-slate-200 rounded-b-xl">
+                                    <div className="p-6 bg-slate-50 border-x border-b border-slate-100 rounded-b-xl">
                                         <div className="flex items-center gap-12 justify-center">
                                             {[
                                                 { l: 'L', d: 'Leer', c: 'text-slate-600', desc: 'Ver registros' },
@@ -466,10 +452,10 @@ export default function RecursosPage() {
                                                 { l: 'E', d: 'Eliminar', c: 'text-rose-600', desc: 'Borrar rastro' }
                                             ].map(leg => (
                                                 <div key={leg.l} className="flex items-center gap-3">
-                                                    <span className={cn("flex items-center justify-center h-6 w-6 rounded-md bg-white border border-slate-200 text-[11px] font-black italic shadow-sm", leg.c)}>{leg.l}</span>
+                                                    <span className={cn("flex items-center justify-center h-6 w-6 rounded-md bg-white border border-slate-100 text-xs font-semibold shadow-sm", leg.c)}>{leg.l}</span>
                                                     <div>
-                                                        <p className="text-[10px] font-black text-slate-700 leading-none">{leg.d}</p>
-                                                        <p className="text-[9px] text-slate-400 font-medium grayscale opacity-70 leading-none mt-1">{leg.desc}</p>
+                                                        <p className="text-xs font-semibold text-slate-700 leading-none">{leg.d}</p>
+                                                        <p className="text-xs text-slate-400 font-medium grayscale opacity-70 leading-none mt-1">{leg.desc}</p>
                                                     </div>
                                                 </div>
                                             ))}
@@ -483,21 +469,21 @@ export default function RecursosPage() {
 
                 {/* 7.1.1 GENERALIDADES (Stylized stub) */}
                 <TabsContent value="generalidades" className="space-y-4 mt-6">
-                    <Card className="border-2 border-slate-200 shadow-sm rounded-2xl overflow-hidden bg-white">
+                    <Card className="border border-slate-100 shadow-sm rounded-2xl overflow-hidden bg-white">
                         <CardHeader className="bg-slate-50 border-b border-slate-100 px-6 py-5">
-                            <CardTitle className="text-lg font-black text-slate-800 uppercase tracking-tight">7.1.1 Generalidades de los Recursos</CardTitle>
-                            <CardDescription className="text-xs font-bold uppercase tracking-widest text-slate-500 mt-1">Capacidad y limitaciones organizacionales</CardDescription>
+                            <CardTitle className="text-lg font-semibold text-slate-800">7.1.1 Generalidades de los Recursos</CardTitle>
+                            <CardDescription className="text-xs font-bold text-slate-500 mt-1">Capacidad y limitaciones organizacionales</CardDescription>
                         </CardHeader>
                         <CardContent className="p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="p-6 bg-indigo-50/50 border border-indigo-100 rounded-xl">
-                                    <h4 className="font-black text-xs uppercase tracking-widest mb-3 text-indigo-900 border-b border-indigo-200 pb-2 flex items-center gap-2"><Building2 className="w-4 h-4"/> Capacidades Internas</h4>
+                                    <h4 className="font-semibold text-xs mb-3 text-indigo-900 border-b border-indigo-200 pb-2 flex items-center gap-2"><Building2 className="w-4 h-4"/> Capacidades Internas</h4>
                                     <p className="text-sm text-indigo-700/80 leading-relaxed font-medium">
                                         Análisis de los recursos que la organización puede proporcionar por sus propios medios para establecer, implementar y mantener el SGC.
                                     </p>
                                 </div>
                                 <div className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-xl">
-                                    <h4 className="font-black text-xs uppercase tracking-widest mb-3 text-emerald-900 border-b border-emerald-200 pb-2 flex items-center gap-2"><UsersIcon className="w-4 h-4"/> Proveedores Externos</h4>
+                                    <h4 className="font-semibold text-xs mb-3 text-emerald-900 border-b border-emerald-200 pb-2 flex items-center gap-2"><UsersIcon className="w-4 h-4"/> Proveedores Externos</h4>
                                     <p className="text-sm text-emerald-700/80 leading-relaxed font-medium">
                                         Identificación de aquellos recursos que deben obtenerse de proveedores externos garantizando la continuidad operativa.
                                     </p>
@@ -509,33 +495,33 @@ export default function RecursosPage() {
 
                 {/* 7.1.3 INFRAESTRUCTURA */}
                 <TabsContent value="infraestructura" className="space-y-4 mt-6">
-                    <Card className="border-none shadow-sm bg-white border border-slate-200 rounded-2xl">
-                        <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 p-6">
+                    <Card className="shadow-sm bg-white border border-slate-100 rounded-2xl">
+                        <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 p-6 flex-wrap gap-3">
                             <div>
-                                <CardTitle className="text-lg font-black uppercase text-slate-800 tracking-tight">Inventario de Infraestructura</CardTitle>
-                                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mt-1">Numeral 7.1.3</p>
+                                <CardTitle className="text-lg font-semibold text-slate-800">Inventario de Infraestructura</CardTitle>
+                                <p className="text-xs font-bold text-slate-400 mt-1">Numeral 7.1.3</p>
                             </div>
-                            <Button className="bg-slate-900 hover:bg-slate-800 text-white font-bold uppercase text-xs h-10 px-6 rounded-xl gap-2 tracking-wider">
+                            <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl gap-2 h-11 font-medium text-sm">
                                 <Plus className="w-4 h-4" /> Nuevo Activo
                             </Button>
                         </CardHeader>
-                        <CardContent className="p-0">
+                        <CardContent className="overflow-x-auto p-0">
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-slate-50 text-slate-500 font-medium">
                                     <tr className="border-b border-slate-100">
-                                        <th className="p-4 px-6 text-[10px] font-black uppercase tracking-widest">Código</th>
-                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest">Nombre del Activo</th>
-                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest">Tipo</th>
-                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest">Estado</th>
-                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest">Responsable</th>
+                                        <th className="p-4 px-6 font-semibold text-sm text-slate-600">Código</th>
+                                        <th className="p-4 font-semibold text-sm text-slate-600">Nombre del Activo</th>
+                                        <th className="p-4 font-semibold text-sm text-slate-600">Tipo</th>
+                                        <th className="p-4 font-semibold text-sm text-slate-600">Estado</th>
+                                        <th className="p-4 font-semibold text-sm text-slate-600">Responsable</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {mockInfra.map((item) => (
                                         <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                            <td className="p-4 px-6 font-black text-slate-700 tracking-wider text-xs">{item.id}</td>
+                                            <td className="p-4 px-6 font-semibold text-slate-700 text-xs">{item.id}</td>
                                             <td className="p-4 font-bold text-slate-800">{item.name}</td>
-                                            <td className="p-4"><Badge variant="outline" className="font-bold text-[9px] uppercase">{item.type}</Badge></td>
+                                            <td className="p-4"><Badge variant="outline" className="font-bold text-xs">{item.type}</Badge></td>
                                             <td className="p-4">{getStatusBadge(item.status)}</td>
                                             <td className="p-4 font-medium text-slate-600 text-xs">{item.responsible}</td>
                                         </tr>
@@ -549,38 +535,38 @@ export default function RecursosPage() {
                 {/* Additional tabs stubs (Ambiente, Medicion, Conocimientos) matching styles... */}
                 {/* 7.1.4 AMBIENTE */}
                 <TabsContent value="ambiente" className="space-y-4 mt-6">
-                    <Card className="border border-slate-200 shadow-sm rounded-2xl bg-white overflow-hidden">
+                    <Card className="border border-slate-100 shadow-sm rounded-2xl bg-white overflow-hidden">
                         <CardHeader className="bg-slate-50 border-b border-slate-100 p-6">
-                            <CardTitle className="text-lg font-black uppercase text-slate-800 tracking-tight">Ambiente de Operación</CardTitle>
-                            <CardDescription className="text-xs font-bold uppercase tracking-widest text-slate-500 mt-1">Factores sociales, psicológicos y físicos (7.1.4)</CardDescription>
+                            <CardTitle className="text-lg font-semibold text-slate-800">Ambiente de Operación</CardTitle>
+                            <CardDescription className="text-xs font-bold text-slate-500 mt-1">Factores sociales, psicológicos y físicos (7.1.4)</CardDescription>
                         </CardHeader>
                         <CardContent className="p-6">
                             <div className="flex items-center justify-center p-12 text-center text-slate-400 flex-col gap-4">
                                 <Thermometer className="w-12 h-12 text-slate-200"/>
-                                <p className="font-bold uppercase tracking-widest text-xs">Módulo en construcción o pendiente de registro</p>
+                                <p className="font-bold text-xs">Módulo en construcción o pendiente de registro</p>
                             </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
 
                 <TabsContent value="medicion" className="space-y-4 mt-6">
-                     <Card className="border border-slate-200 shadow-sm rounded-2xl bg-white overflow-hidden">
-                        <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 p-6">
+                     <Card className="border border-slate-100 shadow-sm rounded-2xl bg-white overflow-hidden">
+                        <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 p-6 flex-wrap gap-3">
                             <div>
-                                <CardTitle className="text-lg font-black uppercase text-slate-800 tracking-tight">Equipos de Medición</CardTitle>
-                                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mt-1">Control de calibración (7.1.5)</p>
+                                <CardTitle className="text-lg font-semibold text-slate-800">Equipos de Medición</CardTitle>
+                                <p className="text-xs font-bold text-slate-400 mt-1">Control de calibración (7.1.5)</p>
                             </div>
-                             <Button variant="outline" className="font-bold uppercase text-xs h-10 px-6 rounded-xl gap-2 tracking-wider border-slate-200 text-slate-600">
+                             <Button variant="outline" className="px-6 rounded-xl gap-2 border-slate-100 text-slate-600 h-11 font-medium text-sm">
                                 <Ruler className="w-4 h-4" /> Plan Control
                             </Button>
                         </CardHeader>
-                        <CardContent className="p-0">
+                        <CardContent className="overflow-x-auto p-0">
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
                                     <tr>
-                                        <th className="p-4 px-6 text-[10px] font-black uppercase tracking-widest">Equipo</th>
-                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest">Próx. Calibración</th>
-                                        <th className="p-4 text-[10px] font-black uppercase tracking-widest">Estado</th>
+                                        <th className="p-4 px-6 font-semibold text-sm text-slate-600">Equipo</th>
+                                        <th className="p-4 font-semibold text-sm text-slate-600">Próx. Calibración</th>
+                                        <th className="p-4 font-semibold text-sm text-slate-600">Estado</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -598,15 +584,15 @@ export default function RecursosPage() {
                 </TabsContent>
 
                 <TabsContent value="conocimientos" className="space-y-4 mt-6">
-                     <Card className="border border-slate-200 shadow-sm rounded-2xl bg-white overflow-hidden">
+                     <Card className="border border-slate-100 shadow-sm rounded-2xl bg-white overflow-hidden">
                         <CardHeader className="bg-slate-50 border-b border-slate-100 p-6">
-                            <CardTitle className="text-lg font-black uppercase text-slate-800 tracking-tight">Conocimientos de la Organización</CardTitle>
-                            <CardDescription className="text-xs font-bold uppercase tracking-widest text-slate-500 mt-1">Capital intelectual (7.1.6)</CardDescription>
+                            <CardTitle className="text-lg font-semibold text-slate-800">Conocimientos de la Organización</CardTitle>
+                            <CardDescription className="text-xs font-bold text-slate-500 mt-1">Capital intelectual (7.1.6)</CardDescription>
                         </CardHeader>
                         <CardContent className="p-6">
                             <div className="flex items-center justify-center p-12 text-center text-slate-400 flex-col gap-4">
                                 <BookOpen className="w-12 h-12 text-slate-200"/>
-                                <p className="font-bold uppercase tracking-widest text-xs">Módulo pendiente de poblar</p>
+                                <p className="font-bold text-xs">Módulo pendiente de poblar</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -616,38 +602,38 @@ export default function RecursosPage() {
 
             {/* DIALOG CREAR USUARIO */}
             <Dialog open={showNewUserModal} onOpenChange={setShowNewUserModal}>
-                <DialogContent className="max-w-md border-none shadow-2xl rounded-3xl p-0 overflow-hidden font-sans">
-                    <header className="bg-indigo-900 text-white p-8">
-                        <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter">Nuevo Colaborador</DialogTitle>
-                        <DialogDescription className="text-indigo-400 font-bold uppercase tracking-widest text-[10px] mt-2">Gestión de identidad y acceso (ISO 7.1.2)</DialogDescription>
+                <DialogContent className="max-w-md border-none shadow-2xl p-0 overflow-hidden font-sans w-[calc(100vw-2rem)] max-h-[90vh] rounded-3xl grid grid-rows-[auto_minmax(0,1fr)_auto] gap-0">
+                    <header className="border-b border-slate-100 bg-gradient-to-r from-blue-50 via-white to-slate-50 px-4 py-5 pr-11 text-slate-900 sm:px-6 sm:pr-12">
+                        <DialogTitle className="text-2xl font-semibold">Nuevo Colaborador</DialogTitle>
+                        <DialogDescription className="mt-2 text-sm text-slate-500">Gestión de identidad y acceso (ISO 7.1.2)</DialogDescription>
                     </header>
-                    
-                    <div className="p-8 space-y-6 bg-white">
+
+                    <div className="space-y-5 overflow-y-auto bg-white p-4 sm:p-6">
                         <div className="space-y-2">
-                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nombre Completo *</label>
-                             <Input 
-                                placeholder="Ej: Eduardo Caicedo" 
-                                className="h-11 bg-slate-50 border-none rounded-xl font-bold focus-visible:ring-indigo-500"
+                             <label className="font-semibold text-sm text-slate-700">Nombre Completo *</label>
+                             <Input
+                                placeholder="Ej: Eduardo Caicedo"
+                                className="h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white"
                                 value={newUser.name}
                                 onChange={(e) => setNewUser({...newUser, name: e.target.value})}
                              />
                         </div>
 
                         <div className="space-y-2">
-                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Correo Electrónico *</label>
-                             <Input 
+                             <label className="font-semibold text-sm text-slate-700">Correo Electrónico *</label>
+                             <Input
                                 type="email"
-                                placeholder="usuario@empresa.com" 
-                                className="h-11 bg-slate-50 border-none rounded-xl font-bold focus-visible:ring-indigo-500"
+                                placeholder="usuario@empresa.com"
+                                className="h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white"
                                 value={newUser.email}
                                 onChange={(e) => setNewUser({...newUser, email: e.target.value})}
                              />
                         </div>
 
                         <div className="space-y-2">
-                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cargo a Asignar *</label>
+                             <label className="font-semibold text-sm text-slate-700">Cargo a Asignar *</label>
                              <Select value={newUser.cargo} onValueChange={(v) => setNewUser({...newUser, cargo: v})}>
-                                <SelectTrigger className="h-11 bg-slate-50 border-none rounded-xl font-bold">
+                                <SelectTrigger className="h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white">
                                     <SelectValue placeholder="Seleccione un cargo..." />
                                 </SelectTrigger>
                                 <SelectContent className="font-sans">
@@ -661,22 +647,22 @@ export default function RecursosPage() {
                         </div>
                     </div>
 
-                    <DialogFooter className="p-8 pt-0 bg-white">
-                        <Button 
-                            variant="ghost" 
-                            className="font-bold uppercase text-[10px] tracking-widest text-slate-400 hover:text-slate-600"
+                    <DialogFooter className="border-t border-slate-100 bg-slate-50/50 px-4 py-4 sm:px-6">
+                        <Button
+                            variant="ghost"
+                            className="text-slate-400 hover:text-slate-600 h-11 rounded-xl font-medium text-sm"
                             onClick={() => setShowNewUserModal(false)}
                         >
                             Ignorar
                         </Button>
-                        <Button 
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-xs h-12 px-10 rounded-2xl shadow-xl shadow-indigo-600/20"
+                        <Button
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-10 shadow-xl h-11 rounded-xl font-medium text-sm"
                             onClick={() => {
                                 if(!newUser.name || !newUser.email || !newUser.cargo) {
                                     toast.error("Complete todos los campos obligatorios");
                                     return;
                                 }
-                                setUsuarios([...usuarios, { ...newUser, id: `u-${Date.now()}`, date: new Date().toLocaleDateString() } as any]);
+                                setUsuarios([...usuarios, { ...newUser, id: `u-${Date.now()}`, date: new Date().toLocaleDateString() }]);
                                 setShowNewUserModal(false);
                                 setNewUser({ name: '', email: '', cargo: '', status: 'Activo' });
                                 toast.success("Colaborador registrado correctamente");
@@ -690,27 +676,27 @@ export default function RecursosPage() {
 
             {/* DIALOG CREAR CARGO */}
             <Dialog open={showNewCargoModal} onOpenChange={setShowNewCargoModal}>
-                <DialogContent className="max-w-md border-none shadow-2xl rounded-3xl p-0 overflow-hidden font-sans">
-                    <DialogHeader className="bg-slate-900 text-white p-8">
-                        <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter">Nuevo Perfil de Cargo</DialogTitle>
-                        <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">Definición de estructura organizacional (ISO 7.1.2)</DialogDescription>
+                <DialogContent className="max-w-md border-none shadow-2xl p-0 overflow-hidden font-sans w-[calc(100vw-2rem)] max-h-[90vh] rounded-3xl grid grid-rows-[auto_minmax(0,1fr)_auto] gap-0">
+                    <DialogHeader className="border-b border-slate-100 bg-gradient-to-r from-blue-50 via-white to-slate-50 px-4 py-5 pr-11 text-slate-900 sm:px-6 sm:pr-12">
+                        <DialogTitle className="text-2xl font-semibold">Nuevo Perfil de Cargo</DialogTitle>
+                        <DialogDescription className="mt-2 text-sm text-slate-500">Definición de estructura organizacional (ISO 7.1.2)</DialogDescription>
                     </DialogHeader>
-                    
-                    <div className="p-8 space-y-6 bg-white">
+
+                    <div className="space-y-5 overflow-y-auto bg-white p-4 sm:p-6">
                         <div className="space-y-2">
-                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nombre del Cargo *</label>
-                             <Input 
-                                placeholder="Ej: Jefe de Producción" 
-                                className="h-11 bg-slate-50 border-none rounded-xl font-bold focus-visible:ring-blue-500"
+                             <label className="font-semibold text-sm text-slate-700">Nombre del Cargo *</label>
+                             <Input
+                                placeholder="Ej: Jefe de Producción"
+                                className="h-11 rounded-xl focus-visible:ring-blue-500 font-medium text-sm border border-slate-200 bg-white"
                                 value={newCargo.name}
                                 onChange={(e) => setNewCargo({...newCargo, name: e.target.value})}
                              />
                         </div>
 
                         <div className="space-y-2">
-                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Macroproceso Asociado *</label>
+                             <label className="font-semibold text-sm text-slate-700">Macroproceso Asociado *</label>
                              <Select value={newCargo.process} onValueChange={(v) => setNewCargo({...newCargo, process: v})}>
-                                <SelectTrigger className="h-11 bg-slate-50 border-none rounded-xl font-bold">
+                                <SelectTrigger className="h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="font-sans">
@@ -723,13 +709,13 @@ export default function RecursosPage() {
                         </div>
 
                         <div className="space-y-2">
-                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Jefe Inmediato *</label>
+                             <label className="font-semibold text-sm text-slate-700">Jefe Inmediato *</label>
                              <Select value={newCargo.jefe} onValueChange={(v) => setNewCargo({...newCargo, jefe: v})}>
-                                <SelectTrigger className="h-11 bg-slate-50 border-none rounded-xl font-bold">
+                                <SelectTrigger className="h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white">
                                     <SelectValue placeholder="Seleccione el jefe inmediato..." />
                                 </SelectTrigger>
                                 <SelectContent className="font-sans">
-                                    <SelectItem value="N/A (Nivel Superior)" className="font-bold text-blue-600 italic underline">N/A (Nivel Superior)</SelectItem>
+                                    <SelectItem value="N/A (Nivel Superior)" className="font-bold text-blue-600 underline">N/A (Nivel Superior)</SelectItem>
                                     <Separator className="my-2" />
                                     {cargos.map((c) => (
                                         <SelectItem key={c.id} value={c.name} className="font-bold">
@@ -741,23 +727,23 @@ export default function RecursosPage() {
                         </div>
                     </div>
 
-                    <DialogFooter className="p-8 pt-0 bg-white">
-                        <Button 
-                            variant="ghost" 
-                            className="font-bold uppercase text-[10px] tracking-widest text-slate-400 hover:text-slate-600"
+                    <DialogFooter className="border-t border-slate-100 bg-slate-50/50 px-4 py-4 sm:px-6">
+                        <Button
+                            variant="ghost"
+                            className="text-slate-400 hover:text-slate-600 h-11 rounded-xl font-medium text-sm"
                             onClick={() => setShowNewCargoModal(false)}
                         >
                             Ignorar
                         </Button>
-                        <Button 
-                            className="bg-[#136dec] hover:bg-blue-700 text-white font-black uppercase text-xs h-12 px-10 rounded-2xl shadow-xl shadow-blue-600/20"
+                        <Button
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-10 shadow-xl h-11 rounded-xl font-medium text-sm"
                             onClick={() => {
                                 if(!newCargo.name || !newCargo.jefe) {
                                     toast.error("Complete los campos obligatorios");
                                     return;
                                 }
                                 setCargos([...cargos, { ...newCargo, id: `c-${Date.now()}`, count: 0 }]);
-                                
+
                                 // Inicializar permisos para el nuevo cargo
                                 setPermissions(prev => ({
                                     ...prev,
@@ -782,7 +768,7 @@ export default function RecursosPage() {
 
             {/* ISO Info Dialog */}
             <Dialog open={showISOInfo} onOpenChange={setShowISOInfo}>
-                <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border border-gray-200 shadow-sm rounded-3xl overflow-hidden flex flex-col p-0 gap-0 font-sans">
+                <DialogContent className="bg-white border border-gray-200 shadow-sm overflow-hidden flex flex-col p-0 gap-0 font-sans w-[calc(100vw-2rem)] max-h-[90vh] sm:max-w-4xl rounded-3xl">
                     <header className="px-6 pt-8 pb-4 border-b border-gray-50 bg-white">
                         <div className="flex flex-col gap-2">
                             <h1 className="text-3xl font-bold text-gray-900 tracking-tight">7.1 Recursos</h1>
@@ -815,10 +801,11 @@ export default function RecursosPage() {
                         </div>
                     </div>
                     <footer className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex justify-end items-center">
-                        <Button onClick={() => setShowISOInfo(false)} className="bg-slate-900 hover:bg-black text-white font-black py-3 px-10 rounded shadow-md h-auto uppercase tracking-wider text-xs">Entendido</Button>
+                        <Button onClick={() => setShowISOInfo(false)} className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-10 shadow-sm h-11 rounded-xl font-medium text-sm">Entendido</Button>
                     </footer>
                 </DialogContent>
             </Dialog>
-        </div>
+        </ModuleContent>
+        </ModulePage>
     );
 }

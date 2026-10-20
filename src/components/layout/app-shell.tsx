@@ -40,10 +40,10 @@ const navItems: NavItem[] = [
         icon: <Building2 className="h-4.5 w-4.5" />,
         clause: '4',
         children: [
-            { title: 'Contexto Organizacional', href: '/contexto/organizacional' },
-            { title: 'Partes Interesadas', href: '/contexto/partes-interesadas' },
-            { title: 'Alcance del SGC', href: '/contexto/alcance' },
-            { title: 'Mapa de Procesos', href: '/contexto/procesos' },
+            { title: '4.1 Contexto organizacional', href: '/contexto/organizacional' },
+            { title: '4.2 Partes interesadas', href: '/contexto/partes-interesadas' },
+            { title: '4.3 Alcance del SGC', href: '/contexto/alcance' },
+            { title: '4.4 Mapa de procesos', href: '/contexto/procesos' },
         ],
     },
     {
@@ -68,11 +68,12 @@ const navItems: NavItem[] = [
     },
     {
         title: 'Apoyo',
-        href: '/apoyo',
         icon: <BookOpen className="h-4.5 w-4.5" />,
         clause: '7',
         children: [
+            { title: '7 Vista general', href: '/apoyo' },
             { title: '7.1 Recursos', href: '/apoyo/recursos' },
+            { title: '7.1.6 Conocimiento', href: '/apoyo/conocimiento' },
             { title: '7.2 Competencia', href: '/apoyo/competencias' },
             { title: '7.3 Toma de conciencia', href: '/apoyo/conciencia' },
             { title: '7.4 Comunicación', href: '/apoyo/comunicacion' },
@@ -85,9 +86,9 @@ const navItems: NavItem[] = [
         icon: <Briefcase className="h-4.5 w-4.5" />,
         clause: '8',
         children: [
-            { title: 'Control Operacional', href: '/operacion/control' },
-            { title: 'Control de Proveedores', href: '/operacion/proveedores' },
-            { title: 'Salidas No Conformes', href: '/operacion/pnc' },
+            { title: '8.1 Control operacional', href: '/operacion/control' },
+            { title: '8.4 Control de proveedores', href: '/operacion/proveedores' },
+            { title: '8.7 Salidas no conformes', href: '/operacion/pnc' },
         ],
     },
     {
@@ -95,9 +96,9 @@ const navItems: NavItem[] = [
         icon: <ClipboardCheck className="h-4.5 w-4.5" />,
         clause: '9',
         children: [
-            { title: 'Auditorías', href: '/evaluacion/auditorias' },
-            { title: 'Indicadores', href: '/evaluacion/indicadores' },
-            { title: 'Revisión por Dirección', href: '/evaluacion/revision' },
+            { title: '9.2 Auditorías', href: '/evaluacion/auditorias' },
+            { title: '9.1 Indicadores', href: '/evaluacion/indicadores' },
+            { title: '9.3 Revisión por la dirección', href: '/evaluacion/revision' },
         ],
     },
     {
@@ -105,9 +106,9 @@ const navItems: NavItem[] = [
         icon: <TrendingUp className="h-4.5 w-4.5" />,
         clause: '10',
         children: [
-            { title: 'No Conformidades', href: '/mejora/no-conformidades' },
-            { title: 'Acciones Correctivas', href: '/mejora/acciones' },
-            { title: 'Mejora Continua', href: '/mejora/continua' },
+            { title: '10.2 No conformidades', href: '/mejora/no-conformidades' },
+            { title: '10.2 Acciones correctivas', href: '/mejora/acciones' },
+            { title: '10.3 Mejora continua', href: '/mejora/continua' },
         ],
     },
 ];
@@ -245,13 +246,13 @@ function NavGroup({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
             <CollapsibleContent className="overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-up data-[state=open]:slide-down">
                 <div className="ml-4 pl-4 border-l border-sidebar-border/50 mt-1 mb-1 space-y-0.5">
                     {item.children?.map(child => {
-                        const isActive = pathname === child.href || pathname.startsWith(child.href + '/');
+                        const isActive = pathname === child.href || (child.href !== '/apoyo' && pathname.startsWith(child.href + '/'));
                         return (
                             <Link
                                 key={child.title}
                                 href={child.href}
                                 className={cn(
-                                    "block px-3 py-2 rounded-md text-xs font-medium transition-all duration-200",
+                                    "block px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
                                     isActive
                                         ? "text-sidebar-primary-foreground bg-sidebar-primary shadow-sm"
                                         : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/70"
@@ -267,16 +268,20 @@ function NavGroup({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
     );
 }
 
-export function AppSidebar() {
-    const { currentUser, tenant, sidebarCollapsed, logout } = useApp();
+export function AppSidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void }) {
+    const { currentUser, tenant, sidebarCollapsed: collapsed, logout } = useApp();
+    const sidebarCollapsed = mobile ? false : collapsed;
     if (!currentUser) return null;
     const initials = currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2);
 
     return (
         <aside
+            aria-label="Navegación principal"
+            onClickCapture={(event) => { if ((event.target as HTMLElement).closest('a')) onNavigate?.(); }}
             className={cn(
-                "fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 z-40 overflow-hidden",
-                sidebarCollapsed ? "w-16" : "w-64"
+                "bg-sidebar border-sidebar-border flex-col transition-all duration-300 overflow-hidden",
+                mobile ? "relative flex h-full w-full" : "fixed left-0 top-0 z-40 hidden h-screen border-r md:flex",
+                !mobile && (sidebarCollapsed ? "w-16" : "w-64")
             )}
         >
             {/* Logo / Brand */}
@@ -289,8 +294,8 @@ export function AppSidebar() {
                 </div>
                 {!sidebarCollapsed && (
                     <div className="animate-fade-in">
-                        <h1 className="text-sm font-bold text-sidebar-foreground tracking-tight">SGC SaaS</h1>
-                        <p className="text-[10px] text-sidebar-foreground/50 font-medium">Sistema de Gestión</p>
+                        <p className="text-sm font-bold text-sidebar-foreground">SGC SaaS</p>
+                        <p className="text-xs text-sidebar-foreground/60">Sistema de Gestión</p>
                     </div>
                 )}
             </div>
@@ -303,7 +308,7 @@ export function AppSidebar() {
                             <div className="h-7 w-auto max-w-[120px] flex items-center justify-center">
                                 <img 
                                     src={tenant.logo || tenant.logoUrl} 
-                                    alt="Logo" 
+                                    alt={`Logo de ${tenant.name}`}
                                     className="max-h-full max-w-full object-contain"
                                 />
                             </div>
@@ -369,6 +374,7 @@ export function AppSidebar() {
                             <p className="text-[10px] text-sidebar-foreground/50 truncate">{currentUser.position}</p>
                         </div>
                         <Button 
+                            aria-label="Cerrar sesión"
                             variant="ghost" 
                             size="icon" 
                             className="h-7 w-7 text-sidebar-foreground/40 hover:text-sidebar-foreground"
@@ -383,7 +389,7 @@ export function AppSidebar() {
     );
 }
 
-export function AppHeader() {
+export function AppHeader({ onMobileMenu }: { onMobileMenu?: () => void }) {
     const { sidebarCollapsed, toggleSidebar, setCurrentUser, setTenant } = useApp();
     const router = useRouter();
     const [adminSession, setAdminSession] = React.useState<{ user: User; tenant: Tenant } | null>(null);
@@ -407,24 +413,30 @@ export function AppHeader() {
 
     return (
         <header className={cn(
-            "fixed top-0 right-0 h-16 bg-background/80 backdrop-blur-xl border-b border-border/50 flex items-center justify-between px-6 z-30 transition-all duration-300",
-            sidebarCollapsed ? "left-16" : "left-64"
+            "fixed top-0 right-0 left-0 h-16 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-border/50 flex items-center justify-between px-4 sm:px-6 z-30 transition-all duration-300",
+            sidebarCollapsed ? "md:left-16" : "md:left-64"
         )}>
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 items-center gap-3">
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
-                    onClick={toggleSidebar}
+                    aria-label="Abrir o contraer menú de navegación"
+                    onClick={() => {
+                        if (window.matchMedia('(max-width: 767px)').matches) onMobileMenu?.();
+                        else toggleSidebar();
+                    }}
                 >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                     </svg>
                 </Button>
-                <div className="relative">
+                <span className="text-sm font-semibold text-slate-700 md:hidden">Sistema de calidad</span>
+                <div className="relative hidden lg:block">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <input
                         type="text"
+                        aria-label="Buscar en el sistema"
+                        className="h-11 w-64 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-blue-600 xl:w-80"
                         placeholder="Buscar procesos, documentos, riesgos..."
                     />
                 </div>
@@ -442,7 +454,7 @@ export function AppHeader() {
                 )}
             </div>
             <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+                <Button aria-label="Notificaciones" variant="ghost" size="icon" className="relative">
                     <Bell className="h-4 w-4" />
                     <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
                 </Button>

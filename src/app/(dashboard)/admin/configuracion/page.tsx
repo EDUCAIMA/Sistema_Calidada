@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import {
-    Settings, User as UserIcon, Building, Bell, Shield, PaintBucket, Globe, Loader2, CheckCircle2
+    Settings, User as UserIcon, Building, Bell, Shield, PaintBucket, Globe, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,13 +13,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useApp } from '@/context/app-context';
+import { ModulePage, ModuleHeader, ModuleContent } from '@/components/sgc/module-layout';
+import type { Tenant, User } from '@/lib/types';
 
 export default function ConfiguracionPage() {
-    const { currentUser, tenant, setTenant, setCurrentUser } = useApp();
+    const { currentUser, tenant, setTenant } = useApp();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [userData, setUserData] = useState<any>(null);
-    const [tenantData, setTenantData] = useState<any>(null);
+    const [userData, setUserData] = useState<User | null>(null);
+    const [tenantData, setTenantData] = useState<Tenant | null>(null);
 
     // Form states
     const [userForm, setUserForm] = useState({
@@ -65,6 +68,7 @@ export default function ConfiguracionPage() {
     }, [currentUser, tenant]);
 
     const handleSaveUser = async () => {
+        if (!userData) return;
         console.log('Saving user...', userData?.id);
         if (userForm.password && userForm.password !== userForm.confirmPassword) {
             toast.error('Las contraseñas no coinciden');
@@ -111,7 +115,7 @@ export default function ConfiguracionPage() {
 
     const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
+        if (!file || !tenantData) return;
 
         if (file.size > 1024 * 1024) { // 1MB limit
             toast.error('La imagen es demasiado grande. Máximo 1MB.');
@@ -193,44 +197,41 @@ export default function ConfiguracionPage() {
     }
 
     return (
-        <div className="flex-1 space-y-6 p-8 pt-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Configuración</h2>
-                    <p className="text-muted-foreground mt-1">
-                        Administra los ajustes de tu cuenta y las preferencias del Sistema de Gestión.
-                    </p>
-                </div>
-            </div>
+        <ModulePage>
+            <ModuleHeader
+                title="Configuración"
+                description="Administre los ajustes de su cuenta y las preferencias del sistema de gestión."
+            />
+            <ModuleContent>
 
             <Tabs defaultValue="perfil" className="space-y-6">
-                <TabsList className="bg-slate-100/50 dark:bg-slate-800/50 border shadow-sm w-full justify-start overflow-x-auto">
-                    <TabsTrigger value="perfil" className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-2">
+                <TabsList className="flex h-auto min-h-11 w-full flex-wrap justify-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5">
+                    <TabsTrigger value="perfil" className="min-h-10 flex-none rounded-lg px-4 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">
                         <UserIcon className="w-4 h-4" /> Perfil de Usuario
                     </TabsTrigger>
-                    <TabsTrigger value="empresa" className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-2">
+                    <TabsTrigger value="empresa" className="min-h-10 flex-none rounded-lg px-4 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">
                         <Building className="w-4 h-4" /> Datos de la Empresa
                     </TabsTrigger>
-                    <TabsTrigger value="notificaciones" className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-2">
+                    <TabsTrigger value="notificaciones" className="min-h-10 flex-none rounded-lg px-4 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">
                         <Bell className="w-4 h-4" /> Notificaciones
                     </TabsTrigger>
-                    <TabsTrigger value="seguridad" className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-2">
+                    <TabsTrigger value="seguridad" className="min-h-10 flex-none rounded-lg px-4 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">
                         <Shield className="w-4 h-4" /> Seguridad
                     </TabsTrigger>
-                    <TabsTrigger value="apariencia" className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-2">
+                    <TabsTrigger value="apariencia" className="min-h-10 flex-none rounded-lg px-4 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">
                         <PaintBucket className="w-4 h-4" /> Apariencia
                     </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="perfil" className="space-y-4 m-0">
-                    <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
-                        <CardHeader className="pb-4 border-b border-border/50">
+                    <Card className="dark:bg-slate-900/50 min-w-0 rounded-2xl border border-slate-100 bg-white shadow-sm">
+                        <CardHeader className="pb-4 border-b border-border/50 min-w-0">
                             <CardTitle className="text-lg font-medium">Información Personal</CardTitle>
                             <CardDescription>Actualiza tu foto y tus datos personales.</CardDescription>
                         </CardHeader>
-                        <CardContent className="pt-6 space-y-6">
-                            <div className="flex items-center gap-6">
-                                <div className="h-24 w-24 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-3xl font-bold text-blue-600">
+                        <CardContent className="pt-6 space-y-6 min-w-0">
+                            <div className="flex flex-wrap items-center gap-6">
+                                <div className="h-24 w-24 shrink-0 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-3xl font-semibold text-blue-600">
                                     {userForm.name.substring(0, 2).toUpperCase()}
                                 </div>
                                 <div className="space-y-2">
@@ -258,7 +259,7 @@ export default function ConfiguracionPage() {
                                 </div>
                             </div>
                             <div className="pt-4">
-                                <Button onClick={handleSaveUser} disabled={saving} className="gap-2">
+                                <Button onClick={handleSaveUser} disabled={saving} className="gap-2 rounded-xl text-sm font-medium">
                                     {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                                     Guardar Perfil
                                 </Button>
@@ -268,41 +269,41 @@ export default function ConfiguracionPage() {
                 </TabsContent>
 
                 <TabsContent value="empresa" className="space-y-4 m-0">
-                    <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
-                        <CardHeader className="pb-4 border-b border-border/50">
+                    <Card className="dark:bg-slate-900/50 min-w-0 rounded-2xl border border-slate-100 bg-white shadow-sm">
+                        <CardHeader className="pb-4 border-b border-border/50 min-w-0">
                             <CardTitle className="text-lg font-medium">Perfil de la Organización</CardTitle>
                             <CardDescription>Ajustes generales que aplican a todo el entorno de trabajo.</CardDescription>
                         </CardHeader>
-                        <CardContent className="pt-6 space-y-6">
-                            <div className="flex items-center gap-6 pb-6 border-b border-border/50">
-                                <div className="h-24 w-24 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-white shadow-sm">
+                        <CardContent className="pt-6 space-y-6 min-w-0">
+                            <div className="flex flex-wrap items-center gap-6 pb-6 border-b border-border/50">
+                                <div className="h-24 w-24 shrink-0 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-white shadow-sm">
                                     {tenantForm.logo ? (
-                                        <img src={tenantForm.logo} alt="Logo" className="h-full w-full object-contain p-2" />
+                                        <Image src={tenantForm.logo} alt="Logo corporativo" width={96} height={96} unoptimized className="h-full w-full object-contain p-2" />
                                     ) : (
-                                        <Building className="h-10 w-10 text-slate-300" />
+                                        <Building className="h-10 w-10 text-slate-400" />
                                     )}
                                 </div>
-                                <div className="space-y-3">
-                                    <Label className="text-sm font-bold uppercase tracking-wider text-slate-500">Logo Corporativo</Label>
-                                    <div className="flex items-center gap-3">
+                                <div className="min-w-0 space-y-3">
+                                    <Label className="text-sm font-semibold text-slate-500">Logo Corporativo</Label>
+                                    <div className="flex flex-wrap items-center gap-3">
                                         <Input 
                                             type="file" 
                                             accept="image/*" 
                                             onChange={handleLogoUpload} 
-                                            className="h-10 text-xs w-[250px] cursor-pointer"
+                                            className="max-w-full sm:w-[250px] cursor-pointer h-11 rounded-xl text-sm"
                                         />
                                         {tenantForm.logo && (
                                             <Button 
                                                 variant="ghost" 
                                                 size="sm" 
                                                 onClick={() => setTenantForm({...tenantForm, logo: ''})}
-                                                className="text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                                                className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl text-sm font-medium"
                                             >
                                                 Eliminar
                                             </Button>
                                         )}
                                     </div>
-                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">Recomendado: PNG fondo transparente (Máx. 1MB)</p>
+                                    <p className="text-xs text-muted-foreground font-semibold">Recomendado: PNG fondo transparente (Máx. 1MB)</p>
                                 </div>
                             </div>
 
@@ -319,7 +320,7 @@ export default function ConfiguracionPage() {
                                     <Label htmlFor="timezone">Zona Horaria Global</Label>
                                     <div className="relative">
                                         <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                        <Input id="timezone" value={tenantForm.timezone} onChange={(e) => setTenantForm({...tenantForm, timezone: e.target.value})} className="pl-9" />
+                                        <Input id="timezone" value={tenantForm.timezone} onChange={(e) => setTenantForm({...tenantForm, timezone: e.target.value})} className="pl-9 h-11 rounded-xl text-sm" />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
@@ -332,7 +333,7 @@ export default function ConfiguracionPage() {
                                 </div>
                             </div>
                             <div className="pt-4">
-                                <Button onClick={handleSaveTenant} disabled={saving} className="gap-2">
+                                <Button onClick={handleSaveTenant} disabled={saving} className="gap-2 rounded-xl text-sm font-medium">
                                     {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                                     Guardar Datos de Empresa
                                 </Button>
@@ -342,28 +343,28 @@ export default function ConfiguracionPage() {
                 </TabsContent>
 
                 <TabsContent value="notificaciones" className="space-y-4 m-0">
-                    <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
-                        <CardHeader className="pb-4 border-b border-border/50">
+                    <Card className="dark:bg-slate-900/50 min-w-0 rounded-2xl border border-slate-100 bg-white shadow-sm">
+                        <CardHeader className="pb-4 border-b border-border/50 min-w-0">
                             <CardTitle className="text-lg font-medium">Preferencias de Alertas</CardTitle>
                             <CardDescription>Controla qué información recibes y a través de qué canales.</CardDescription>
                         </CardHeader>
-                        <CardContent className="pt-6 space-y-6">
+                        <CardContent className="pt-6 space-y-6 min-w-0">
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between gap-4">
                                     <div className="space-y-0.5">
                                         <Label className="text-base">Notificaciones por Correo</Label>
                                         <p className="text-sm text-muted-foreground">Alertas críticas sobre documentos y auditorías.</p>
                                     </div>
                                     <Switch defaultChecked />
                                 </div>
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between gap-4">
                                     <div className="space-y-0.5">
                                         <Label className="text-base">Recordatorios de Mantenimiento</Label>
                                         <p className="text-sm text-muted-foreground">Alertas 7 días antes de fechas de mantenimiento de infraestructura.</p>
                                     </div>
                                     <Switch defaultChecked />
                                 </div>
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between gap-4">
                                     <div className="space-y-0.5">
                                         <Label className="text-base">Modificaciones en Roles</Label>
                                         <p className="text-sm text-muted-foreground">Avisar si hay cambios en permisos del sistema.</p>
@@ -376,12 +377,12 @@ export default function ConfiguracionPage() {
                 </TabsContent>
 
                 <TabsContent value="seguridad" className="space-y-4 m-0">
-                    <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
-                        <CardHeader className="pb-4 border-b border-border/50">
+                    <Card className="dark:bg-slate-900/50 min-w-0 rounded-2xl border border-slate-100 bg-white shadow-sm">
+                        <CardHeader className="pb-4 border-b border-border/50 min-w-0">
                             <CardTitle className="text-lg font-medium">Seguridad de la Cuenta</CardTitle>
                             <CardDescription>Gestiona tu contraseña y los dispositivos autorizados.</CardDescription>
                         </CardHeader>
-                        <CardContent className="pt-6 space-y-6">
+                        <CardContent className="pt-6 space-y-6 min-w-0">
                             <div className="grid grid-cols-1 gap-6 max-w-xl">
                                 <div className="space-y-2">
                                     <Label htmlFor="newPassword">Nueva Contraseña (dejar en blanco si no se desea cambiar)</Label>
@@ -391,16 +392,16 @@ export default function ConfiguracionPage() {
                                     <Label htmlFor="confirmPassword">Confirmar Nueva Contraseña</Label>
                                     <Input id="confirmPassword" type="password" value={userForm.confirmPassword} onChange={(e) => setUserForm({...userForm, confirmPassword: e.target.value})} />
                                 </div>
-                                <Button onClick={handleSaveUser} disabled={saving} className="w-max shadow-sm">Actualizar Contraseña</Button>
+                                <Button onClick={handleSaveUser} disabled={saving} className="w-max shadow-sm rounded-xl text-sm font-medium">Actualizar Contraseña</Button>
                             </div>
 
                             <div className="border-t border-border/50 pt-6 mt-6">
-                                <div className="flex items-center justify-between mb-4">
+                                <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
                                     <div>
                                         <h4 className="text-sm font-medium">Autenticación en Dos Pasos (2FA)</h4>
                                         <p className="text-xs text-muted-foreground mt-0.5">Añade una capa extra de seguridad a tu cuenta.</p>
                                     </div>
-                                    <Button variant="outline" className="shadow-sm">Activar 2FA</Button>
+                                    <Button variant="outline" className="shadow-sm rounded-xl text-sm font-medium">Activar 2FA</Button>
                                 </div>
                             </div>
                         </CardContent>
@@ -408,22 +409,22 @@ export default function ConfiguracionPage() {
                 </TabsContent>
 
                 <TabsContent value="apariencia" className="space-y-4 m-0">
-                    <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
-                        <CardHeader className="pb-4 border-b border-border/50">
+                    <Card className="dark:bg-slate-900/50 min-w-0 rounded-2xl border border-slate-100 bg-white shadow-sm">
+                        <CardHeader className="pb-4 border-b border-border/50 min-w-0">
                             <CardTitle className="text-lg font-medium">Personalización de Interfaz</CardTitle>
                             <CardDescription>Adapta los colores y el tema de la aplicación a tus preferencias locales.</CardDescription>
                         </CardHeader>
-                        <CardContent className="pt-6 space-y-8">
+                        <CardContent className="pt-6 space-y-8 min-w-0">
                             <div className="space-y-3">
                                 <Label>Tema Visual</Label>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg">
-                                    <Button variant="outline" className="h-20 flex flex-col gap-2 justify-center border-2 border-primary bg-primary/5">
+                                    <Button variant="outline" className="h-20 flex flex-col gap-2 justify-center border-2 border-primary bg-primary/5 rounded-xl text-sm font-medium">
                                         <div className="h-4 w-4 rounded-full bg-slate-900" /> Claro
                                     </Button>
-                                    <Button variant="outline" className="h-20 flex flex-col gap-2 justify-center text-muted-foreground">
+                                    <Button variant="outline" className="h-20 flex flex-col gap-2 justify-center text-muted-foreground rounded-xl text-sm font-medium">
                                         <div className="h-4 w-4 rounded-full bg-slate-100 border" /> Oscuro
                                     </Button>
-                                    <Button variant="outline" className="h-20 flex flex-col gap-2 justify-center text-muted-foreground">
+                                    <Button variant="outline" className="h-20 flex flex-col gap-2 justify-center text-muted-foreground rounded-xl text-sm font-medium">
                                         <Settings className="h-4 w-4" /> Sistema
                                     </Button>
                                 </div>
@@ -431,7 +432,7 @@ export default function ConfiguracionPage() {
 
                             <div className="space-y-3">
                                 <Label>Densidad de Información</Label>
-                                <div className="flex items-center justify-between max-w-sm">
+                                <div className="flex max-w-sm items-center justify-between gap-4">
                                     <div className="space-y-0.5">
                                         <p className="text-sm font-medium">Modo Compacto</p>
                                         <p className="text-xs text-muted-foreground">Reduce el padding en tablas y listas.</p>
@@ -444,7 +445,7 @@ export default function ConfiguracionPage() {
                 </TabsContent>
 
             </Tabs>
-        </div>
+            </ModuleContent>
+        </ModulePage>
     );
 }
-

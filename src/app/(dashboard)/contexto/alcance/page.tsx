@@ -1,5 +1,7 @@
 "use client";
 
+import { ModuleContent, ModuleHeader, ModulePage, ModuleToolbar } from '@/components/sgc/module-layout';
+
 import Link from 'next/link';
 
 import React, { useState, useEffect } from 'react';
@@ -152,90 +154,38 @@ export default function AlcanceSGCPage() {
     );
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] -m-6 p-8 font-sans text-slate-900 pb-20">
-            {/* Page Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-                <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Alcance del SGC</h1>
-                        <button 
-                            onClick={() => setShowISOInfo(true)}
-                            className="p-1.5 rounded-full hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-all active:scale-95"
-                        >
-                            <HelpCircle className="w-5 h-5" />
-                        </button>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <span className="bg-[#136dec]/10 text-[#136dec] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 4.3</span>
-                        <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">Definición Estratégica</span>
-                        
-                        <div className="w-px h-4 bg-slate-300 mx-1"></div>
-                        
-                        {/* UI Document Metadata (Now Dynamic) */}
-                        <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setShowConfig(true)}>
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Código: {docMetadata.code || 'Automático según estándar'}</span>
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Versión: {docMetadata.version}</span>
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Aprobación: {docMetadata.approvalDate || 'Sin registrar'}</span>
-                        </div>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Button 
-                        variant="outline" 
-                        onClick={() => {}} 
-                        className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-10 px-4 rounded-lg transition-all shadow-sm"
-                    >
-                        <Clock className="w-4 h-4 mr-2" /> Historial
-                    </Button>
-                    <Button 
-                        variant="outline" 
-                        onClick={handleDownloadPDF}
-                        disabled={isExporting}
-                        className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-10 px-4 rounded-lg transition-all shadow-sm"
-                    >
-                        <Download className="w-4 h-4 mr-2 text-red-500" /> PDF
-                    </Button>
-                    {!isEditing ? (
-                        <Button 
-                            onClick={() => setIsEditing(true)}
-                            className="bg-slate-900 hover:bg-black text-white font-bold text-xs uppercase tracking-widest h-10 px-6 rounded-lg transition-all shadow-lg"
-                        >
-                            <Edit className="w-4 h-4 mr-2" /> Editar Alcance
-                        </Button>
-                    ) : (
-                        <div className="flex gap-2">
-                            <Button 
-                                variant="ghost" 
-                                onClick={() => setIsEditing(false)}
-                                className="text-slate-500 font-bold text-xs uppercase tracking-widest h-10 px-4"
-                            >
-                                Cancelar
-                            </Button>
-                            <Button 
-                                onClick={handleSave}
-                                className="bg-[#136dec] hover:bg-[#1156b9] text-white font-bold text-xs uppercase tracking-widest h-10 px-8 rounded-lg shadow-lg shadow-blue-200"
-                            >
-                                <Save className="w-4 h-4 mr-2" /> Guardar Cambios
-                            </Button>
-                        </div>
-                    )}
-                </div>
-            </div>
-
+        <ModulePage>
+            <ModuleHeader clause="4.3" title="Alcance del SGC" description="Defina los límites y la aplicabilidad del sistema de gestión de la calidad." actions={<>
+                <Button variant="outline" onClick={() => setShowISOInfo(true)} aria-label="Ver información normativa ISO 9001:2015"><HelpCircle className="h-4 w-4" />Guía ISO</Button>
+                <Button variant="outline" onClick={() => {}}><Clock className="h-4 w-4" />Historial</Button>
+                <Button variant="outline" onClick={handleDownloadPDF} disabled={isExporting}><Download className="h-4 w-4 text-red-500" />Descargar PDF</Button>
+                {!isEditing ? <Button onClick={() => setIsEditing(true)}><Edit className="h-4 w-4" />Editar alcance</Button> : <>
+                    <Button variant="outline" onClick={() => setIsEditing(false)}>Cancelar</Button>
+                    <Button onClick={handleSave}><Save className="h-4 w-4" />Guardar cambios</Button>
+                </>}
+            </>} />
+            <ModuleToolbar>
+                <button type="button" className="flex flex-wrap items-center gap-2 text-left text-xs font-medium text-slate-600 transition-colors hover:text-blue-600" onClick={() => setShowConfig(true)} aria-label="Configurar metadatos del alcance">
+                    <span className="rounded-lg border border-slate-200 bg-white px-3 py-2">Código: {docMetadata.code || 'Automático según estándar'}</span>
+                    <span className="rounded-lg border border-slate-200 bg-white px-3 py-2">Versión: {docMetadata.version}</span>
+                    <span className="rounded-lg border border-slate-200 bg-white px-3 py-2">Aprobación: {docMetadata.approvalDate || 'Sin registrar'}</span>
+                </button>
+            </ModuleToolbar>
+            <ModuleContent>
             {/* Main Content Area */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 {/* Scope Statement Section */}
                 <div className="lg:col-span-3 space-y-6">
-                    <section className="bg-white rounded-2xl border-2 border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
-                        <div className="bg-slate-50 px-8 py-4 border-b border-slate-100 flex items-center justify-between">
-                            <h3 className="font-bold text-slate-800 text-xs uppercase tracking-widest flex items-center gap-2">
-                                <Target className="w-4 h-4 text-[#136dec]" />
+                    <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
+                        <div className="bg-slate-50 px-4 sm:px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                            <h3 className="font-semibold text-slate-800 text-sm flex items-center gap-2">
+                                <Target className="w-4 h-4 text-blue-600" />
                                 Declaración Oficial de Alcance
                             </h3>
-                            <Badge variant="outline" className="bg-blue-50 text-[#136dec] border-[#136dec]/20 text-[10px] font-bold uppercase">REQUISITO 4.3</Badge>
+                            <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 text-xs font-medium">Requisito 4.3</Badge>
                         </div>
 
-                        <div className="bg-white flex-1 flex flex-col p-8">
+                        <div className="bg-white flex-1 flex flex-col p-4 sm:p-6">
 
                             <div className="flex-1 flex flex-col mt-4">
                                 {isEditing ? (
@@ -243,26 +193,24 @@ export default function AlcanceSGCPage() {
                                         <Textarea
                                             value={editScope}
                                             onChange={e => setEditScope(e.target.value)}
-                                            className="flex-1 w-full bg-slate-50/50 border-none rounded-2xl text-xl font-medium italic text-slate-700 p-8 focus-visible:ring-0 resize-none leading-relaxed"
+                                            className="flex-1 w-full min-h-64 bg-white border-slate-200 rounded-xl text-sm text-slate-700 p-4 resize-y leading-relaxed"
                                             placeholder="Defina aquí los procesos, productos y servicios que abarca su SGC..."
                                         />
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center mt-4">
+                                        <p className="text-sm text-slate-500 mt-4">
                                             Consejo: Incluya los límites físicos, productos, servicios y exclusiones justificadas dentro del texto.
                                         </p>
                                     </div>
                                 ) : (
-                                    <div className="flex-1 flex flex-col items-center justify-center py-10">
+                                    <div className="flex-1 flex flex-col justify-center py-4">
                                         {scope?.scopeStatement ? (
-                                            <blockquote className="text-4xl font-bold text-slate-800 leading-tight italic text-center max-w-4xl relative">
-                                                <span className="text-8xl text-blue-100 absolute -top-16 -left-12 font-serif leading-none select-none">&ldquo;</span>
+                                            <blockquote className="whitespace-pre-wrap break-words border-l-4 border-blue-200 pl-5 text-base leading-relaxed text-slate-700">
                                                 {scope.scopeStatement}
-                                                <span className="text-8xl text-blue-100 absolute -bottom-20 -right-12 font-serif leading-none select-none">&rdquo;</span>
                                             </blockquote>
                                         ) : (
                                             <div className="text-center space-y-4">
                                                 <FileText className="w-20 h-20 text-slate-100 mx-auto" />
-                                                <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Sin declaración de alcance definida</p>
-                                                <Button onClick={() => setIsEditing(true)} variant="link" className="text-[#136dec] font-black text-xs uppercase">Redactar ahora</Button>
+                                                <p className="text-slate-400 font-bold text-sm">Sin declaración de alcance definida</p>
+                                                <Button onClick={() => setIsEditing(true)} variant="link" className="text-blue-600 font-semibold text-xs">Redactar ahora</Button>
                                             </div>
                                         )}
                                     </div>
@@ -274,12 +222,12 @@ export default function AlcanceSGCPage() {
 
                 {/* Guidance Sidebar */}
                 <div className="space-y-6">
-                    <section className="bg-white rounded-3xl border-2 border-slate-100 shadow-sm p-8 space-y-8 h-full">
+                    <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-6 h-full">
                         <div className="flex items-center gap-3">
                             <div className="h-12 w-12 bg-blue-50 rounded-2xl flex items-center justify-center">
-                                <Lightbulb className="w-6 h-6 text-[#136dec]" />
+                                <Lightbulb className="w-6 h-6 text-blue-600" />
                             </div>
-                            <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest">Guía ISO 9001</h4>
+                            <h4 className="text-sm font-semibold text-slate-800">Guía ISO 9001</h4>
                         </div>
                         
                         <div className="space-y-8">
@@ -289,17 +237,17 @@ export default function AlcanceSGCPage() {
                                 { title: 'No Aplicabilidad', desc: 'Si algún requisito no aplica (ej. Diseño), justifíquelo brevemente.' }
                             ].map((guide, idx) => (
                                 <div key={idx} className="space-y-2 group">
-                                    <p className="text-xs font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2">
+                                    <p className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                                         <span className="h-1.5 w-1.5 rounded-full bg-blue-400 group-hover:scale-150 transition-all" />
                                         {guide.title}
                                     </p>
-                                    <p className="text-[12px] text-slate-500 font-medium leading-relaxed">{guide.desc}</p>
+                                    <p className="text-sm text-slate-500 leading-relaxed">{guide.desc}</p>
                                 </div>
                             ))}
                         </div>
 
                         <div className="pt-8 border-t border-slate-50 mt-auto">
-                            <p className="text-[10px] text-slate-400 italic leading-relaxed text-center">
+                            <p className="text-xs text-slate-400 leading-relaxed text-center">
                                 &quot;El alcance debe mantenerse como información documentada y estar disponible para las partes interesadas.&quot;
                             </p>
                         </div>
@@ -345,6 +293,7 @@ export default function AlcanceSGCPage() {
                     </footer>
                 </DialogContent>
             </Dialog>
-        </div>
+            </ModuleContent>
+        </ModulePage>
     );
 }

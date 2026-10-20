@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { LeadershipHistory, leadershipSelectClass, type LeadershipEvent } from '@/components/leadership-records';
 import { downloadStandardPdf, pdfDate, type PdfSection } from '@/lib/document-pdf';
+import { ModuleContent, ModuleHeader, ModulePage } from '@/components/sgc/module-layout';
 import {
   RACI_ROLES,
   RESPONSIBILITY_MATRIX_STATUSES,
@@ -349,22 +350,20 @@ export default function RolesPage() {
     ...(current.coverage.incompleteAssignmentIds.length ? ['Hay filas incompletas: revise cargo, área, reporte, responsabilidades, autoridades y RACI'] : []),
   ];
 
-  return <div className="space-y-6 pb-10">
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div><h1 className="text-3xl font-bold">Matriz de responsabilidades y autoridades</h1><p className="mt-2 text-slate-600">ISO 9001:2015 · 5.3 — versiones, aprobación, comunicación y comprensión verificables.</p></div>
-      <div className="flex flex-wrap gap-2">
-        <Button disabled={exporting || loading || Boolean(error) || !current.matrix} onClick={() => void downloadMatrixPdf()}><Download className="mr-2 h-4 w-4" />{exporting ? 'Generando PDF…' : 'Descargar PDF'}</Button>
+  return <ModulePage>
+    <ModuleHeader clause="5.3" title="Matriz de responsabilidades y autoridades" description="Gestione versiones, aprobación, comunicación y comprensión verificables." actions={<>
+        <Button variant="outline" disabled={exporting || loading || Boolean(error) || !current.matrix} onClick={() => void downloadMatrixPdf()}><Download className="mr-2 h-4 w-4 text-red-500" />{exporting ? 'Generando PDF…' : 'Descargar PDF'}</Button>
         <Button variant="outline" disabled={loading || Boolean(error) || !current.matrix} onClick={downloadMatrixCsv}><Download className="mr-2 h-4 w-4" />Descargar CSV</Button>
         <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Imprimir</Button>
         {canManage && !loading && !error && (editable || !current.matrix) && <Button onClick={() => edit(null)}><Plus className="mr-2 h-4 w-4" />Agregar asignación</Button>}
-      </div>
-    </div>
+      </>} />
+    <ModuleContent>
 
     {error && <div role="alert" className="rounded border border-red-200 p-4 text-red-700">{error}<Button variant="outline" className="ml-3" onClick={() => void refresh(current.matrix?.id)}>Reintentar</Button></div>}
     {loading && <p role="status">Cargando matriz…</p>}
 
     {!loading && !error && <>
-      <section className="rounded-xl border bg-white p-5 shadow-sm">
+      <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -441,5 +440,6 @@ export default function RolesPage() {
 
     <Dialog open={Boolean(historyId)} onOpenChange={value => { if (!value) setHistoryId(null); }}><DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>Historial de la asignación</DialogTitle><DialogDescription>Eventos y evidencias registrados para esta asignación dentro de la matriz.</DialogDescription></DialogHeader><LeadershipHistory events={current.events.filter(event => event.recordId === historyId)} /></DialogContent></Dialog>
     <Dialog open={matrixHistoryOpen} onOpenChange={setMatrixHistoryOpen}><DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>Historial de la versión</DialogTitle><DialogDescription>Decisiones y cambios de estado registrados para la versión seleccionada.</DialogDescription></DialogHeader><LeadershipHistory events={current.events.filter(event => event.recordId === current.matrix?.id)} /></DialogContent></Dialog>
-  </div>;
+    </ModuleContent>
+  </ModulePage>;
 }

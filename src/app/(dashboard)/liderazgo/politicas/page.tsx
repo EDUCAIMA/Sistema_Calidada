@@ -1,5 +1,7 @@
 "use client";
 
+import { ModuleContent, ModuleHeader, ModulePage } from '@/components/sgc/module-layout';
+
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Download, Edit, FilePlus2, Loader2, Plus, RotateCcw, Send, ShieldCheck } from 'lucide-react';
@@ -208,15 +210,9 @@ export default function PoliticasPage() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div><p className="text-sm font-semibold text-blue-700">5.2 · Liderazgo</p>
-          <h1 className="text-3xl font-bold tracking-tight">Política de calidad</h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-600">Elabore, revise y comunique la política. Cada versión conserva su aprobación y evidencia de difusión.</p>
-        </div>
-        {canWrite && <Button onClick={() => setForm({ ...emptyForm })}><Plus className="mr-2 h-4 w-4" />Nueva política</Button>}
-      </header>
-
+    <ModulePage>
+      <ModuleHeader clause="5.2" title="Política de calidad" description="Elabore, revise y comunique la política. Cada versión conserva su aprobación y evidencia de difusión." actions={canWrite && <Button onClick={() => setForm({ ...emptyForm })}><Plus className="mr-2 h-4 w-4" />Nueva política</Button>} />
+      <ModuleContent>
       <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-slate-50 p-4 text-sm">
         <span className="font-medium">Borrador → Revisión → Vigente</span>
         <span className="text-slate-500">Los ajustes vuelven a borrador. La nueva aprobación archiva la versión anterior del mismo tipo.</span>
@@ -226,7 +222,7 @@ export default function PoliticasPage() {
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">{error}<Button variant="outline" className="ml-4" onClick={() => void load()}>Reintentar</Button></div>}
       <div className="flex flex-wrap gap-3">
         <Input aria-label="Buscar políticas" placeholder="Buscar política..." value={search} onChange={event => setSearch(event.target.value)} className="max-w-sm" />
-        <select aria-label="Filtrar por estado" value={filter} onChange={event => setFilter(event.target.value)} className="rounded-md border bg-white px-3 py-2 text-sm">
+        <select aria-label="Filtrar por estado" value={filter} onChange={event => setFilter(event.target.value)} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm">
           <option value="ALL">Todos los estados</option>{Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </div>
@@ -234,7 +230,7 @@ export default function PoliticasPage() {
       {loading ? <div className="py-16 text-center"><Loader2 className="mx-auto animate-spin" /><p className="mt-2">Cargando políticas...</p></div> :
         !error && !filtered.length ? <div className="rounded-xl border border-dashed p-12 text-center text-slate-500">No hay políticas para mostrar. Registre la política de su organización para iniciar la revisión.</div> :
         <div className="grid gap-4 md:grid-cols-2">
-          {filtered.map(policy => <article key={policy.id} className="space-y-4 rounded-xl border bg-white p-5">
+          {filtered.map(policy => <article key={policy.id} className="space-y-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between gap-2"><Badge className={cn('border-0', colors[policy.status])}>{labels[policy.status]}</Badge><span className="text-xs text-slate-500">{policy.type} · v{policy.version}</span></div>
             <h2 className="text-lg font-semibold">{policy.title}</h2>
             <p className="line-clamp-3 whitespace-pre-line text-sm text-slate-600">{policy.content}</p>
@@ -337,6 +333,7 @@ export default function PoliticasPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+      </ModuleContent>
+    </ModulePage>
   );
 }

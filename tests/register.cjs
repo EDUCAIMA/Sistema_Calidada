@@ -9,10 +9,12 @@ Module._resolveFilename = function (specifier, parent, ...rest) {
     ? path.join(__dirname, '..', 'src', specifier.slice(2))
     : specifier, parent, ...rest);
 };
-require.extensions['.ts'] = (module, filename) => {
+const loadTypeScript = (module, filename) => {
   const result = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX },
     fileName: filename,
   });
   module._compile(result.outputText, filename);
 };
+require.extensions['.ts'] = loadTypeScript;
+require.extensions['.tsx'] = loadTypeScript;

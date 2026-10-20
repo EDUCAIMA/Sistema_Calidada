@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
+import { ModulePage, ModuleHeader, ModuleContent } from '@/components/sgc/module-layout';
 
 const kpiData = [
     { month: 'Ene', satisfaccion: 88, entregas: 95, ncs: 2.1 },
@@ -22,17 +23,14 @@ const kpiData = [
 
 export default function IndicadoresPage() {
     return (
-        <div className="flex-1 space-y-6 p-8 pt-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Indicadores de Desempeño (KPIs)</h2>
-                    <p className="text-muted-foreground mt-1">
-                        Seguimiento, medición, análisis y evaluación del desempeño del SGC.
-                    </p>
-                </div>
-                <div className="flex items-center gap-3">
+        <ModulePage>
+            <ModuleHeader
+                clause="9.1"
+                title="Indicadores de desempeño"
+                description="Seguimiento, medición, análisis y evaluación del desempeño del SGC."
+                actions={<>
                     <Select defaultValue="2026">
-                        <SelectTrigger className="w-[120px] bg-white dark:bg-slate-900">
+                        <SelectTrigger className="w-[120px] bg-white dark:bg-slate-900 h-11 rounded-xl text-sm">
                             <SelectValue placeholder="Año" />
                         </SelectTrigger>
                         <SelectContent>
@@ -41,64 +39,65 @@ export default function IndicadoresPage() {
                             <SelectItem value="2024">Año 2024</SelectItem>
                         </SelectContent>
                     </Select>
-                    <Button variant="outline" className="gap-2 shadow-sm">
+                    <Button variant="outline" className="gap-2 rounded-xl text-sm font-medium">
                         <Download className="w-4 h-4" />
                         <span className="hidden sm:inline">Exportar Reporte</span>
                     </Button>
-                </div>
-            </div>
+                </>}
+            />
+            <ModuleContent>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <Card className="border-none shadow-sm bg-white dark:bg-slate-900 border-l-4 border-l-primary/60">
-                    <CardContent className="p-4 flex flex-col justify-between h-full space-y-4">
+                <Card className="shadow-sm bg-white dark:bg-slate-900 border-l-4 border-l-primary/60 min-w-0 rounded-2xl border border-slate-100">
+                    <CardContent className="p-4 flex flex-col justify-between h-full space-y-4 min-w-0">
                         <div className="text-sm font-medium text-muted-foreground flex items-center justify-between">
                             Satisfacción del Cliente
                             <PieChart className="w-4 h-4 text-primary opacity-50" />
                         </div>
                         <div>
-                            <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">92%</div>
+                            <div className="text-3xl font-semibold text-slate-800 dark:text-slate-100">92%</div>
                             <p className="text-xs text-emerald-600 flex items-center mt-1">
                                 <TrendingUp className="w-3 h-3 mr-1" /> +2.5% mes anterior
                             </p>
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="border-none shadow-sm bg-white dark:bg-slate-900 border-l-4 border-l-emerald-500">
-                    <CardContent className="p-4 flex flex-col justify-between h-full space-y-4">
+                <Card className="shadow-sm bg-white dark:bg-slate-900 border-l-4 border-l-emerald-500 min-w-0 rounded-2xl border border-slate-100">
+                    <CardContent className="p-4 flex flex-col justify-between h-full space-y-4 min-w-0">
                         <div className="text-sm font-medium text-muted-foreground flex items-center justify-between">
                             Cumplimiento Entregas
                             <LineChartIcon className="w-4 h-4 text-emerald-500 opacity-50" />
                         </div>
                         <div>
-                            <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">98%</div>
+                            <div className="text-3xl font-semibold text-slate-800 dark:text-slate-100">98%</div>
                             <p className="text-xs text-emerald-600 flex items-center mt-1">
                                 <TrendingUp className="w-3 h-3 mr-1" /> Meta: 95%
                             </p>
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="border-none shadow-sm bg-white dark:bg-slate-900 border-l-4 border-l-destructive">
-                    <CardContent className="p-4 flex flex-col justify-between h-full space-y-4">
+                <Card className="shadow-sm bg-white dark:bg-slate-900 border-l-4 border-l-destructive min-w-0 rounded-2xl border border-slate-100">
+                    <CardContent className="p-4 flex flex-col justify-between h-full space-y-4 min-w-0">
                         <div className="text-sm font-medium text-muted-foreground flex items-center justify-between">
                             Índice de No Conformidades
                             <BarChart4 className="w-4 h-4 text-destructive opacity-50" />
                         </div>
                         <div>
-                            <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">4.2%</div>
+                            <div className="text-3xl font-semibold text-slate-800 dark:text-slate-100">4.2%</div>
                             <p className="text-xs text-destructive flex items-center mt-1">
                                 <TrendingUp className="w-3 h-3 mr-1 text-destructive" /> +1.2% límite excedido
                             </p>
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="border-none shadow-sm bg-white dark:bg-slate-900 border-l-4 border-l-amber-500">
-                    <CardContent className="p-4 flex flex-col justify-between h-full space-y-4">
+                <Card className="shadow-sm bg-white dark:bg-slate-900 border-l-4 border-l-amber-500 min-w-0 rounded-2xl border border-slate-100">
+                    <CardContent className="p-4 flex flex-col justify-between h-full space-y-4 min-w-0">
                         <div className="text-sm font-medium text-muted-foreground flex items-center justify-between">
                             Eficacia Capacitación
                             <TrendingUp className="w-4 h-4 text-amber-500 opacity-50" />
                         </div>
                         <div>
-                            <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">85%</div>
+                            <div className="text-3xl font-semibold text-slate-800 dark:text-slate-100">85%</div>
                             <p className="text-xs text-muted-foreground flex items-center mt-1">
                                 Evaluaciones al 100%
                             </p>
@@ -107,14 +106,14 @@ export default function IndicadoresPage() {
                 </Card>
             </div>
 
-            <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
+            <Card className="dark:bg-slate-900/50 min-w-0 rounded-2xl border border-slate-100 bg-white shadow-sm">
                 <CardHeader>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
                         <div>
                             <CardTitle className="text-lg font-medium">Evolución Trimestral</CardTitle>
                             <CardDescription>Comparativa de los principales indicadores del SGC (Año en curso).</CardDescription>
                         </div>
-                        <Button variant="outline" size="sm" className="gap-2 h-8"><Eye className="w-3.5 h-3.5" /> Ver Listado Tabular</Button>
+                        <Button variant="outline" size="sm" className="gap-2 h-11 rounded-xl text-sm font-medium"><Eye className="w-3.5 h-3.5" /> Ver Listado Tabular</Button>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -136,6 +135,7 @@ export default function IndicadoresPage() {
                     </div>
                 </CardContent>
             </Card>
-        </div>
+            </ModuleContent>
+        </ModulePage>
     );
 }

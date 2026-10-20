@@ -1,5 +1,7 @@
 "use client";
 
+import { ModulePage, ModuleHeader, ModuleContent } from "@/components/sgc/module-layout";
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import {
@@ -61,7 +63,7 @@ export default function DocumentosPage() {
 
 function DocumentosContent() {
     const { tenant, currentUser } = useApp();
-    
+
     // States FIRST
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loadingDocuments, setLoadingDocuments] = useState(true);
@@ -69,13 +71,13 @@ function DocumentosContent() {
     const [filterType, setFilterType] = useState<string>('ALL');
     const [showNew, setShowNew] = useState(false);
     const [showISOInfo, setShowISOInfo] = useState(false);
-    
+
     const [standard, setStandard] = useState<DocumentStandardConfig | null>(null);
     const [standardError, setStandardError] = useState('');
     const [pdfBusy, setPdfBusy] = useState(false);
     const [processes, setProcesses] = useState<Process[]>([]);
     const [newDoc, setNewDoc] = useState<DocumentForm>({
-        type: 'PROCEDIMIENTO', 
+        type: 'PROCEDIMIENTO',
         status: 'BORRADOR',
         processId: '',
         medio: 'DIGITAL',
@@ -138,14 +140,14 @@ function DocumentosContent() {
                 const data = await res.json();
                 if (data && !data.error) {
                     setProcesses(data);
-                    
+
                     if (data.length > 0) {
                         setNewDoc(prev => prev.processId ? prev : { ...prev, processId: data[0].id });
                     }
                 }
-            } catch (error) { 
+            } catch (error) {
                 if (controller.signal.aborted) return;
-                console.error('Error fetching processes:', error); 
+                console.error('Error fetching processes:', error);
             }
         };
         fetchProcesses();
@@ -414,34 +416,28 @@ function DocumentosContent() {
     };
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] -m-6 p-8 font-sans text-slate-900 pb-20">
+        <ModulePage>
             {/* Page Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Información Documentada</h1>
-                        <button
-                            onClick={() => setShowISOInfo(true)}
-                            className="p-1.5 rounded-full hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-all active:scale-95"
-                        >
-                            <HelpCircle className="w-5 h-5" />
-                        </button>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <span className="bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 7.5</span>
-                        <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">Control Documental</span>
-                    </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
+            <ModuleHeader
+                clause="7.5"
+                title="Información documentada"
+                description="Controle los documentos, sus versiones y los flujos de revisión y aprobación."
+                actions={<>
+
+                    <Button variant="outline" aria-label="Ver información normativa ISO 9001:2015" title="Ver información normativa ISO 9001:2015" onClick={() => setShowISOInfo(true)}>
+                        <HelpCircle className="h-4 w-4" /> Información ISO
+                    </Button>
                     <Button asChild variant="outline"><Link href="/apoyo/estandar-documental"><Settings2 className="mr-2 h-4 w-4" /> Estándar documental</Link></Button>
-                    <Button variant="outline" disabled={pdfBusy || loadingDocuments} onClick={() => void downloadDocumentPdf()} className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10">
+                    <Button variant="outline" disabled={pdfBusy || loadingDocuments} onClick={() => void downloadDocumentPdf()} className="flex items-center gap-2 px-4 py-2 bg-white border-slate-100 text-slate-700 hover:bg-slate-50 transition-all shadow-sm h-11 rounded-xl font-medium text-sm">
                         {pdfBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Listado PDF
                     </Button>
-                    <Button onClick={openNewDocument} disabled={!canWrite || !standard} className="flex items-center gap-2 px-5 py-2 bg-slate-900 text-white rounded-lg hover:bg-black font-bold text-xs shadow-lg transition-all h-10 uppercase tracking-wider">
+                    <Button onClick={openNewDocument} disabled={!canWrite || !standard} className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition-all h-11 rounded-xl font-medium text-sm">
                         <Plus className="w-4 h-4" /> Nuevo Documento
                     </Button>
-                </div>
-            </div>
+
+                </>}
+            />
+            <ModuleContent>
 
             {standardError && <p role="alert" className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">{standardError} Los documentos existentes siguen disponibles; recargue para crear nuevos registros con la codificación corporativa.</p>}
             {/* Document Stats Overview */}
@@ -452,73 +448,73 @@ function DocumentosContent() {
                     { label: 'Macroprocesos', value: processes.length, sub: 'Sincronizados', icon: <Layers className="w-5 h-5"/>, color: 'text-indigo-600', bg: 'bg-indigo-50' },
                     { label: 'Obsoletos', value: documents.filter(d => d.status === 'OBSOLETO').length, sub: 'Históricos', icon: <XCircle className="w-5 h-5"/>, color: 'text-rose-600', bg: 'bg-rose-50' },
                 ].map((stat, i) => (
-                    <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                        <div className="flex items-center justify-between mb-3">
+                    <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
                             <div className={cn("p-2 rounded-xl", stat.bg, stat.color)}>{stat.icon}</div>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</span>
+                            <span className="text-xs font-semibold text-slate-400">{stat.label}</span>
                         </div>
                         <div className="flex items-baseline gap-2">
-                             <div className="text-3xl font-black text-slate-800">{stat.value}</div>
-                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{stat.sub}</span>
+                             <div className="text-3xl font-semibold text-slate-800">{stat.value}</div>
+                             <span className="text-xs font-bold text-slate-400">{stat.sub}</span>
                         </div>
                     </div>
                 ))}
             </div>
 
             <Tabs defaultValue="listado" className="space-y-6">
-                <TabsList className="bg-white p-1.5 border border-slate-200 h-auto flex flex-wrap gap-1.5 justify-start rounded-xl shadow-sm">
-                    <TabsTrigger value="generalidades" className="gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all rounded-lg"><Info className="w-4 h-4" /> 7.5.1 Generalidades</TabsTrigger>
-                    <TabsTrigger value="estandarizacion" className="gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all rounded-lg"><Settings2 className="w-4 h-4" /> 7.5.2 Estandarización</TabsTrigger>
-                    <TabsTrigger value="listado" className="gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all rounded-lg"><LayoutGrid className="w-4 h-4" /> 7.5.2 Listado Maestro</TabsTrigger>
-                    <TabsTrigger value="control" className="gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all rounded-lg"><ShieldAlert className="w-4 h-4" /> 7.5.3 Control (TI)</TabsTrigger>
+                <TabsList className="p-1.5 border border-slate-100 h-auto flex flex-wrap justify-start rounded-xl shadow-sm w-full gap-2 bg-slate-50">
+                    <TabsTrigger value="generalidades" className="gap-2 px-4 py-2.5 transition-all min-h-11 rounded-xl text-sm font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"><Info className="w-4 h-4" /> 7.5.1 Generalidades</TabsTrigger>
+                    <TabsTrigger value="estandarizacion" className="gap-2 px-4 py-2.5 transition-all min-h-11 rounded-xl text-sm font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"><Settings2 className="w-4 h-4" /> 7.5.2 Estandarización</TabsTrigger>
+                    <TabsTrigger value="listado" className="gap-2 px-4 py-2.5 transition-all min-h-11 rounded-xl text-sm font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"><LayoutGrid className="w-4 h-4" /> 7.5.2 Listado Maestro</TabsTrigger>
+                    <TabsTrigger value="control" className="gap-2 px-4 py-2.5 transition-all min-h-11 rounded-xl text-sm font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"><ShieldAlert className="w-4 h-4" /> 7.5.3 Control (TI)</TabsTrigger>
                 </TabsList>
 
                 {/* 7.5.2 LISTADO MAESTRO (Principal) */}
                 <TabsContent value="listado" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {selectedDoc ? (
-                        <div className="bg-white rounded-3xl border-2 border-slate-200 shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[700px]">
+                        <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm xl:flex-row">
                             {/* A. CABECERA (IDENTIFICACIÓN RÁPIDA) - Mobile/Side Logic */}
-                            <div className="flex-1 flex flex-col border-r border-slate-100">
-                                <div className="p-8 border-b border-slate-100 bg-slate-50/30 flex justify-between items-start">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-black text-slate-400 text-xs tracking-tighter uppercase">{selectedDoc.code}</span>
-                                            <Badge variant="outline" className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border-none", statusConfig[selectedDoc.status || 'BORRADOR'].bg, statusConfig[selectedDoc.status || 'BORRADOR'].text)}>
+                            <div className="flex min-w-0 flex-1 flex-col border-r border-slate-100">
+                                <div className="flex items-start justify-between gap-3 border-b border-slate-100 bg-slate-50/30 p-4 sm:p-6 flex-wrap">
+                                    <div className="min-w-0 space-y-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="font-semibold text-slate-400 text-xs">{selectedDoc.code}</span>
+                                            <Badge variant="outline" className={cn("text-xs font-semibold px-2 py-0.5 border-none", statusConfig[selectedDoc.status || 'BORRADOR'].bg, statusConfig[selectedDoc.status || 'BORRADOR'].text)}>
                                                 {statusConfig[selectedDoc.status || 'BORRADOR'].icon} {statusConfig[selectedDoc.status || 'BORRADOR'].label}
                                             </Badge>
                                         </div>
-                                        <h2 className="text-2xl font-black text-slate-900 leading-tight">{selectedDoc.name}</h2>
-                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Versión Actual: {selectedDoc.currentVersion} | Creado por: {selectedDoc.createdByName || selectedDoc.author || 'Sistema'}</p>
+                                        <h2 className="break-words text-xl font-semibold leading-tight text-slate-900">{selectedDoc.name}</h2>
+                                        <p className="text-xs text-slate-500 font-bold mt-1">Versión Actual: {selectedDoc.currentVersion} | Creado por: {selectedDoc.createdByName || selectedDoc.author || 'Sistema'}</p>
                                     </div>
-                                    <Button variant="ghost" onClick={() => setSelectedDoc(null)} className="h-8 w-8 p-0 rounded-full hover:bg-slate-100"><XCircle className="w-5 h-5 text-slate-300" /></Button>
+                                    <Button variant="ghost" onClick={() => setSelectedDoc(null)} className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 font-medium text-sm"><XCircle className="w-5 h-5 text-slate-300" /></Button>
                                 </div>
 
                                 {/* B. CUERPO CENTRAL (VISUALIZACIÓN) */}
-                                <div className="flex-1 p-0 bg-slate-200/50 flex items-center justify-center relative">
-                                    <div className="bg-white w-[90%] h-[90%] shadow-2xl rounded-lg border border-slate-300 flex flex-col overflow-hidden">
-                                        <div className="bg-slate-800 p-2 flex items-center justify-between text-white/50">
+                                <div className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-4 bg-slate-50/50 p-4 sm:p-6">
+                                    <div className="flex w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+                                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/80 p-3 text-slate-600">
                                             <div className="flex items-center gap-4 ml-4">
-                                                <div className="flex items-center gap-1"><FileText className="w-3 h-3"/> <span className="text-[10px] font-bold">Ficha de identificación documental</span></div>
+                                                <div className="flex items-center gap-1"><FileText className="w-3 h-3"/> <span className="text-xs font-bold">Ficha de identificación documental</span></div>
                                             </div>
                                             <div className="flex items-center gap-2 mr-2">
-                                                <Button variant="ghost" disabled={pdfBusy} onClick={() => void downloadDocumentPdf(selectedDoc)} className="h-6 text-white text-[10px] hover:bg-white/10 uppercase font-black">Descargar ficha PDF</Button>
+                                                <Button variant="outline" disabled={pdfBusy} onClick={() => void downloadDocumentPdf(selectedDoc)} className="h-11 rounded-xl font-medium text-sm">Descargar ficha PDF</Button>
                                             </div>
                                         </div>
-                                        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-4">
+                                        <div className="flex flex-1 flex-col items-center justify-center space-y-4 p-4 text-center sm:p-6">
                                             <FileSignature className="w-20 h-20 text-slate-100" />
-                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">{selectedDoc.documentTypeName || typeLabels[selectedDoc.type]}</p>
-                                            <div className="p-10 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
+                                            <p className="text-slate-400 font-bold text-xs">{selectedDoc.documentTypeName || typeLabels[selectedDoc.type]}</p>
+                                            <div className="w-full break-words rounded-2xl border border-dashed border-slate-100 bg-slate-50 p-4 sm:p-6">
                                                 <p className="text-slate-700 text-sm font-semibold">{selectedDoc.name}</p>
                                                 <p className="mt-3 text-slate-500 text-sm">{selectedDoc.fileName ? `Archivo adjunto: ${selectedDoc.fileName}` : 'Este registro aún no tiene un archivo original adjunto.'}</p>
                                                 <p className="mt-3 text-xs text-slate-500">La ficha PDF usa el encabezado corporativo y contiene la identificación e historial. El archivo original mantiene su formato.</p>
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     {/* Flujo real de estados */}
-                                    <div className="absolute bottom-6 right-6">
-                                        <Card className="shadow-2xl border-none px-3 py-2 bg-white/90 backdrop-blur rounded-2xl">
-                                            <div className="mb-1 flex justify-between text-[8px] font-black uppercase tracking-wider text-slate-400">
+                                    <div className="self-end">
+                                        <Card className="rounded-xl border border-slate-100 bg-white px-3 py-2 shadow-sm">
+                                            <div className="mb-1 flex justify-between text-xs font-semibold text-slate-400 flex-wrap gap-3">
                                                 <span>Borrador</span><span>Revisión</span><span>Vigente</span>
                                             </div>
                                             <div className="flex gap-1">
@@ -542,13 +538,13 @@ function DocumentosContent() {
                             </div>
 
                             {/* C. PANEL LATERAL (TRAZABILIDAD) */}
-                            <div className="w-full md:w-[350px] bg-white flex flex-col">
+                            <div className="flex w-full min-w-0 flex-col bg-white xl:w-[350px] xl:shrink-0">
                                 <ScrollArea className="flex-1 p-6">
-                                    <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">Trazabilidad ISO (7.5.3)</h3>
-                                    
+                                    <h3 className="text-xs font-semibold text-slate-400 mb-6">Trazabilidad ISO (7.5.3)</h3>
+
                                     <div className="space-y-8">
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-800 uppercase mb-4 flex items-center gap-2">
+                                            <p className="text-xs font-semibold text-slate-800 mb-4 flex items-center gap-2">
                                                 <History className="w-3 h-3 text-indigo-500" /> Historial de aprobación
                                             </p>
                                             <div className="space-y-4 border-l-2 border-slate-100 ml-1.5 pl-4">
@@ -560,41 +556,41 @@ function DocumentosContent() {
                                                             event.action === 'CHANGES_REQUESTED' ? 'bg-amber-500 ring-amber-50' :
                                                             event.action === 'SUPERSEDED' ? 'bg-rose-500 ring-rose-50' : 'bg-indigo-500 ring-indigo-50'
                                                         )}></div>
-                                                        <p className="text-[11px] font-black text-slate-800">{eventLabel(event.action)}</p>
-                                                        <p className="text-[10px] text-slate-400 font-bold uppercase">
+                                                        <p className="text-xs font-semibold text-slate-800">{eventLabel(event.action)}</p>
+                                                        <p className="text-xs text-slate-400 font-bold">
                                                             {new Date(event.createdAt).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })} — {event.userName}
                                                         </p>
-                                                        {event.note && <p className="text-[10px] text-slate-500 mt-1 leading-tight italic">“{event.note}”</p>}
+                                                        {event.note && <p className="text-xs text-slate-500 mt-1 leading-tight">“{event.note}”</p>}
                                                     </div>
                                                 ))}
                                                 {(selectedDoc.approvalEvents || []).length === 0 && (
-                                                    <p className="text-[10px] italic text-slate-400">Sin eventos registrados.</p>
+                                                    <p className="text-xs text-slate-400">Sin eventos registrados.</p>
                                                 )}
                                             </div>
                                         </div>
 
                                         <div className="pt-4 border-t border-slate-100">
-                                            <p className="text-[10px] font-black text-slate-800 uppercase mb-4 flex items-center gap-2">
+                                            <p className="text-xs font-semibold text-slate-800 mb-4 flex items-center gap-2">
                                                 <FileSignature className="w-3 h-3 text-emerald-500" /> Firma Electrónica (Log)
                                             </p>
                                             <div className="p-4 bg-slate-50 rounded-2xl space-y-3 font-mono">
                                                 <div className="space-y-1">
-                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Aprobado por:</p>
-                                                    <p className="text-[10px] font-black text-slate-800 truncate">{selectedDoc.approvedByName || 'Pendiente de aprobación'}</p>
+                                                    <p className="text-xs font-semibold text-slate-400">Aprobado por:</p>
+                                                    <p className="text-xs font-semibold text-slate-800 truncate">{selectedDoc.approvedByName || 'Pendiente de aprobación'}</p>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <div>
-                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Fecha:</p>
-                                                        <p className="text-[10px] font-black text-slate-800">{selectedDoc.approvedDate ? new Date(selectedDoc.approvedDate).toLocaleDateString('es-CO') : '—'}</p>
+                                                        <p className="text-xs font-semibold text-slate-400">Fecha:</p>
+                                                        <p className="text-xs font-semibold text-slate-800">{selectedDoc.approvedDate ? new Date(selectedDoc.approvedDate).toLocaleDateString('es-CO') : '—'}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Versión:</p>
-                                                        <p className="text-[10px] font-black text-slate-800">{selectedDoc.currentVersion}</p>
+                                                        <p className="text-xs font-semibold text-slate-400">Versión:</p>
+                                                        <p className="text-xs font-semibold text-slate-800">{selectedDoc.currentVersion}</p>
                                                     </div>
                                                 </div>
-                                                <div className="pt-2 border-t border-slate-200">
+                                                <div className="pt-2 border-t border-slate-100">
                                                     <Badge className={cn(
-                                                        "text-[8px] border-none font-black shadow-none tracking-tighter uppercase px-1 h-4",
+                                                        "text-xs border-none font-semibold shadow-none px-1 h-4",
                                                         selectedDoc.status === 'APROBADO' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-700'
                                                     )}>{selectedDoc.status === 'APROBADO' ? 'APROBACIÓN VERIFICADA' : 'APROBACIÓN PENDIENTE'}</Badge>
                                                 </div>
@@ -604,41 +600,41 @@ function DocumentosContent() {
                                         <div className="pt-4 space-y-3">
                                             {selectedDoc.status === 'BORRADOR' && canWrite && (
                                                 <>
-                                                    <Button onClick={() => openEditDocument(selectedDoc)} variant="outline" disabled={workflowBusy} className="w-full h-11 border-slate-200 text-slate-600 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50">
+                                                    <Button onClick={() => openEditDocument(selectedDoc)} variant="outline" disabled={workflowBusy} className="w-full h-11 border-slate-100 text-slate-600 rounded-xl hover:bg-slate-50 font-medium text-sm">
                                                         <Edit className="mr-2 h-3.5 w-3.5" /> Editar borrador
                                                     </Button>
-                                                    <Button onClick={() => handleSubmitForReview(selectedDoc)} disabled={workflowBusy} className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[10px] tracking-widest rounded-xl shadow-lg">
+                                                    <Button onClick={() => handleSubmitForReview(selectedDoc)} disabled={workflowBusy} className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm font-medium text-sm">
                                                         {workflowBusy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-2 h-3.5 w-3.5" />} Enviar a revisión
                                                     </Button>
                                                 </>
                                             )}
                                             {selectedDoc.status === 'EN_REVISION' && canApprove && (
                                                 <>
-                                                    <Button onClick={() => openWorkflow(selectedDoc, 'CHANGES')} variant="outline" disabled={workflowBusy} className="w-full h-11 border-amber-200 text-amber-700 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-amber-50">
+                                                    <Button onClick={() => openWorkflow(selectedDoc, 'CHANGES')} variant="outline" disabled={workflowBusy} className="w-full h-11 border-amber-200 text-amber-700 rounded-xl hover:bg-amber-50 font-medium text-sm">
                                                         <RotateCcw className="mr-2 h-3.5 w-3.5" /> Solicitar ajustes
                                                     </Button>
-                                                    <Button onClick={() => openWorkflow(selectedDoc, 'APPROVE')} disabled={workflowBusy} className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-[10px] tracking-widest rounded-xl shadow-lg">
+                                                    <Button onClick={() => openWorkflow(selectedDoc, 'APPROVE')} disabled={workflowBusy} className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm font-medium text-sm">
                                                         <ShieldCheck className="mr-2 h-3.5 w-3.5" /> Aprobar y publicar
                                                     </Button>
                                                 </>
                                             )}
                                             {selectedDoc.status === 'EN_REVISION' && !canApprove && (
-                                                <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-[10px] font-bold leading-relaxed text-indigo-800">
+                                                <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-xs font-bold leading-relaxed text-indigo-800">
                                                     Pendiente de decisión por un administrador de la empresa.
                                                 </div>
                                             )}
                                             {canWrite && (selectedDoc.status === 'APROBADO' || selectedDoc.status === 'OBSOLETO') && (
-                                                <Button onClick={() => handleCreateVersion(selectedDoc)} disabled={workflowBusy} variant="outline" className="w-full h-11 border-indigo-200 text-indigo-700 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-indigo-50">
+                                                <Button onClick={() => handleCreateVersion(selectedDoc)} disabled={workflowBusy} variant="outline" className="h-11 w-full rounded-xl border-blue-200 text-sm font-medium text-blue-700 hover:bg-blue-50">
                                                     {workflowBusy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-2 h-3.5 w-3.5" />} Crear nueva versión
                                                 </Button>
                                             )}
-                                            <Button onClick={() => void downloadDocumentPdf(selectedDoc)} disabled={pdfBusy} variant="outline" className="w-full">
+                                            <Button onClick={() => void downloadDocumentPdf(selectedDoc)} disabled={pdfBusy} variant="outline" className="w-full h-11 rounded-xl font-medium text-sm">
                                                 {pdfBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />} Descargar ficha PDF
                                             </Button>
                                             <Button
                                                 disabled={!selectedDoc.fileUrl}
                                                 onClick={() => selectedDoc.fileUrl && window.open(selectedDoc.fileUrl, '_blank', 'noopener,noreferrer')}
-                                                className="w-full h-11 bg-slate-900 text-white font-black uppercase text-[10px] tracking-widest rounded-xl shadow-lg"
+                                                className="w-full h-11 bg-blue-600 text-white rounded-xl shadow-sm font-medium text-sm"
                                             >
                                                 <Download className="mr-2 h-3.5 w-3.5" /> {selectedDoc.fileUrl ? 'Descargar original' : 'Sin archivo adjunto'}
                                             </Button>
@@ -654,35 +650,35 @@ function DocumentosContent() {
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                     <Input
                                         placeholder="Buscar código, nombre o proceso..."
-                                        className="pl-10 h-10 border-slate-200 bg-slate-50/50 rounded-xl text-sm"
+                                        className="pl-10 rounded-xl h-11 font-medium text-sm border border-slate-200 bg-white"
                                         value={search}
                                         onChange={e => setSearch(e.target.value)}
                                     />
                                 </div>
                                 <div className="flex gap-2">
                                      <Select value={filterType} onValueChange={setFilterType}>
-                                        <SelectTrigger className="w-44 border-slate-200 bg-white h-10 rounded-xl font-bold uppercase text-[10px] tracking-widest"><SelectValue placeholder="TIPO DOCUMENTO" /></SelectTrigger>
+                                        <SelectTrigger className="w-44 bg-white rounded-xl h-11 font-medium text-sm border border-slate-200"><SelectValue placeholder="TIPO DOCUMENTO" /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="ALL">TODOS</SelectItem>
+                                            <SelectItem value="ALL">Todos</SelectItem>
                                             {(standard?.documentTypes || []).map(type => <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>)}
                                             {Object.entries(typeLabels).filter(([id]) => !standard?.documentTypes.some(type => type.id === id)).map(([id, label]) => <SelectItem key={id} value={id}>{label} (histórico)</SelectItem>)}
 
                                         </SelectContent>
                                     </Select>
-                                    <Button variant="outline" title="Limpiar filtros" aria-label="Limpiar filtros" onClick={() => { setSearch(''); setFilterType('ALL'); }} className="h-10 w-10 p-0 border-slate-200 bg-white rounded-xl text-slate-400 hover:text-slate-900 transition-colors"><Filter className="w-4 h-4"/></Button>
+                                    <Button variant="outline" title="Limpiar filtros" aria-label="Limpiar filtros" onClick={() => { setSearch(''); setFilterType('ALL'); }} className="w-10 p-0 border-slate-100 bg-white rounded-xl text-slate-400 hover:text-slate-900 transition-colors h-11 font-medium text-sm"><Filter className="w-4 h-4"/></Button>
                                 </div>
                             </div>
 
-                            <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm">
+                            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
                                 <Table>
                                     <TableHeader>
-                                        <TableRow className="bg-slate-50 border-b border-slate-200 hover:bg-slate-50">
-                                            <TableHead className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-r border-slate-200">Código</TableHead>
-                                            <TableHead className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Documento / Tipo</TableHead>
-                                            <TableHead className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Macroproceso</TableHead>
-                                            <TableHead className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Ver.</TableHead>
-                                            <TableHead className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Estado</TableHead>
-                                            <TableHead className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Detalle</TableHead>
+                                        <TableRow className="bg-slate-50 border-b border-slate-100 hover:bg-slate-50">
+                                            <TableHead className="px-6 py-4 font-semibold border-r border-slate-100 text-sm text-slate-600">Código</TableHead>
+                                            <TableHead className="px-6 py-4 font-semibold text-sm text-slate-600">Documento / Tipo</TableHead>
+                                            <TableHead className="px-6 py-4 font-semibold text-sm text-slate-600">Macroproceso</TableHead>
+                                            <TableHead className="px-6 py-4 font-semibold text-center text-sm text-slate-600">Ver.</TableHead>
+                                            <TableHead className="px-6 py-4 font-semibold text-sm text-slate-600">Estado</TableHead>
+                                            <TableHead className="px-6 py-4 font-semibold text-right text-sm text-slate-600">Detalle</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -695,30 +691,30 @@ function DocumentosContent() {
                                         )}
                                         {filtered.map(doc => (
                                             <TableRow key={doc.id} className="hover:bg-slate-50 transition-colors border-slate-100 group">
-                                                <TableCell className="px-6 py-4 border-r border-slate-100 font-black text-slate-400 tracking-tighter text-xs font-mono">{doc.code}</TableCell>
+                                                <TableCell className="px-6 py-4 border-r border-slate-100 font-semibold text-slate-400 text-xs font-mono">{doc.code}</TableCell>
                                                 <TableCell className="px-6 py-4">
                                                     <div className="flex items-center gap-3 cursor-pointer" onClick={() => setSelectedDoc(doc)}>
                                                         <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-white transition-colors border border-slate-100">{getFileIcon(doc.fileName)}</div>
                                                         <div className="flex flex-col">
                                                             <span className="font-bold text-slate-800 text-sm leading-tight group-hover:text-blue-600 transition-colors">{doc.name}</span>
-                                                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{doc.documentTypeName || typeLabels[doc.type]}</span>
+                                                            <span className="text-xs text-slate-400 font-semibold mt-0.5">{doc.documentTypeName || typeLabels[doc.type]}</span>
 
                                                         </div>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-6 py-4">
-                                                    <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-slate-200 px-2 py-0.5 whitespace-nowrap">{doc.processName || 'GENERAL'}</Badge>
+                                                    <Badge variant="outline" className="text-xs font-semibold text-slate-400 border-slate-100 px-2 py-0.5 whitespace-nowrap">{doc.processName || 'GENERAL'}</Badge>
                                                 </TableCell>
-                                                <TableCell className="px-6 py-4 text-center font-black text-slate-500">{doc.currentVersion}</TableCell>
+                                                <TableCell className="px-6 py-4 text-center font-semibold text-slate-500">{doc.currentVersion}</TableCell>
                                                 <TableCell className="px-6 py-4">
                                                     {doc.status && (
-                                                        <Badge variant="outline" className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border-none", statusConfig[doc.status].bg, statusConfig[doc.status].text)}>
+                                                        <Badge variant="outline" className={cn("text-xs font-semibold px-2 py-0.5 border-none", statusConfig[doc.status].bg, statusConfig[doc.status].text)}>
                                                             {statusConfig[doc.status].label}
                                                         </Badge>
                                                     )}
                                                 </TableCell>
                                                 <TableCell className="px-6 py-4 text-right">
-                                                    <Button onClick={() => setSelectedDoc(doc)} variant="ghost" className="h-8 group-hover:bg-indigo-50 group-hover:text-indigo-600 text-slate-400 transition-all rounded-lg font-black uppercase text-[10px] tracking-widest">Ver Flujo ➔</Button>
+                                                    <Button onClick={() => setSelectedDoc(doc)} variant="ghost" className="h-11 rounded-xl text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50">Ver flujo →</Button>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -741,7 +737,7 @@ function DocumentosContent() {
                         <CardHeader><CardTitle>Estándar documental corporativo</CardTitle><CardDescription>El logo, encabezado, pie de página, tipos y códigos se administran en un único lugar para esta empresa.</CardDescription></CardHeader>
                         <CardContent className="space-y-5">
                             <Button asChild><Link href="/apoyo/estandar-documental"><Settings2 className="mr-2 h-4 w-4" /> Abrir estándar documental</Link></Button>
-                            {standard && <><p className="text-sm text-muted-foreground">Ejemplo de codificación: <strong className="font-mono">{formatDocumentCode(standard, standard.documentTypes.find(type => type.active)?.prefix || 'FO', 1)}</strong>. El consecutivo definitivo se asigna al guardar, sin cambiar códigos históricos.</p><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{standard.documentTypes.map(type => <div key={type.id} className="flex items-center justify-between rounded-lg border p-3"><div><p className="font-medium">{type.name}</p><p className="text-xs text-muted-foreground">{typeLabels[type.baseType]} · {type.active ? 'Activo' : 'Inactivo'}</p></div><Badge variant="outline">{type.prefix}</Badge></div>)}</div></>}
+                            {standard && <><p className="text-sm text-muted-foreground">Ejemplo de codificación: <strong className="font-mono">{formatDocumentCode(standard, standard.documentTypes.find(type => type.active)?.prefix || 'FO', 1)}</strong>. El consecutivo definitivo se asigna al guardar, sin cambiar códigos históricos.</p><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{standard.documentTypes.map(type => <div key={type.id} className="flex items-center justify-between rounded-lg border p-3 flex-wrap gap-3"><div><p className="font-medium">{type.name}</p><p className="text-xs text-muted-foreground">{typeLabels[type.baseType]} · {type.active ? 'Activo' : 'Inactivo'}</p></div><Badge variant="outline">{type.prefix}</Badge></div>)}</div></>}
                             <p className="text-sm text-muted-foreground">Los PDF generados usan el estándar corporativo. Los archivos originales adjuntos no se modifican; su ficha PDF identifica el documento, su versión y su trazabilidad.</p>
                         </CardContent>
                     </Card>
@@ -750,9 +746,9 @@ function DocumentosContent() {
                 {/* 7.5.1 GENERALIDADES */}
                 <TabsContent value="generalidades" className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="p-8 bg-blue-50/50 border-2 border-blue-100 rounded-3xl relative overflow-hidden group">
+                        <div className="p-8 bg-blue-50/50 border border-blue-100 rounded-2xl relative overflow-hidden group">
                             <div className="relative z-10">
-                                <h3 className="text-xl font-black text-blue-900 uppercase tracking-tight mb-4 flex items-center gap-3">
+                                <h3 className="text-xl font-semibold text-blue-900 mb-4 flex items-center gap-3">
                                     <BookOpen className="w-6 h-6"/> Información Exigida
                                 </h3>
                                 <p className="text-sm text-blue-700/80 leading-relaxed font-medium mb-6">
@@ -760,7 +756,7 @@ function DocumentosContent() {
                                 </p>
                                 <ul className="space-y-3">
                                     {['Alcance del SGC (4.3)', 'Operación de procesos (4.4)', 'Política y Objetivos (5.2/6.2)', 'Evidencia de Competencia (7.2)'].map(i => (
-                                        <li key={i} className="flex items-center gap-3 text-xs font-black text-blue-600 uppercase tracking-tight">
+                                        <li key={i} className="flex items-center gap-3 text-xs font-semibold text-blue-600">
                                             <CheckCircle2 className="w-4 h-4"/> {i}
                                         </li>
                                     ))}
@@ -768,21 +764,21 @@ function DocumentosContent() {
                             </div>
                         </div>
 
-                        <div className="p-8 bg-slate-900 text-white rounded-3xl shadow-2xl flex flex-col justify-center">
-                            <h3 className="text-2xl font-black uppercase tracking-tight mb-4 italic">7.5.2 Creación y Actualización</h3>
+                        <div className="flex flex-col justify-center rounded-2xl border border-slate-100 bg-white p-6 text-slate-900 shadow-sm sm:p-8">
+                            <h3 className="mb-4 text-xl font-semibold">7.5.2 Creación y actualización</h3>
                             <div className="space-y-6">
                                 <div className="flex gap-4">
-                                    <div className="h-10 w-10 bg-white/10 rounded-xl flex items-center justify-center text-white"><FileSignature className="w-5 h-5"/></div>
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><FileSignature className="w-5 h-5"/></div>
                                     <div>
-                                        <p className="text-xs font-black uppercase text-slate-400 mb-1">Identificación</p>
-                                        <p className="text-sm font-medium text-slate-300">Cada recurso posee un título, código, fecha y autor responsable.</p>
+                                        <p className="text-xs font-semibold text-slate-400 mb-1">Identificación</p>
+                                        <p className="text-sm text-slate-600">Cada recurso posee un título, código, fecha y autor responsable.</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-4">
-                                    <div className="h-10 w-10 bg-white/10 rounded-xl flex items-center justify-center text-white"><Eye className="w-5 h-5"/></div>
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><Eye className="w-5 h-5"/></div>
                                     <div>
-                                        <p className="text-xs font-black uppercase text-slate-400 mb-1">Revisión y Aprobación</p>
-                                        <p className="text-sm font-medium text-slate-300">El flujo garantiza que la información sea idónea antes de su publicación.</p>
+                                        <p className="text-xs font-semibold text-slate-400 mb-1">Revisión y Aprobación</p>
+                                        <p className="text-sm text-slate-600">El flujo garantiza que la información sea idónea antes de su publicación.</p>
                                     </div>
                                 </div>
                             </div>
@@ -792,15 +788,15 @@ function DocumentosContent() {
 
                 {/* 7.5.3 CONTROL (Stub) */}
                 <TabsContent value="control" className="space-y-6">
-                    <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+                    <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center shadow-sm">
                         <ShieldAlert className="w-16 h-16 mx-auto mb-6 text-slate-200" />
-                        <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">Control de la Información Documentada</h3>
+                        <h3 className="text-xl font-semibold text-slate-800 mb-2">Control de la Información Documentada</h3>
                         <p className="text-sm text-slate-500 font-medium max-w-xl mx-auto mb-8">
                             Aseguramos la disponibilidad, distribución, acceso, recuperación y almacenamiento bajo estrictos criterios de seguridad y control de cambios (7.5.3.1 y 7.5.3.2).
                         </p>
                         <div className="flex gap-4 justify-center">
-                            <Button className="bg-slate-900 font-black uppercase text-[10px] tracking-widest h-12 px-10 rounded-xl">Matriz de Distribución</Button>
-                            <Button variant="outline" className="border-slate-200 font-black uppercase text-[10px] tracking-widest h-12 px-10 rounded-xl">Copias Controladas</Button>
+                            <Button className="bg-blue-600 px-10 rounded-xl h-11 font-medium text-sm">Matriz de Distribución</Button>
+                            <Button variant="outline" className="border-slate-100 px-10 rounded-xl h-11 font-medium text-sm">Copias Controladas</Button>
                         </div>
                     </div>
                 </TabsContent>
@@ -808,7 +804,7 @@ function DocumentosContent() {
 
             {/* ISO Info Dialog */}
             <Dialog open={showISOInfo} onOpenChange={setShowISOInfo}>
-                <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border border-gray-200 shadow-sm rounded-3xl overflow-hidden flex flex-col p-0 gap-0 font-sans">
+                <DialogContent className="bg-white border border-gray-200 shadow-sm overflow-hidden flex flex-col p-0 gap-0 font-sans w-[calc(100vw-2rem)] max-h-[90vh] sm:max-w-4xl rounded-3xl">
                     <header className="px-6 pt-8 pb-4 border-b border-gray-50 bg-white">
                         <div className="flex flex-col gap-2">
                              <h1 className="text-3xl font-bold text-gray-900 tracking-tight">7.5 Información Documentada</h1>
@@ -831,7 +827,7 @@ function DocumentosContent() {
                         </div>
                     </div>
                     <footer className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex justify-end items-center">
-                        <Button onClick={() => setShowISOInfo(false)} className="bg-slate-900 hover:bg-black text-white font-black py-3 px-10 rounded shadow-md h-auto uppercase tracking-wider text-xs">Entendido</Button>
+                        <Button onClick={() => setShowISOInfo(false)} className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-10 shadow-sm h-11 rounded-xl font-medium text-sm">Entendido</Button>
                     </footer>
                 </DialogContent>
             </Dialog>
@@ -843,33 +839,33 @@ function DocumentosContent() {
                     if (!open) resetDocumentForm();
                 }
             }}>
-                <DialogContent className="max-w-2xl border-none shadow-2xl rounded-[2rem] p-0 overflow-hidden font-sans">
-                    <header className="bg-slate-900 text-white p-10 relative overflow-hidden">
+                <DialogContent className="max-w-2xl border-none shadow-2xl p-0 overflow-hidden font-sans w-[calc(100vw-2rem)] max-h-[90vh] rounded-3xl grid grid-rows-[auto_minmax(0,1fr)_auto] gap-0">
+                    <header className="relative overflow-hidden border-b border-slate-100 bg-gradient-to-r from-blue-50 via-white to-slate-50 px-4 py-5 pr-11 text-slate-900 sm:px-6 sm:pr-12">
                         <div className="absolute top-0 right-0 p-4 opacity-10"><FileSignature className="w-24 h-24"/></div>
-                        <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3">
-                             {editingDocumentId ? <Edit className="h-8 w-8 text-amber-400" /> : <Plus className="h-8 w-8 text-emerald-400" />}
-                             {editingDocumentId ? 'Editar borrador' : 'Acta de Nacimiento'}
+                        <DialogTitle className="flex items-center gap-3 text-xl font-extrabold sm:text-2xl">
+                             {editingDocumentId ? <Edit className="h-5 w-5 shrink-0 text-blue-600" /> : <Plus className="h-5 w-5 shrink-0 text-blue-600" />}
+                             {editingDocumentId ? 'Editar borrador' : 'Nuevo documento'}
                         </DialogTitle>
-                        <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">Creación y Actualización de Información (ISO 7.5.2)</DialogDescription>
+                        <DialogDescription className="mt-2 text-sm text-slate-500">Creación y actualización de información (ISO 7.5.2)</DialogDescription>
                     </header>
-                    
-                    <div className="p-10 space-y-8 bg-white max-h-[70vh] overflow-y-auto">
-                        <div className="grid grid-cols-2 gap-8">
+
+                    <div className="max-h-[60vh] min-w-0 space-y-6 overflow-y-auto bg-white p-4 sm:p-6">
+                        <div className="grid min-w-0 grid-cols-1 gap-6 sm:grid-cols-2">
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Macroproceso Asociado *</label>
+                                     <label className="font-semibold text-sm text-slate-700">Macroproceso Asociado *</label>
                                      <Select value={newDoc.processId} onValueChange={v => setNewDoc({ ...newDoc, processId: v })}>
-                                        <SelectTrigger className="h-12 bg-slate-50 border-none rounded-2xl font-bold shadow-inner"><SelectValue placeholder="Seleccione Proceso" /></SelectTrigger>
+                                        <SelectTrigger className="h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white"><SelectValue placeholder="Seleccione Proceso" /></SelectTrigger>
                                         <SelectContent className="font-sans">{processes.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo de Documento *</label>
+                                     <label className="font-semibold text-sm text-slate-700">Tipo de Documento *</label>
                                      <Select value={newDoc.documentTypeId || (editingDocumentId ? `legacy:${newDoc.type}` : '')} onValueChange={value => {
                                          const selectedType = activeTypes.find(type => type.id === value);
                                          if (selectedType) setNewDoc({ ...newDoc, type: selectedType.baseType, documentTypeId: selectedType.id });
                                      }}>
-                                        <SelectTrigger className="h-12 bg-slate-50 border-none rounded-2xl font-bold shadow-inner"><SelectValue placeholder="Seleccione tipo documental" /></SelectTrigger>
+                                        <SelectTrigger className="h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white"><SelectValue placeholder="Seleccione tipo documental" /></SelectTrigger>
                                         <SelectContent className="font-sans">
                                             {activeTypes.map(type => <SelectItem key={type.id} value={type.id}>{type.name} ({type.prefix})</SelectItem>)}
                                             {editingDocumentId && newDoc.documentTypeId && !activeTypes.some(type => type.id === newDoc.documentTypeId) && <SelectItem value={newDoc.documentTypeId} disabled>{standard?.documentTypes.find(type => type.id === newDoc.documentTypeId)?.name || typeLabels[newDoc.type]} (inactivo)</SelectItem>}
@@ -878,9 +874,9 @@ function DocumentosContent() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2 pt-2">
-                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Soporte / Medio (7.5.2 b)</label>
+                                     <label className="font-semibold text-sm text-slate-700">Soporte / Medio (7.5.2 b)</label>
                                      <Select value={newDoc.medio} onValueChange={v => setNewDoc({ ...newDoc, medio: v as 'DIGITAL' | 'FISICO' })}>
-                                        <SelectTrigger className="h-12 bg-slate-50 border-none rounded-2xl font-bold shadow-inner"><SelectValue /></SelectTrigger>
+                                        <SelectTrigger className="h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                                         <SelectContent className="font-sans">
                                             <SelectItem value="DIGITAL" className="font-bold">Digital (PDF, Excel, Web)</SelectItem>
                                             <SelectItem value="FISICO" className="font-bold">Físico (Papel, Tablero)</SelectItem>
@@ -890,45 +886,45 @@ function DocumentosContent() {
                             </div>
 
                             <div className="space-y-4">
-                                <div className="p-6 bg-slate-900 rounded-[2rem] flex flex-col justify-center items-center text-center">
-                                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2">Código documental (7.5.2 a)</label>
-                                    <div className="break-all text-xl font-black text-white tracking-tighter">{newDoc.code || 'Se asigna al guardar'}</div>
+                                <div className="flex min-w-0 flex-col items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 p-5 text-center">
+                                    <label className="font-semibold mb-2 text-sm text-slate-700">Código documental (7.5.2 a)</label>
+                                    <div className="break-all text-xl font-semibold text-slate-900">{newDoc.code || 'Se asigna al guardar'}</div>
                                     {!editingDocumentId && <p className="mt-2 text-xs text-slate-400">Consecutivo único de la empresa; no se reserva al abrir este formulario.</p>}
                                     <div className="mt-4 flex gap-4">
                                         <div className="text-center">
-                                            <p className="text-[9px] font-black text-slate-500 uppercase">Versión</p>
-                                            <p className="text-white font-black text-lg">{newDoc.version}</p>
+                                            <p className="text-xs font-semibold text-slate-500">Versión</p>
+                                            <p className="text-lg font-semibold text-slate-900">{newDoc.version}</p>
                                         </div>
-                                        <div className="w-px h-8 bg-white/10"></div>
+                                        <div className="h-8 w-px bg-slate-200"></div>
                                         <div className="text-center">
-                                            <p className="text-[9px] font-black text-slate-500 uppercase">Autor</p>
-                                            <p className="text-white font-black text-[10px] uppercase truncate max-w-[80px]">{(newDoc.autor || 'Sistema').split(' ')[0]}</p>
+                                            <p className="text-xs font-semibold text-slate-500">Autor</p>
+                                            <p className="max-w-[120px] truncate text-sm font-medium text-slate-900">{(newDoc.autor || 'Sistema').split(' ')[0]}</p>
                                         </div>
                                     </div>
                                 </div>
                                 {!editingDocumentId && <div className="space-y-2"><Label htmlFor="manual-document-code">Código existente (opcional)</Label><Input id="manual-document-code" value={newDoc.code || ''} maxLength={100} placeholder="Vacío = código automático" onChange={event => setNewDoc({ ...newDoc, code: event.target.value.toUpperCase() })} /><p className="text-xs text-muted-foreground">Úselo solo para registrar un documento que ya tiene un código. Se verificará que no esté duplicado.</p></div>}
                                 <div className="space-y-2">
-                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Título descriptivo del recurso *</label>
-                                     <Input placeholder="Ej: PROCEDIMIENTO DE VENTAS" className="h-14 bg-slate-50 border-none rounded-2xl font-black text-sm uppercase px-6 focus-visible:ring-indigo-500" value={newDoc.name || ''} onChange={e => setNewDoc({ ...newDoc, name: e.target.value.toUpperCase() })} />
+                                     <label className="font-semibold text-sm text-slate-700">Título descriptivo del recurso *</label>
+                                     <Input placeholder="Ej: PROCEDIMIENTO DE VENTAS" className="px-6 h-11 rounded-xl font-medium text-sm border border-slate-200 bg-white" value={newDoc.name || ''} onChange={e => setNewDoc({ ...newDoc, name: e.target.value.toUpperCase() })} />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-6 bg-emerald-50 rounded-[2rem] border border-emerald-100 flex items-start gap-4">
+                        <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-start gap-4">
                             <AlertCircle className="w-6 h-6 text-emerald-600 mt-1" />
                             <div>
-                                <h4 className="font-black text-emerald-900 uppercase text-xs">Cumplimiento Literal C</h4>
-                                <p className="text-[11px] text-emerald-800/80 leading-relaxed font-medium mt-1">Al registrar, el documento iniciará en estado <strong>BORRADOR</strong>. Deberá enviarlo a revisión para que el sistema registre la trazabilidad exigida por la norma.</p>
+                                <h4 className="font-semibold text-emerald-900 text-xs">Cumplimiento Literal C</h4>
+                                <p className="text-xs text-emerald-800/80 leading-relaxed font-medium mt-1">Al registrar, el documento iniciará en estado <strong>BORRADOR</strong>. Deberá enviarlo a revisión para que el sistema registre la trazabilidad exigida por la norma.</p>
                             </div>
                         </div>
                     </div>
 
-                    <DialogFooter className="p-10 pt-0 bg-white">
-                        <Button variant="ghost" disabled={workflowBusy} onClick={() => { setShowNew(false); resetDocumentForm(); }} className="h-14 px-8 font-black uppercase text-[10px] tracking-widest text-slate-400 hover:text-slate-600">Cancelar</Button>
-                        <Button 
+                    <DialogFooter className="border-t border-slate-100 bg-slate-50/50 px-4 py-4 sm:px-6">
+                        <Button variant="ghost" disabled={workflowBusy} onClick={() => { setShowNew(false); resetDocumentForm(); }} className="px-8 text-slate-400 hover:text-slate-600 h-11 rounded-xl font-medium text-sm">Cancelar</Button>
+                        <Button
                             onClick={handleSaveDocument}
                             disabled={workflowBusy || !canWrite || (!editingDocumentId && !standard)}
-                            className="h-14 px-12 bg-slate-900 text-white font-black uppercase text-xs rounded-2xl shadow-2xl shadow-slate-900/20"
+                            className="px-12 bg-blue-600 text-white shadow-2xl h-11 rounded-xl font-medium text-sm"
                         >
                             {workflowBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {editingDocumentId ? 'Guardar borrador' : 'Registrar Documento'}
@@ -944,29 +940,26 @@ function DocumentosContent() {
                     setWorkflowNote('');
                 }
             }}>
-                <DialogContent className="max-w-lg border-none p-0 overflow-hidden rounded-2xl shadow-2xl">
-                    <header className={cn(
-                        "p-6 text-white",
-                        workflowAction === 'APPROVE' ? 'bg-emerald-700' : 'bg-amber-600'
-                    )}>
-                        <DialogTitle className="flex items-center gap-3 text-xl font-black uppercase tracking-tight">
-                            {workflowAction === 'APPROVE' ? <ShieldCheck className="h-6 w-6" /> : <RotateCcw className="h-6 w-6" />}
+                <DialogContent className="max-w-lg border-none p-0 overflow-hidden shadow-2xl w-[calc(100vw-2rem)] max-h-[90vh] rounded-3xl grid grid-rows-[auto_minmax(0,1fr)_auto] gap-0">
+                    <header className="border-b border-slate-100 bg-gradient-to-r from-blue-50 via-white to-slate-50 px-4 py-5 pr-11 text-slate-900 sm:px-6 sm:pr-12">
+                        <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
+                            {workflowAction === 'APPROVE' ? <ShieldCheck className="h-6 w-6 shrink-0 text-emerald-600" /> : <RotateCcw className="h-6 w-6 shrink-0 text-amber-600" />}
                             {workflowAction === 'APPROVE' ? 'Aprobar documento' : 'Solicitar ajustes'}
                         </DialogTitle>
-                        <DialogDescription className="mt-2 text-xs font-medium text-white/80">
+                        <DialogDescription className="mt-2 text-sm text-slate-500">
                             {workflowAction === 'APPROVE'
                                 ? 'La versión quedará vigente y la versión anterior del mismo código pasará a obsoleta.'
                                 : 'El documento volverá a borrador conservando la observación en su trazabilidad.'}
                         </DialogDescription>
                     </header>
-                    <div className="space-y-5 p-6">
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-xs font-black uppercase text-slate-800">{workflowDoc?.code} · versión {workflowDoc?.currentVersion}</p>
+                    <div className="space-y-5 overflow-y-auto p-4 sm:p-6">
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                            <p className="text-xs font-semibold text-slate-800">{workflowDoc?.code} · versión {workflowDoc?.currentVersion}</p>
                             <p className="mt-1 text-sm text-slate-600">{workflowDoc?.name}</p>
-                            <p className="mt-2 text-[10px] font-bold uppercase text-slate-400">Decisión de {currentUser?.name}</p>
+                            <p className="mt-2 text-xs font-bold text-slate-400">Decisión de {currentUser?.name}</p>
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="document-workflow-note" className="text-xs font-bold text-slate-700">
+                            <Label htmlFor="document-workflow-note" className="text-slate-700 text-sm font-semibold">
                                 Observación {workflowAction === 'CHANGES' ? '*' : '(opcional)'}
                             </Label>
                             <textarea
@@ -974,10 +967,10 @@ function DocumentosContent() {
                                 value={workflowNote}
                                 onChange={event => setWorkflowNote(event.target.value.slice(0, 500))}
                                 placeholder={workflowAction === 'APPROVE' ? 'Ej.: Revisado en comité de calidad...' : 'Describa claramente los ajustes requeridos...'}
-                                className="min-h-28 w-full resize-none rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+                                className="min-h-28 w-full resize-none rounded-xl border border-slate-100 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
                                 maxLength={500}
                             />
-                            <p className="text-right text-[10px] text-slate-400">{workflowNote.length}/500</p>
+                            <p className="text-right text-xs text-slate-400">{workflowNote.length}/500</p>
                         </div>
                     </div>
                     <DialogFooter className="border-t border-slate-100 bg-slate-50 p-5">
@@ -986,8 +979,8 @@ function DocumentosContent() {
                             disabled={workflowBusy || (workflowAction === 'CHANGES' && !workflowNote.trim())}
                             onClick={handleWorkflowDecision}
                             className={cn(
-                                "font-bold text-white",
-                                workflowAction === 'APPROVE' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'
+                                "text-white h-11 rounded-xl font-medium text-sm",
+                                workflowAction === 'APPROVE' ? "bg-emerald-600 hover:bg-emerald-700 h-11 rounded-xl font-medium text-sm" : "bg-amber-600 hover:bg-amber-700 h-11 rounded-xl font-medium text-sm"
                             )}
                         >
                             {workflowBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -997,6 +990,7 @@ function DocumentosContent() {
                 </DialogContent>
             </Dialog>
 
-        </div>
+        </ModuleContent>
+        </ModulePage>
     );
 }

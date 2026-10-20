@@ -1,5 +1,7 @@
 "use client";
 
+import { ModuleContent, ModuleHeader, ModulePage, ModuleToolbar } from '@/components/sgc/module-layout';
+
 import Link from 'next/link';
 
 import React, { useState, useRef } from 'react';
@@ -225,14 +227,14 @@ function CharacterizationView({ process, characterization: initialChar, tenant, 
 
     return (
         <DialogContent className="max-w-5xl sm:max-w-5xl w-[92vw] max-h-[92vh] p-0 gap-0 overflow-hidden bg-white">
-            <DialogHeader className="px-6 py-3 border-b border-border flex flex-row items-center justify-between bg-slate-50/50">
-                <div className="flex items-center gap-2">
+            <DialogHeader className="px-4 py-5 pr-12 sm:px-7 sm:pr-14 border-b border-slate-100 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-gradient-to-r from-blue-50 via-white to-slate-50">
+                <div className="flex min-w-0 items-center gap-2">
                     <FileEdit className="w-5 h-5 text-indigo-600" />
                     <DialogTitle className="text-lg font-bold">
                         {isEditing ? 'Editando Caracterización' : 'Caracterización del Proceso: ' + process.name}
                     </DialogTitle>
                 </div>
-                <div className="flex items-center gap-2 mr-8">
+                <div className="flex flex-wrap items-center gap-2">
                     {!isEditing ? (
                         <>
                             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
@@ -247,7 +249,7 @@ function CharacterizationView({ process, characterization: initialChar, tenant, 
                             <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} disabled={saving}>
                                 Cancelar
                             </Button>
-                            <Button size="sm" onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 gap-2">
+                            <Button size="sm" onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 gap-2">
                                 <Check className="w-4 h-4" /> {saving ? 'Guardando...' : 'Guardar Cambios'}
                             </Button>
                         </>
@@ -740,73 +742,33 @@ export default function ProcessMapPage() {
     );
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] -m-6 p-8 font-sans text-slate-900 pb-20">
-            {/* Page Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Mapa de Procesos</h1>
-                        <button 
-                            onClick={() => setShowISOInfo(true)}
-                            className="p-1.5 rounded-full hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-all active:scale-95"
-                            title="Ver información normativa ISO 9001:2015"
-                        >
-                            <HelpCircle className="w-5 h-5" />
-                        </button>
-                    </div>
-                    <p className="text-xs text-slate-500">Se muestran los procesos activos. Al archivar un proceso, sus responsabilidades, registros e historial se conservan.</p>
-                    <div className="flex items-center gap-3">
-                        <span className="bg-[#136dec]/10 text-[#136dec] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 4.4</span>
-                        <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">SGC y sus procesos</span>
-                        
-                        <div className="w-px h-4 bg-slate-300 mx-1"></div>
-                        
-                        {/* UI Document Metadata (Now Dynamic) */}
-                        <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setShowConfig(true)}>
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Código: {docMetadata.code || 'Automático según estándar'}</span>
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Versión: {docMetadata.version}</span>
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Aprobación: {docMetadata.approvalDate || 'Sin registrar'}</span>
-                        </div>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Button 
-                        variant="outline"
-                        className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10"
-                    >
-                        <Clock className="w-4 h-4" />
-                        HISTORIAL
-                    </Button>
-                    <Button 
-                        onClick={handleDownload}
-                        variant="outline"
-                        className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10"
-                    >
-                        <Download className="w-4 h-4 text-red-500" />
-                        Descargar Mapa
-                    </Button>
-                    <Button 
-                        onClick={() => { setNewProcess({ category: 'MISIONAL' }); setShowNewProcess(true); }} 
-                        className="flex items-center gap-2 px-5 py-2 bg-[#136dec] text-white rounded-lg hover:bg-blue-600 font-bold text-xs shadow-lg shadow-blue-600/20 transition-all h-10 uppercase tracking-wider"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Nuevo Proceso
-                    </Button>
-                </div>
-            </div>
-
+        <ModulePage>
+            <ModuleHeader clause="4.4" title="Mapa de procesos" description="Consulte los procesos activos y sus interacciones. Los procesos archivados conservan sus responsabilidades, registros e historial." actions={<>
+                <Button variant="outline" onClick={() => setShowISOInfo(true)} aria-label="Ver información normativa ISO 9001:2015"><HelpCircle className="h-4 w-4" />Guía ISO</Button>
+                <Button variant="outline"><Clock className="h-4 w-4" />Historial</Button>
+                <Button variant="outline" onClick={handleDownload}><Download className="h-4 w-4 text-red-500" />Descargar mapa</Button>
+                <Button onClick={() => { setNewProcess({ category: 'MISIONAL' }); setShowNewProcess(true); }}><Plus className="h-4 w-4" />Nuevo proceso</Button>
+            </>} />
+            <ModuleToolbar>
+                <button type="button" className="flex flex-wrap items-center gap-2 text-left text-xs font-medium text-slate-600 transition-colors hover:text-blue-600" onClick={() => setShowConfig(true)} aria-label="Configurar metadatos del mapa de procesos">
+                    <span className="rounded-lg border border-slate-200 bg-white px-3 py-2">Código: {docMetadata.code || 'Automático según estándar'}</span>
+                    <span className="rounded-lg border border-slate-200 bg-white px-3 py-2">Versión: {docMetadata.version}</span>
+                    <span className="rounded-lg border border-slate-200 bg-white px-3 py-2">Aprobación: {docMetadata.approvalDate || 'Sin registrar'}</span>
+                </button>
+            </ModuleToolbar>
+            <ModuleContent>
             {/* ═══════════ NEW PROCESS MAP DESIGN (LINEAR STYLE) ═══════════ */}
-            <div ref={mapRef} className="relative bg-[#f8fafc] rounded-[3rem] border-2 border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden min-h-[900px] flex flex-col items-center justify-center p-8 md:p-12 group">
+            <div ref={mapRef} className="relative rounded-2xl border border-slate-100 bg-slate-50/50 shadow-sm overflow-hidden min-h-[900px] flex flex-col items-center justify-center p-3 sm:p-6 lg:p-8 group">
                 {/* Subtle background pattern */}
                 <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #64748b 1px, transparent 0)', backgroundSize: '24px 24px' }} />
 
 
-                <div className="flex flex-row items-stretch justify-center w-full gap-4 md:gap-8 z-10">
+                <div className="flex flex-col lg:flex-row items-stretch justify-center w-full gap-4 z-10">
                     {/* Left Bar: Requirements (Stakeholders) */}
-                    <div className="flex flex-col items-center justify-center w-20 md:w-32 bg-white rounded-3xl border-2 border-slate-100 py-12 relative overflow-hidden group/sidebar shadow-sm shrink-0 transition-all hover:border-blue-200 hover:shadow-md">
+                    <div className="flex flex-col items-center justify-center w-full lg:w-16 xl:w-20 bg-white rounded-2xl border border-slate-100 py-4 lg:py-12 relative overflow-hidden group/sidebar shadow-sm shrink-0 transition-all hover:border-blue-200">
                         <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover/sidebar:opacity-100 transition-opacity"></div>
-                        <span className="[writing-mode:vertical-lr] rotate-180 text-lg md:text-xl font-black tracking-[0.2em] text-slate-700 uppercase">Partes Interesadas</span>
-                        <p className="[writing-mode:vertical-lr] rotate-180 mt-12 text-[10px] font-bold text-blue-500 tracking-widest uppercase">Requerimientos</p>
+                        <span className="lg:[writing-mode:vertical-lr] lg:rotate-180 text-sm font-semibold text-slate-700">Partes interesadas</span>
+                        <p className="lg:[writing-mode:vertical-lr] lg:rotate-180 mt-2 lg:mt-8 text-sm text-blue-600">Requerimientos</p>
                     </div>
 
                     {/* Flow Arrow (Input) */}
@@ -817,15 +779,15 @@ export default function ProcessMapPage() {
                     </div>
 
                     {/* The Core Map: Main Flow */}
-                    <div className="flex-1 flex flex-col items-center gap-2 relative max-w-4xl">
+                    <div className="min-w-0 flex-1 flex flex-col items-center gap-3 relative">
                         
                         {/* 1. STRATEGIC PROCESSES */}
                         <div className="w-full">
-                            <div className="bg-emerald-50/50 border-2 border-emerald-100 rounded-[2.5rem] p-8 shadow-sm transition-all hover:bg-emerald-50 hover:shadow-md">
+                            <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 sm:p-6 shadow-sm transition-all hover:bg-emerald-50">
                                 <div className="flex items-center justify-center mb-6">
                                     <div className="flex items-center gap-3">
                                         <TrendingUp className="w-5 h-5 text-emerald-600" />
-                                        <h3 className="text-emerald-700 text-xs font-black uppercase tracking-[0.2em]">Procesos Estratégicos</h3>
+                                        <h3 className="text-emerald-700 text-sm font-semibold">Procesos Estratégicos</h3>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -833,11 +795,11 @@ export default function ProcessMapPage() {
                                         <div key={p.id} className="group/item relative">
                                             <div 
                                                 onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
-                                                className="h-16 flex items-center justify-center bg-emerald-600 rounded-2xl border-2 border-emerald-500 shadow-sm hover:bg-emerald-700 hover:scale-[1.02] transition-all cursor-pointer p-4 text-center"
+                                                className="min-h-16 flex items-center justify-center bg-emerald-600 rounded-2xl border-2 border-emerald-500 shadow-sm hover:bg-emerald-700 hover:scale-[1.02] transition-all cursor-pointer p-4 text-center"
                                             >
-                                                <p className="text-[11px] font-black text-white leading-tight uppercase tracking-tight">{p.name}</p>
+                                                <p className="text-sm font-semibold text-white leading-snug tracking-tight">{p.name}</p>
                                             </div>
-                                            <div className="absolute top-[-8px] right-[-8px] flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity z-30">
+                                            <div className="absolute top-[-8px] right-[-8px] flex gap-1 opacity-100 lg:opacity-0 lg:group-hover/item:opacity-100 lg:group-focus-within/item:opacity-100 transition-opacity z-30">
                                                 <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-1.5 bg-white rounded-lg shadow-md border border-emerald-100 text-emerald-600 hover:bg-emerald-50">
                                                     <Edit className="w-3.5 h-3.5" />
                                                 </button>
@@ -858,14 +820,14 @@ export default function ProcessMapPage() {
 
                         {/* 2. MISIONAL PROCESSES */}
                         <div className="w-full">
-                            <div className="bg-white border-4 border-blue-600 rounded-[3rem] p-10 shadow-xl relative z-20">
-                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
+                            <div className="bg-white border-2 border-blue-600 rounded-2xl p-4 sm:p-6 shadow-sm relative z-20">
+                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-1.5 rounded-full text-xs font-semibold shadow-lg">
                                     Valor Agregado
                                 </div>
                                 <div className="flex items-center justify-center mb-8">
                                     <div className="flex items-center gap-3">
                                         <Box className="w-6 h-6 text-blue-600" />
-                                        <h3 className="text-blue-900 text-sm font-black uppercase tracking-[0.25em]">Procesos Misionales</h3>
+                                        <h3 className="text-blue-900 text-sm font-semibold">Procesos Misionales</h3>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -873,11 +835,11 @@ export default function ProcessMapPage() {
                                         <div key={p.id} className="group/item relative">
                                             <div 
                                                 onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
-                                                className="h-20 flex items-center justify-center bg-blue-600 rounded-2xl border-2 border-blue-500 shadow-md hover:bg-blue-700 hover:scale-[1.05] transition-all cursor-pointer p-5 text-center"
+                                                className="min-h-20 flex items-center justify-center bg-blue-600 rounded-2xl border-2 border-blue-500 shadow-md hover:bg-blue-700 hover:scale-[1.05] transition-all cursor-pointer p-5 text-center"
                                             >
-                                                <p className="text-xs font-black text-white leading-tight uppercase tracking-wide">{p.name}</p>
+                                                <p className="text-sm font-semibold text-white leading-snug">{p.name}</p>
                                             </div>
-                                            <div className="absolute top-[-10px] right-[-10px] flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity z-30">
+                                            <div className="absolute top-[-10px] right-[-10px] flex gap-1 opacity-100 lg:opacity-0 lg:group-hover/item:opacity-100 lg:group-focus-within/item:opacity-100 transition-opacity z-30">
                                                 <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-2 bg-white rounded-xl shadow-lg border border-blue-100 text-blue-600 hover:bg-blue-50">
                                                     <Edit className="w-4 h-4" />
                                                 </button>
@@ -898,11 +860,11 @@ export default function ProcessMapPage() {
 
                         {/* 3. SUPPORT PROCESSES */}
                         <div className="w-full">
-                            <div className="bg-amber-50/50 border-2 border-amber-100 rounded-[2.5rem] p-8 shadow-sm transition-all hover:bg-amber-50 hover:shadow-md">
+                            <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-4 sm:p-6 shadow-sm transition-all hover:bg-amber-50">
                                 <div className="flex items-center justify-center mb-6">
                                     <div className="flex items-center gap-3">
                                         <Settings2 className="w-5 h-5 text-amber-600" />
-                                        <h3 className="text-amber-700 text-xs font-black uppercase tracking-[0.2em]">Procesos de Apoyo</h3>
+                                        <h3 className="text-amber-700 text-sm font-semibold">Procesos de Apoyo</h3>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -910,11 +872,11 @@ export default function ProcessMapPage() {
                                         <div key={p.id} className="group/item relative">
                                             <div 
                                                 onClick={() => { setSelectedProcess(p); setShowCharacterization(true); }}
-                                                className="h-16 flex items-center justify-center bg-amber-500 rounded-2xl border-2 border-amber-400 shadow-sm hover:bg-amber-600 hover:scale-[1.02] transition-all cursor-pointer p-4 text-center"
+                                                className="min-h-16 flex items-center justify-center bg-amber-500 rounded-2xl border-2 border-amber-400 shadow-sm hover:bg-amber-600 hover:scale-[1.02] transition-all cursor-pointer p-4 text-center"
                                             >
-                                                <p className="text-[10px] font-black text-white leading-tight uppercase tracking-tight">{p.name}</p>
+                                                <p className="text-sm font-semibold text-white leading-snug tracking-tight">{p.name}</p>
                                             </div>
-                                            <div className="absolute top-[-8px] right-[-8px] flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity z-30">
+                                            <div className="absolute top-[-8px] right-[-8px] flex gap-1 opacity-100 lg:opacity-0 lg:group-hover/item:opacity-100 lg:group-focus-within/item:opacity-100 transition-opacity z-30">
                                                 <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-1.5 bg-white rounded-lg shadow-md border border-amber-100 text-amber-600 hover:bg-amber-50">
                                                     <Edit className="w-3.5 h-3.5" />
                                                 </button>
@@ -938,10 +900,10 @@ export default function ProcessMapPage() {
                     </div>
 
                     {/* Right Bar: Satisfaction (Stakeholders) */}
-                    <div className="flex flex-col items-center justify-center w-20 md:w-32 bg-blue-600 rounded-3xl border-2 border-blue-500 py-12 relative overflow-hidden group/sidebar shadow-xl shrink-0 transition-all hover:bg-blue-700">
+                    <div className="flex flex-col items-center justify-center w-full lg:w-16 xl:w-20 bg-blue-600 rounded-2xl border border-blue-500 py-4 lg:py-12 relative overflow-hidden group/sidebar shadow-sm shrink-0 transition-all hover:bg-blue-700">
                         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/sidebar:opacity-100 transition-opacity"></div>
-                        <span className="[writing-mode:vertical-lr] text-lg md:text-xl font-black tracking-[0.2em] text-white uppercase">Partes Interesadas</span>
-                        <p className="[writing-mode:vertical-lr] mt-12 text-[10px] font-bold text-white/70 tracking-widest uppercase">Satisfacción</p>
+                        <span className="lg:[writing-mode:vertical-lr] text-sm font-semibold text-white">Partes interesadas</span>
+                        <p className="lg:[writing-mode:vertical-lr] mt-2 lg:mt-8 text-sm text-white/90">Satisfacción</p>
                     </div>
                 </div>
             </div>
@@ -962,35 +924,35 @@ export default function ProcessMapPage() {
 
             {/* New Process Dialog */}
             <Dialog open={showNewProcess} onOpenChange={setShowNewProcess}>
-                <DialogContent className="w-[40vw] sm:max-w-[40vw] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans">
-                    <div className="px-6 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
+                <DialogContent className="w-[calc(100vw-1rem)] max-w-2xl max-h-[94vh] sm:max-w-2xl bg-white border-0 p-0 gap-0 overflow-y-auto rounded-3xl shadow-2xl">
+                    <div className="px-4 py-5 pr-12 sm:px-7 sm:pr-14 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50 via-white to-slate-50">
                         <div className="flex items-center gap-3">
-                            <div className={cn("p-1.5 rounded-md shadow-lg", newProcess.id ? "bg-amber-500 shadow-amber-600/20" : "bg-[#136dec] shadow-blue-600/20")}>
+                            <div className="p-2 rounded-xl bg-blue-600 text-white">
                                 {newProcess.id ? <Edit className="h-5 w-5 text-white" /> : <Plus className="h-5 w-5 text-white" />}
                             </div>
-                            <DialogTitle className="text-xl font-black uppercase italic tracking-tighter text-slate-900">
+                            <DialogTitle className="text-xl font-semibold text-slate-900">
                                 {newProcess.id ? 'Editar Proceso' : 'Nuevo Proceso'}
                             </DialogTitle>
                         </div>
                     </div>
                     
-                    <div className="px-8 py-10 space-y-8 overflow-y-auto max-h-[75vh] bg-white">
-                        <div className="grid grid-cols-2 gap-8">
+                    <div className="px-4 py-6 sm:px-7 space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-4">
-                                <Label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Código del Proceso *</Label>
+                                <Label className="text-sm font-semibold text-slate-500">Código del Proceso *</Label>
                                 <Input 
-                                    className="bg-slate-50/50 border-2 border-slate-100 h-14 rounded-2xl focus:bg-white transition-all font-bold uppercase" 
+                                    className="bg-white border border-slate-200 h-11 rounded-xl text-sm font-medium"
                                     placeholder="Ej: PR-01" 
                                     value={newProcess.code || ''} 
                                     onChange={e => setNewProcess({ ...newProcess, code: e.target.value.toUpperCase() })} 
                                 />
                             </div>
                             <div className="space-y-4">
-                                <Label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Macroproceso *</Label>
+                                <Label className="text-sm font-semibold text-slate-500">Macroproceso *</Label>
                                 <Select value={newProcess.category} onValueChange={v => {
                                     setNewProcess({ ...newProcess, category: v as ProcessCategory });
                                 }}>
-                                    <SelectTrigger className="bg-slate-50/50 border-2 border-slate-100 h-14 rounded-2xl font-bold">
+                                    <SelectTrigger className="bg-slate-50/50 border border-slate-200 h-11 rounded-xl font-bold">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -1003,18 +965,18 @@ export default function ProcessMapPage() {
                             </div>
                         </div>
                         <div className="space-y-4">
-                            <Label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Nombre del Proceso *</Label>
+                            <Label className="text-sm font-semibold text-slate-500">Nombre del Proceso *</Label>
                             <Input 
-                                className="bg-slate-50/50 border-2 border-slate-100 h-14 rounded-2xl focus:bg-white transition-all font-black uppercase text-indigo-900" 
+                                className="bg-white border border-slate-200 h-11 rounded-xl text-sm font-medium"
                                 placeholder="Ej: GESTIÓN COMERCIAL" 
                                 value={newProcess.name || ''} 
                                 onChange={e => setNewProcess({ ...newProcess, name: e.target.value.toUpperCase() })} 
                             />
                         </div>
                         <div className="space-y-4">
-                            <Label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Objetivo del Proceso</Label>
+                            <Label className="text-sm font-semibold text-slate-500">Objetivo del Proceso</Label>
                             <Textarea 
-                                className="bg-slate-50/50 border-2 border-slate-100 rounded-2xl p-6 min-h-[100px] font-medium" 
+                                className="bg-white border border-slate-200 rounded-xl p-4 min-h-[100px] text-sm"
                                 placeholder="Describa el propósito..." 
                                 value={newProcess.objective || ''} 
                                 onChange={e => setNewProcess({ ...newProcess, objective: e.target.value })} 
@@ -1022,9 +984,9 @@ export default function ProcessMapPage() {
                         </div>
                     </div>
 
-                    <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-                        <Button variant="ghost" className="font-bold uppercase text-xs tracking-widest h-12 px-6" onClick={() => setShowNewProcess(false)}>Cancelar</Button>
-                        <Button onClick={handleCreateProcess} className={cn("text-white font-black uppercase text-xs tracking-widest h-12 px-8 rounded-xl shadow-lg active:scale-95 transition-all", newProcess.id ? "bg-amber-500 hover:bg-amber-600 shadow-amber-600/20" : "bg-[#136dec] hover:bg-blue-600 shadow-blue-600/20")}>
+                    <div className="px-4 py-4 sm:px-7 bg-slate-50 border-t border-slate-100 flex flex-wrap justify-end gap-3">
+                        <Button variant="ghost" className="font-medium text-sm h-11 rounded-xl px-6" onClick={() => setShowNewProcess(false)}>Cancelar</Button>
+                        <Button onClick={handleCreateProcess} className="h-11 rounded-xl bg-blue-600 px-6 text-sm font-medium text-white hover:bg-blue-700">
                             {newProcess.id ? 'Actualizar Proceso' : 'Guardar Proceso'}
                         </Button>
                     </div>
@@ -1082,6 +1044,7 @@ export default function ProcessMapPage() {
                     <Button asChild><Link href="/apoyo/estandar-documental">Abrir estándar documental</Link></Button>
                 </DialogContent>
             </Dialog>
-        </div>
+            </ModuleContent>
+        </ModulePage>
     );
 }

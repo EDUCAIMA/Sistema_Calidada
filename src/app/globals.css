@@ -48,14 +48,14 @@
 }
 
 :root {
-  --radius: 0.25rem;
+  --radius: 0.5rem;
   --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;
   --card-foreground: #0f172a;
   --popover: #ffffff;
   --popover-foreground: #0f172a;
-  --primary: #136dec; /* Professional Blue */
+  --primary: #2563eb; /* Shared with 6.2 Objetivos de calidad (blue-600). */
   --primary-foreground: #ffffff;
   --secondary: #f1f5f9;
   --secondary-foreground: #334155;
@@ -66,20 +66,20 @@
   --destructive: #df2c14;
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #136dec;
-  --chart-1: #136dec;
+  --ring: #2563eb;
+  --chart-1: #2563eb;
   --chart-2: #10b981;
   --chart-3: #f59e0b;
   --chart-4: #8b5cf6;
   --chart-5: #ec4899;
   --sidebar: #ffffff;
   --sidebar-foreground: #0f172a;
-  --sidebar-primary: #136dec;
+  --sidebar-primary: #2563eb;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f1f5f9;
   --sidebar-accent-foreground: #0f172a;
   --sidebar-border: #e2e8f0;
-  --sidebar-ring: #136dec;
+  --sidebar-ring: #2563eb;
 }
 
 .dark {
@@ -172,4 +172,12 @@
 }
 .animate-scale-in {
   animation: scale-in 0.3s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-in-left,
+  .animate-scale-in {
+    animation: none;
+  }
 }

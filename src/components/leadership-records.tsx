@@ -58,7 +58,7 @@ const fieldLabels: Record<string, string> = {
 
 export function LeadershipHistory({ events }: { events: LeadershipEvent[] }) {
   if (!events.length) return <p className="text-sm text-slate-500">Sin eventos registrados.</p>;
-  return <div className="space-y-3">{events.map(event => <details key={event.id} className="rounded border p-3 text-sm">
+  return <div className="space-y-3">{events.map(event => <details key={event.id} className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 text-sm">
     <summary className="cursor-pointer">{eventLabels[event.action] || event.action} · {event.userName} · {new Date(event.createdAt).toLocaleString('es-CO')}</summary>
     <dl className="mt-3 grid gap-2">{Object.entries(event.snapshot).filter(([key, value]) => fieldLabels[key] && value !== null && value !== '').map(([key, value]) => <div key={key}>
       <dt className="font-medium text-slate-600">{fieldLabels[key]}</dt>
@@ -67,4 +67,4 @@ export function LeadershipHistory({ events }: { events: LeadershipEvent[] }) {
   </details>)}</div>;
 }
 
-export const leadershipSelectClass = 'flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50';
+export const leadershipSelectClass = 'flex h-11 min-w-0 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-50 dark:bg-slate-900';

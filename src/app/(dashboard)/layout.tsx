@@ -6,10 +6,21 @@ import { AppSidebar, AppHeader } from '@/components/layout/app-shell';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     const { sidebarCollapsed, isAuthenticated, isLoading } = useApp();
     const router = useRouter();
+    const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
+    useEffect(() => {
+        const desktop = window.matchMedia('(min-width: 768px)');
+        const closeMobileMenu = (event: MediaQueryListEvent) => {
+            if (event.matches) setMobileMenuOpen(false);
+        };
+        desktop.addEventListener('change', closeMobileMenu);
+        return () => desktop.removeEventListener('change', closeMobileMenu);
+    }, []);
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
@@ -40,12 +51,19 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     return (
         <div className="min-h-screen bg-background">
             <AppSidebar />
-            <AppHeader />
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetContent side="left" className="w-72 gap-0 p-0 md:hidden">
+                    <SheetTitle className="sr-only">Menú de navegación</SheetTitle>
+                    <SheetDescription className="sr-only">Acceda a los numerales del sistema de gestión de calidad.</SheetDescription>
+                    <AppSidebar mobile onNavigate={() => setMobileMenuOpen(false)} />
+                </SheetContent>
+            </Sheet>
+            <AppHeader onMobileMenu={() => setMobileMenuOpen(true)} />
             <main className={cn(
-                "pt-16 min-h-screen transition-all duration-300",
-                sidebarCollapsed ? "pl-16" : "pl-64"
+                "min-w-0 pt-16 min-h-screen transition-all duration-300",
+                sidebarCollapsed ? "md:pl-16" : "md:pl-64"
             )}>
-                <div className="p-6">
+                <div className="min-w-0 p-3 sm:p-6">
                     {children}
                 </div>
             </main>

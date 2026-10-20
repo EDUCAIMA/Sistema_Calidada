@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { downloadStandardPdf, type PdfSection } from '@/lib/document-pdf';
+import { ModulePage, ModuleHeader, ModuleToolbar, ModuleContent, ModulePanel } from '@/components/sgc/module-layout';
 
 type Option = { id: string; name: string };
 type Form = Record<string, string>;
@@ -35,7 +36,7 @@ type Field = {
     options?: Option[]; hint?: string; optional?: boolean;
 };
 
-const selectClass = 'flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-70';
+const selectClass = 'flex h-11 min-w-0 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-70 dark:bg-slate-900';
 const statuses: Record<string, string> = {
     ABIERTA: 'Planificado', EN_PROGRESO: 'En ejecución', CERRADA: 'Evaluado y cerrado', VENCIDA: 'Vencido',
     PLANIFICADO: 'Planificado', EN_EJECUCION: 'En ejecución', COMPLETADO: 'Evaluado y completado',
@@ -52,7 +53,7 @@ function dateText(value: string | null) { return value ? value.slice(0, 10) : 'S
 function FieldInput({ field, form, setForm, disabled = false }: { field: Field; form: Form; setForm: (next: Form) => void; disabled?: boolean }) {
     const value = form[field.name] || '';
     const onChange = (next: string) => setForm({ ...form, [field.name]: next, ...(field.name === 'sourceType' ? { sourceId: '' } : {}) });
-    return <div className={field.type === 'textarea' ? 'space-y-2 md:col-span-2' : 'space-y-2'}>
+    return <div className={field.type === 'textarea' ? 'min-w-0 space-y-2 md:col-span-2' : 'min-w-0 space-y-2'}>
         <Label htmlFor={`plan-${field.name}`}>{field.label}{!field.optional && ' *'}</Label>
         {field.type === 'select' ? <select id={`plan-${field.name}`} className={selectClass} value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} required={!field.optional}>
             <option value="">Selecciona…</option>
@@ -265,23 +266,22 @@ function PlanningWorkspaceContent({ kind }: { kind: 'risk' | 'change' }) {
         finally { setSaving(false); }
     };
 
-    return <div className="space-y-6 pb-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-            <div><h1 className="text-2xl font-semibold">{risk ? 'Riesgos y oportunidades' : 'Planificación de cambios'}</h1>
-                <p className="mt-1 text-sm text-muted-foreground">ISO 9001:2015 · {risk ? '6.1 · Acciones, integración en procesos y evaluación de eficacia.' : '6.3 · Propósito, consecuencias, integridad del SGC, recursos y responsabilidades.'}</p></div>
-            <div className="flex flex-wrap gap-2">
+    return <ModulePage>
+        <ModuleHeader clause={risk ? '6.1' : '6.3'} title={risk ? 'Riesgos y oportunidades' : 'Planificación de cambios'}
+            description={risk ? 'Planifique acciones, intégrelas en los procesos y evalúe su eficacia.' : 'Defina el propósito, las consecuencias, los recursos y las responsabilidades de cada cambio.'}
+            actions={<>
                 <Button variant="outline" disabled={!exportReady} onClick={() => void exportPdf()}>{exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} Descargar PDF</Button>
                 {canWrite && <Button onClick={() => openPlan(null)} disabled={loading || !!error || loadedTenantId !== tenant.id || !metadata.processes.length || !metadata.users.length}><Plus className="mr-2 h-4 w-4" />{risk ? 'Nuevo registro' : 'Planificar cambio'}</Button>}
-            </div>
-        </div>
+            </>} />
+        {!error && <ModuleToolbar>
+            <div className="relative min-w-0 w-full sm:max-w-xl sm:flex-1"><Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><Input aria-label="Buscar registros" placeholder="Buscar descripción, proceso o responsable" className="pl-11" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+            <select className={`${selectClass} sm:max-w-56`} aria-label="Filtrar registros" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="ALL">Todos</option><option value="OPEN">Pendientes</option><option value="CLOSED">Cerrados</option>{risk && <><option value="RIESGO">Riesgos</option><option value="OPORTUNIDAD">Oportunidades</option></>}</select>
+        </ModuleToolbar>}
+        <ModuleContent>
         {!loading && !error && (!metadata.processes.length || !metadata.users.length) && <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">Se necesita un proceso y un responsable activos de la empresa. Revisa <Link className="underline" href="/contexto/procesos">Procesos</Link> y <Link className="underline" href="/admin/usuarios">Usuarios</Link> para poder planificar.</p>}
         {error && <div role="alert" className="rounded-md border border-red-200 p-4 text-red-700">{error}<Button variant="outline" className="ml-3" onClick={() => void load()}>Reintentar</Button></div>}
         {!error && <>
-            <div className="flex flex-wrap gap-3">
-                <div className="relative min-w-64 flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input aria-label="Buscar registros" placeholder="Buscar descripción, proceso o responsable" className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
-                <select className={`${selectClass} max-w-56`} aria-label="Filtrar registros" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="ALL">Todos</option><option value="OPEN">Pendientes</option><option value="CLOSED">Cerrados</option>{risk && <><option value="RIESGO">Riesgos</option><option value="OPORTUNIDAD">Oportunidades</option></>}</select>
-            </div>
-            <div className="overflow-x-auto rounded-lg border bg-card"><Table>
+            <ModulePanel><Table>
                 <TableHeader><TableRow>{risk && <TableHead>Tipo</TableHead>}<TableHead>Descripción / proceso</TableHead><TableHead>Responsable</TableHead><TableHead>{risk ? 'Acción / evaluación' : 'Fecha límite'}</TableHead>{risk && <TableHead>Valoración</TableHead>}<TableHead>Estado</TableHead><TableHead><span className="sr-only">Acciones</span></TableHead></TableRow></TableHeader>
                 <TableBody>{loading ? <TableRow><TableCell colSpan={risk ? 7 : 5} className="h-28 text-center">Cargando registros…</TableCell></TableRow> : filtered.length === 0 ? <TableRow><TableCell colSpan={risk ? 7 : 5} className="h-28 text-center text-muted-foreground">{records.length ? 'No hay registros con estos filtros.' : 'Aún no hay registros. Comienza con una necesidad real de la empresa.'}</TableCell></TableRow> : filtered.map((record) => <TableRow key={record.id}>
                     {risk && <TableCell><Badge variant="outline">{record.kind === 'OPORTUNIDAD' ? 'Oportunidad' : 'Riesgo'}</Badge></TableCell>}
@@ -291,7 +291,7 @@ function PlanningWorkspaceContent({ kind }: { kind: 'risk' | 'change' }) {
                     <TableCell><Badge variant={isClosed(record) ? 'secondary' : 'outline'}>{statuses[record.status] || record.status}</Badge></TableCell>
                     <TableCell><Button variant="outline" size="sm" onClick={() => openPlan(record)}>Ver {canWrite && !isClosed(record) ? '/ editar' : ''}</Button></TableCell>
                 </TableRow>)}</TableBody>
-            </Table></div>
+            </Table></ModulePanel>
             {risk && <p className="text-xs text-muted-foreground">La valoración (probabilidad × impacto o beneficio) prioriza los registros. Los riesgos y las oportunidades se evalúan por separado; un puntaje no demuestra eficacia ni cumplimiento.</p>}
         </>}
         <Dialog open={open} onOpenChange={(value) => { if (!saving) setOpen(value); }}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
@@ -313,5 +313,6 @@ function PlanningWorkspaceContent({ kind }: { kind: 'risk' | 'change' }) {
                 </article>)}
             </section>}
         </DialogContent></Dialog>
-    </div>;
+        </ModuleContent>
+    </ModulePage>;
 }

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { LeadershipHistory, leadershipSelectClass, useLeadershipRecords } from '@/components/leadership-records';
 import { leadershipCommitmentSchema, LEADERSHIP_CATEGORIES, COMMITMENT_STATUSES, type LeadershipCommitmentInput } from '@/lib/leadership';
 import { downloadStandardPdf, type PdfSection } from '@/lib/document-pdf';
+import { ModuleContent, ModuleHeader, ModulePage } from '@/components/sgc/module-layout';
 
 interface Commitment extends LeadershipCommitmentInput { id: string; responsibleName: string; updatedAt: string; createdAt?: string; createdByName?: string; updatedByName?: string }
 const blank: LeadershipCommitmentInput = { category: 'RESPONSABILIDAD', title: '', description: '', responsibleId: '', dueDate: '', status: 'ABIERTA', evidence: '', result: '', customerRequirements: '', customerRisks: '', customerSatisfaction: '' };
@@ -114,15 +115,16 @@ function CompromisosContent() {
     }
   }
 
-  return <div className="space-y-6 pb-10">
-    <div className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-bold">Liderazgo y enfoque al cliente</h1><p className="mt-2 text-slate-600">5.1 · Registre decisiones, acciones de la dirección y evidencia de sus resultados.</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={loading || !!error || saving || exporting || !tenant.id} onClick={() => void exportPdf()}>{exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} Descargar PDF</Button>{canWrite && <Button disabled={loading || !!error || saving} onClick={() => edit(null)}><Plus className="mr-2 h-4 w-4" />Nuevo compromiso</Button>}</div></div>
+  return <ModulePage>
+    <ModuleHeader clause="5.1" title="Liderazgo y enfoque al cliente" description="Registre decisiones, acciones de la dirección y evidencia de sus resultados." actions={<><Button variant="outline" disabled={loading || !!error || saving || exporting || !tenant.id} onClick={() => void exportPdf()}>{exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4 text-red-500" />} Descargar PDF</Button>{canWrite && <Button disabled={loading || !!error || saving} onClick={() => edit(null)}><Plus className="mr-2 h-4 w-4" />Nuevo compromiso</Button>}</>} />
+    <ModuleContent>
     <p className="text-sm text-slate-500">Los registros ayudan a demostrar la gestión realizada. Su existencia no sustituye la evaluación de la eficacia del sistema.</p>
     {!loading && !error && missing.length > 0 && <details className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm"><summary className="cursor-pointer font-medium">{missing.length} temas sin registros de liderazgo</summary><ul className="mt-3 space-y-1">{missing.map(([key, label]) => <li key={key}>{label}</li>)}</ul></details>}
     <div className="flex flex-wrap gap-3"><Input aria-label="Buscar compromisos" className="max-w-sm" placeholder="Buscar título o responsable" value={query} onChange={event => setQuery(event.target.value)} /><select aria-label="Filtrar por tema" className={`${leadershipSelectClass} max-w-lg`} value={category} onChange={event => setCategory(event.target.value)}><option value="">Todos los temas</option>{Object.entries(LEADERSHIP_CATEGORIES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div>
     {error && <div role="alert" className="rounded border border-red-200 p-4 text-red-700">{error}<Button variant="outline" className="ml-3" onClick={() => void refresh()}>Reintentar</Button></div>}
     {loading && <p role="status">Cargando compromisos…</p>}
     {!loading && !error && !visible.length && <div className="rounded-lg border border-dashed p-8 text-slate-500">No hay compromisos para mostrar. Registre las acciones y decisiones reales de su organización.</div>}
-    <div className="space-y-4">{visible.map(record => <article key={record.id} className="space-y-4 rounded-lg border bg-white p-5">
+    <div className="space-y-4">{visible.map(record => <article key={record.id} className="space-y-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap justify-between gap-3"><div><p className="text-xs text-blue-700">{LEADERSHIP_CATEGORIES[record.category]}</p><h2 className="mt-1 text-lg font-semibold">{record.title}</h2><p className="text-sm text-slate-600">{record.responsibleName} · Fecha objetivo: {record.dueDate.slice(0, 10)}</p></div><div className="flex items-start gap-2"><Badge variant={record.status === 'CERRADA' ? 'default' : 'secondary'}>{COMMITMENT_STATUSES[record.status]}</Badge>{record.status !== 'CERRADA' && record.dueDate.slice(0, 10) < new Date().toISOString().slice(0, 10) && <Badge variant="destructive">Vencido</Badge>}</div></div>
       <p className="whitespace-pre-wrap text-sm">{record.description}</p>
       {record.category === 'CLIENTE' && <dl className="grid gap-3 rounded bg-blue-50 p-3 text-sm md:grid-cols-3"><div><dt className="font-medium">Requisitos del cliente y requisitos legales aplicables</dt><dd className="whitespace-pre-wrap">{record.customerRequirements}</dd></div><div><dt className="font-medium">Riesgos y oportunidades para la conformidad y satisfacción</dt><dd className="whitespace-pre-wrap">{record.customerRisks}</dd></div><div><dt className="font-medium">Seguimiento y mejora de la satisfacción</dt><dd className="whitespace-pre-wrap">{record.customerSatisfaction}</dd></div></dl>}
@@ -147,5 +149,6 @@ function CompromisosContent() {
       </form>
     </DialogContent></Dialog>
     <Dialog open={!!historyId} onOpenChange={() => setHistoryId(null)}><DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>Historial del compromiso</DialogTitle></DialogHeader><LeadershipHistory events={events.filter(event => event.recordId === historyId)} /></DialogContent></Dialog>
-  </div>;
+    </ModuleContent>
+  </ModulePage>;
 }
