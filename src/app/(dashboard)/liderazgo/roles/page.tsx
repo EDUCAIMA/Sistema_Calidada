@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ClipboardCheck, History, MessageSquare, Pencil, Plus, Printer, RefreshCw, Send, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, Download, History, MessageSquare, Pencil, Plus, Printer, RefreshCw, Send, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApp } from '@/context/app-context';
 import { Button } from '@/components/ui/button';
@@ -67,6 +67,12 @@ function localToday() { return localDateValue(new Date()); }
 function localTomorrow() { const date = new Date(); date.setDate(date.getDate() + 1); return localDateValue(date); }
 function defaultReviewDate() { const date = new Date(); date.setFullYear(date.getFullYear() + 1); return localDateValue(date); }
 function blankApproval() { return { nextReviewAt: defaultReviewDate(), approvalNote: '' }; }
+function csvCell(value: string | number | null | undefined) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
+function safeFileName(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+}
 
 export default function RolesPage() {
   const { tenant, currentUser } = useApp();
@@ -126,6 +132,52 @@ export default function RolesPage() {
   const selectedResponsible = current.users.find(user => user.id === selectedProcess?.responsibleId);
   const responsibleMismatch = Boolean(selectedProcess && form.assignedToId && form.raciRoles.includes('RESPONSABLE')
     && selectedProcess.responsibleId !== form.assignedToId);
+
+  function downloadMatrixCsv() {
+    if (!current.matrix) {
+      toast.error('Primero debe existir una versión de la matriz.');
+      return;
+    }
+    const matrix = current.matrix;
+    const rows: (string | number | null | undefined)[][] = [
+      ['Matriz de responsabilidades y autoridades', 'ISO 9001:2015 · 5.3'],
+      ['Código', matrix.code],
+      ['Versión', matrix.version],
+      ['Estado', RESPONSIBILITY_MATRIX_STATUSES[matrix.status]],
+      ['Alcance', matrix.scope],
+      ['Enviada por', matrix.submittedByName],
+      ['Fecha de envío', matrix.submittedAt ? new Date(matrix.submittedAt).toLocaleString('es-CO') : ''],
+      ['Aprobada por', matrix.approvedByName],
+      ['Fecha de aprobación', matrix.approvedAt ? new Date(matrix.approvedAt).toLocaleString('es-CO') : ''],
+      ['Próxima revisión', matrix.nextReviewAt?.slice(0, 10) || ''],
+      [],
+      ['Proceso', 'Cargo', 'Persona asignada', 'Área', 'Reporta a', 'RACI', 'Responsabilidades', 'Autoridades', 'Deberes ISO 5.3', 'Estado de fila', 'Fecha de comunicación', 'Comprensión confirmada'],
+      ...current.records.map(record => [
+        record.processName || '',
+        record.title,
+        record.assignedToName,
+        record.department,
+        record.reportsTo,
+        record.raciRoles.map(role => RACI_ROLES[role]).join(' | '),
+        record.responsibilities,
+        record.authorities,
+        record.sgcDuties.map(duty => SGC_DUTIES[duty]).join(' | '),
+        record.active ? 'Activa' : 'Archivada',
+        record.communicatedAt?.slice(0, 10) || '',
+        record.acknowledgedAt ? 'Sí' : 'No',
+      ]),
+    ];
+    const contents = `\uFEFF${rows.map(row => row.map(csvCell).join(';')).join('\r\n')}`;
+    const url = URL.createObjectURL(new Blob([contents], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${safeFileName(matrix.code) || 'matriz-responsabilidades'}-v${matrix.version}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    toast.success(`Matriz versión ${matrix.version} descargada.`);
+  }
 
   const update = <K extends keyof ResponsibilityAssignmentInput>(key: K, value: ResponsibilityAssignmentInput[K]) => setForm(previous => ({ ...previous, [key]: value }));
 
@@ -253,6 +305,7 @@ export default function RolesPage() {
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div><h1 className="text-3xl font-bold">Matriz de responsabilidades y autoridades</h1><p className="mt-2 text-slate-600">ISO 9001:2015 · 5.3 — versiones, aprobación, comunicación y comprensión verificables.</p></div>
       <div className="flex flex-wrap gap-2">
+        <Button variant="outline" disabled={loading || Boolean(error) || !current.matrix} onClick={downloadMatrixCsv}><Download className="mr-2 h-4 w-4" />Descargar CSV</Button>
         <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Imprimir</Button>
         {canManage && !loading && !error && (editable || !current.matrix) && <Button onClick={() => edit(null)}><Plus className="mr-2 h-4 w-4" />Agregar asignación</Button>}
       </div>

@@ -110,6 +110,38 @@ test('roles: versión, aprobación, comunicación y comprensión conservan la tr
   assert.ok(listed.body.users.every(user => user.id !== f.outsider.id));
 });
 
+test('roles: un superadministrador externo puede enviar la matriz sin violar el aislamiento', options, async () => {
+  const f = await fixture('leadership-cross-tenant-submit');
+  const superAdmin = await prisma.user.create({ data: {
+    tenantId: f.otherTenant.id,
+    email: `super-${f.otherTenant.id}@example.test`,
+    name: 'Administración global',
+    role: 'SUPER_ADMIN',
+  } });
+  assert.equal((await invoke(roles, 'POST', { actor: f.admin, body: roleBody(f) })).status, 201);
+  const listed = await invoke(roles, 'GET', { actor: superAdmin, query: { tenantId: f.tenant.id } });
+  assert.equal(listed.status, 200);
+  assert.equal(listed.body.coverage.structuralReady, true);
+
+  const submitted = await invoke(roles, 'PATCH', { actor: superAdmin, body: {
+    tenantId: f.tenant.id,
+    matrixId: listed.body.matrix.id,
+    expectedUpdatedAt: listed.body.matrix.updatedAt,
+    action: 'SUBMIT_MATRIX',
+    note: '',
+  } });
+
+  assert.equal(submitted.status, 200);
+  assert.equal(submitted.body.status, 'EN_REVISION');
+  assert.equal(submitted.body.submittedById, null);
+  assert.equal(submitted.body.submittedByName, superAdmin.name);
+  const event = await prisma.leadershipRecordEvent.findFirstOrThrow({
+    where: { tenantId: f.tenant.id, recordId: listed.body.matrix.id, action: 'ENVIADA_REVISION' },
+  });
+  assert.equal(event.userId, superAdmin.id);
+  assert.equal(event.userName, superAdmin.name);
+});
+
 test('roles: edición y envío concurrentes no alteran una versión ya enviada', options, async () => {
   const f = await fixture('leadership-role-transition-race');
   const input = roleBody(f);

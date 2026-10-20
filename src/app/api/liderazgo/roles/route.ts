@@ -202,6 +202,13 @@ export async function PATCH(request: Request) {
       const canReturn = actor.role === 'SUPER_ADMIN' || actor.role === 'ADMIN_EMPRESA'
         || (actor.topManagement && actor.tenantId === parsed.tenantId);
       if (returning && !canReturn) throw new ApiError(403, 'Solo un administrador o una persona designada como alta dirección puede solicitar ajustes.');
+      // El FK compuesto de submittedBy exige que el usuario pertenezca a la
+      // empresa de la matriz. Un SUPER_ADMIN puede operar otra empresa, por lo
+      // que su identidad se conserva por nombre y en LeadershipRecordEvent,
+      // sin crear una referencia inválida entre empresas.
+      const submittedById = parsed.action === 'SUBMIT_MATRIX' && actor.tenantId === parsed.tenantId
+        ? actor.id
+        : null;
       const result = await prisma.$transaction(async tx => {
         const expectedStatus = parsed.action === 'SUBMIT_MATRIX' ? 'BORRADOR' : 'EN_REVISION';
         const nextStatus = parsed.action === 'SUBMIT_MATRIX' ? 'EN_REVISION' : 'BORRADOR';
@@ -214,7 +221,7 @@ export async function PATCH(request: Request) {
         }
         const changed = await tx.responsibilityMatrix.updateMany({ where: { id: matrix.id, updatedAt: matrix.updatedAt, status: expectedStatus }, data: {
           status: nextStatus,
-          submittedById: parsed.action === 'SUBMIT_MATRIX' ? actor.id : null,
+          submittedById,
           submittedByName: parsed.action === 'SUBMIT_MATRIX' ? actor.name : null,
           submittedAt: parsed.action === 'SUBMIT_MATRIX' ? new Date() : null,
           updatedById: actor.id, updatedByName: actor.name,
