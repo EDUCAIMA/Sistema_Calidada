@@ -4,13 +4,14 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-    LayoutDashboard, Network, FileText, ShieldAlert, ClipboardCheck,
-    BarChart3, Building2, Users, Settings, ChevronDown, LogOut,
+    LayoutDashboard, ShieldAlert, ClipboardCheck,
+    Building2, Users, Settings, ChevronDown, LogOut,
     Target, BookOpen, Briefcase, Scale, TrendingUp, Search, Bell, Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/app-context';
 import { useRouter } from 'next/navigation';
+import type { Tenant, User } from '@/lib/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -76,6 +77,7 @@ const navItems: NavItem[] = [
             { title: '7.3 Toma de conciencia', href: '/apoyo/conciencia' },
             { title: '7.4 Comunicación', href: '/apoyo/comunicacion' },
             { title: '7.5 Info. Documentada', href: '/apoyo/documentos' },
+            { title: '7.5.2 Estándar documental', href: '/apoyo/estandar-documental' },
         ],
     },
     {
@@ -384,7 +386,7 @@ export function AppSidebar() {
 export function AppHeader() {
     const { sidebarCollapsed, toggleSidebar, setCurrentUser, setTenant } = useApp();
     const router = useRouter();
-    const [adminSession, setAdminSession] = React.useState<any>(null);
+    const [adminSession, setAdminSession] = React.useState<{ user: User; tenant: Tenant } | null>(null);
 
     React.useEffect(() => {
         // En un entorno real esto sería más seguro, por ahora usamos localStorage

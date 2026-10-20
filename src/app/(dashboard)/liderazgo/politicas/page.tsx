@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Download, Edit, FilePlus2, Loader2, Plus, RotateCcw, Send, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
-import { jsPDF } from 'jspdf';
+import { downloadStandardPdf } from '@/lib/document-pdf';
 import { useApp } from '@/context/app-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -153,26 +153,53 @@ export default function PoliticasPage() {
     toast.success('Evidencia de comunicación registrada.');
   });
 
-  const exportPolicy = (policy: Policy) => {
-    const pdf = new jsPDF();
-    pdf.setFontSize(11);
-    let y = 20;
-    const paragraphs = [
-      tenant.name, 'Política: ' + policy.title,
-      'Versión ' + policy.version + ' | Estado: ' + labels[policy.status],
-      'Elaborada por: ' + policy.author,
-      'Aprobación: ' + (policy.approvedByName || 'Pendiente') + ' | ' + dateLabel(policy.approvedAt),
-      '', policy.content,
-      ...(policy.objectives?.length ? ['', 'Marco para los objetivos:', ...policy.objectives] : []),
-    ];
-    for (const paragraph of paragraphs) {
-      for (const line of pdf.splitTextToSize(paragraph, 170)) {
-        if (y > 275) { pdf.addPage(); y = 20; }
-        pdf.text(line, 20, y); y += 6;
-      }
-      y += 3;
+  const exportPolicy = async (policy: Policy) => {
+    try {
+      await downloadStandardPdf({
+        tenantId: tenant.id,
+        moduleKey: '5.2',
+        title: policy.title,
+        filename: `Politica-${policy.version}-${policy.status}.pdf`,
+        metadata: {
+          version: policy.version,
+          status: labels[policy.status],
+          approvalDate: policy.approvedAt || null,
+          approvedBy: policy.approvedByName || null,
+        },
+        sections: [
+          { title: 'Identificación y control', head: ['Campo', 'Información'], rows: [
+            ['Título', policy.title],
+            ['Tipo', policy.type],
+            ['Elaborada por', policy.author],
+            ['Aprobada por', policy.approvedByName || 'Sin aprobación registrada'],
+            ['Fecha de aprobación', dateLabel(policy.approvedAt)],
+          ] },
+          { title: 'Declaración de política', text: policy.content },
+          ...(policy.objectives?.length ? [{ title: 'Marco para los objetivos', text: policy.objectives }] : []),
+          {
+            title: 'Comunicación y comprensión',
+            head: ['Destinatarios', 'Método / fecha', 'Responsable', 'Evidencia / comprensión'],
+            rows: policy.communications.map(item => [
+              `${item.audience}\n${item.audienceType === 'EXTERNA' ? 'Externa' : 'Interna'}`,
+              `${item.method}\n${dateLabel(item.date)}`,
+              item.responsibleName,
+              [item.evidence || 'Sin soporte', item.understandingEvidence || '', item.notes || ''].filter(Boolean).join('\n'),
+            ]),
+          },
+          {
+            title: 'Historial de revisión y aprobación',
+            head: ['Fecha', 'Acción', 'Responsable', 'Observación'],
+            rows: policy.approvalEvents.map(event => [
+              dateLabel(event.createdAt), eventLabels[event.action] || event.action,
+              event.userName, event.note || '—',
+            ]),
+          },
+        ],
+      });
+      toast.success('Política descargada con el estándar documental.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No fue posible generar el PDF.');
     }
-    pdf.save('Politica-' + policy.version + '-' + policy.status + '.pdf');
   };
 
   const filtered = policies.filter(policy =>

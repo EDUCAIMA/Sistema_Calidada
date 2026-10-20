@@ -23,6 +23,8 @@ model Tenant {
   dofaItems                 DOFAItem[]
   documents                 Document[]
   formatControls            FormatControl[]
+  documentStandard          DocumentStandard?
+  documentCodeCounters      DocumentCodeCounter[]
   policies                  Policy[]
   processes                 Process[]
   risks                     Risk[]
@@ -105,36 +107,60 @@ model ProcessCharacterization {
 }
 
 model Document {
-  id              String                  @id @default(cuid())
-  tenantId        String
-  code            String
-  name            String
-  type            DocumentType
-  status          DocumentStatus          @default(BORRADOR)
-  processId       String?
-  processName     String?
-  currentVersion  Int                     @default(1)
-  fileUrl         String?
-  fileName        String?
-  fileSize        Int?
-  createdBy       String
-  createdByName   String?
-  submittedBy     String?
-  submittedByName String?
-  submittedAt     DateTime?
-  approvedBy      String?
-  approvedByName  String?
-  approvedDate    DateTime?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  nextReviewDate  DateTime?
-  process         Process?                @relation(fields: [processId], references: [id])
-  tenant          Tenant                  @relation(fields: [tenantId], references: [id])
-  versions        DocumentVersion[]
-  approvalEvents  DocumentApprovalEvent[]
+  id               String                  @id @default(cuid())
+  tenantId         String
+  code             String
+  name             String
+  type             DocumentType
+  documentTypeId   String?
+  documentTypeName String?
+  status           DocumentStatus          @default(BORRADOR)
+  processId        String?
+  processName      String?
+  currentVersion   Int                     @default(1)
+  fileUrl          String?
+  fileName         String?
+  fileSize         Int?
+  createdBy        String
+  createdByName    String?
+  submittedBy      String?
+  submittedByName  String?
+  submittedAt      DateTime?
+  approvedBy       String?
+  approvedByName   String?
+  approvedDate     DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  nextReviewDate   DateTime?
+  process          Process?                @relation(fields: [processId], references: [id])
+  tenant           Tenant                  @relation(fields: [tenantId], references: [id])
+  versions         DocumentVersion[]
+  approvalEvents   DocumentApprovalEvent[]
 
   @@index([tenantId, status])
   @@index([tenantId, code, currentVersion])
+}
+
+model DocumentStandard {
+  id        String   @id @default(cuid())
+  tenantId  String   @unique
+  config    Json
+  revision  Int      @default(1)
+  updatedBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model DocumentCodeCounter {
+  id        String   @id @default(cuid())
+  tenantId  String
+  seriesKey String
+  lastValue Int      @default(0)
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, seriesKey])
 }
 
 model DocumentVersion {

@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import Link from 'next/link';
+
+import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/app-context';
 import { 
-    Plus, Search, Edit, Trash2, Save, Eye, Users, Building2, 
+    Plus, Edit, Trash2, Eye, Users, Building2,
     Globe, ShieldAlert, ArrowUpRight, ArrowRight, ArrowDownRight, 
-    Clock, Box, HelpCircle, Download, Settings
+    Clock, Box, HelpCircle, Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,12 +17,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { mockStakeholders } from '@/lib/mock-data';
 import type { Stakeholder, StakeholderType, StakeholderInfluence } from '@/lib/types';
 import { toast } from 'sonner';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { DocumentHeader } from '@/components/DocumentHeader';
+import { downloadStandardPdf } from '@/lib/document-pdf';
 
 const typeConfig: Record<StakeholderType, { label: string; icon: React.ReactNode; color: string; bg: string; softBg: string }> = {
     INTERNO: { label: 'Interno', icon: <Building2 className="h-5 w-5" />, color: 'text-indigo-600', bg: 'bg-indigo-600', softBg: 'bg-indigo-50' },
@@ -43,25 +42,14 @@ export default function PartesInteresadasPage() {
     const [showISOInfo, setShowISOInfo] = useState(false);
     const [newItem, setNewItem] = useState<Partial<Stakeholder>>({ type: 'EXTERNO', influence: 'MEDIA' });
     const [isExporting, setIsExporting] = useState(false);
-    const pdfRef = useRef<HTMLDivElement>(null);
 
     // Document Metadata State (Configurable)
     const [docMetadata, setDocMetadata] = useState({
-        code: 'DIR-REG-002',
+        code: '',
         version: '01',
-        approvalDate: new Date().toISOString().split('T')[0]
+        approvalDate: ''
     });
     const [showConfig, setShowConfig] = useState(false);
-
-    // Coding Standard States
-    const [processes, setProcesses] = useState<any[]>([]);
-    const [catPrefixes, setCatPrefixes] = useState<any>(null);
-    const [docTypePrefixes, setDocTypePrefixes] = useState<any>(null);
-    const [builder, setBuilder] = useState({
-        processId: '',
-        type: 'REGISTRO',
-        consecutive: '001'
-    });
 
     useEffect(() => {
         const fetchStakeholders = async () => {
@@ -79,6 +67,7 @@ export default function PartesInteresadasPage() {
         };
 
         const fetchMetadata = async () => {
+            setDocMetadata({ code: '', version: '01', approvalDate: '' });
             try {
                 const res = await fetch(`/api/formatos?tenantId=${tenant.id}&moduleKey=4.2`);
                 const data = await res.json();
@@ -98,148 +87,33 @@ export default function PartesInteresadasPage() {
         if (tenant?.id) {
             fetchMetadata();
 
-            // Fetch standards for coding
-            const savedCats = localStorage.getItem('sgc_cat_prefixes');
-            const savedDocs = localStorage.getItem('sgc_doc_prefixes');
-            if (savedCats) setCatPrefixes(JSON.parse(savedCats));
-            if (savedDocs) setDocTypePrefixes(JSON.parse(savedDocs));
-
-            const fetchProcesses = async () => {
-                try {
-                    const res = await fetch(`/api/procesos?tenantId=${tenant.id}`);
-                    const data = await res.json();
-                    if (data && !data.error) setProcesses(data);
-                } catch (e) { console.error(e); }
-            };
-            fetchProcesses();
         }
     }, [tenant?.id]);
 
-    // Auto-generate code when builder changes
-    useEffect(() => {
-        if (showConfig && builder.processId && catPrefixes && docTypePrefixes) {
-            const process = processes.find(p => p.id === builder.processId);
-            if (process) {
-                const macro = catPrefixes[process.category] || 'GN';
-                const procCode = process.code || 'PROC';
-                const type = docTypePrefixes[builder.type] || 'RE';
-                const generated = `${macro}.${procCode}.${type}.${builder.consecutive}`;
-                setDocMetadata(prev => ({ ...prev, code: generated }));
-            }
-        }
-    }, [builder, showConfig, catPrefixes, docTypePrefixes, processes]);
-    const handleSaveConfig = async () => {
-        if (!tenant?.id) return toast.error('Error: Empresa no identificada');
+    const handleDownloadPDF = async () => {
+        setIsExporting(true);
         try {
-            const res = await fetch('/api/formatos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tenantId: tenant.id,
-                    moduleKey: '4.2',
-                    ...docMetadata
-                }),
+            await downloadStandardPdf({
+                tenantId: tenant.id,
+                moduleKey: '4.2',
+                title: 'Matriz de partes interesadas',
+                filename: 'Matriz_Partes_Interesadas.pdf',
+                orientation: 'landscape',
+                sections: [{
+                    head: ['Tipo', 'Parte interesada', 'Requisitos / necesidades', 'Expectativas', 'Influencia', 'Estrategia', 'Contacto'],
+                    rows: stakeholders.map(item => [
+                        typeConfig[item.type].label, item.name, item.needs || '—',
+                        item.expectations || '—', influenceConfig[item.influence].label,
+                        item.strategy || '—', item.contactInfo || '—',
+                    ]),
+                }],
             });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            
-            setShowConfig(false);
-            toast.success('Configuración de encabezado guardada');
-        } catch (error) {
-            toast.error('Error al guardar la configuración');
-        }
-    };
-
-    const handleDownloadPDF = () => {
-        try {
-            const doc = new jsPDF('p', 'mm', 'letter');
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const margin = 20;
-
-            const safeTenantName = tenant?.name || "Calidad SGC";
-            const safeCode = docMetadata.code || 'DIR-REG-002';
-            const safeVersion = docMetadata.version || '01';
-            const safeDate = docMetadata.approvalDate || new Date().toISOString().split('T')[0];
-
-            // --- 1. ENCABEZADO FORMAL ISO ---
-            const headerHeight = 22;
-            doc.setDrawColor(30, 41, 59);
-            doc.setLineWidth(0.4);
-            doc.rect(margin, margin, pageWidth - (margin * 2), headerHeight);
-            
-            const col1Width = 40;
-            const col3Width = 60;
-            const col2Width = pageWidth - (margin * 2) - col1Width - col3Width;
-
-            doc.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
-            doc.line(margin + col1Width + col2Width, margin, margin + col1Width + col2Width, margin + headerHeight);
-
-            // --- LOGO O NOMBRE DE EMPRESA ---
-            if (tenant?.logo) {
-                try {
-                    doc.addImage(tenant.logo, 'PNG', margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
-                } catch (e) {
-                    doc.setFontSize(9).setFont('helvetica', 'bold');
-                    doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-                }
-            } else {
-                doc.setFontSize(9).setFont('helvetica', 'bold');
-                doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-            }
-
-            // --- TÍTULO ---
-            doc.setFontSize(14).text("Matriz de Partes Interesadas", margin + col1Width + col2Width/2, margin + 14, { align: 'center' });
-
-            // --- METADATOS ---
-            doc.setFontSize(8).setFont('helvetica', 'normal');
-            const metaX = margin + col1Width + col2Width + 4;
-            doc.text(`Código: ${safeCode}`, metaX, margin + 5);
-            doc.text(`Versión: ${safeVersion}`, metaX, margin + 9.5);
-            doc.text(`Fecha: ${safeDate}`, metaX, margin + 14);
-            doc.text(`Página: 1 de 1`, metaX, margin + 18.5);
-
-            let currentY = margin + headerHeight + 10;
-
-            // --- TABLA DE STAKEHOLDERS ---
-            const tableData = stakeholders.map(s => [
-                s.type === 'INTERNO' ? 'INTERNO' : 'EXTERNO',
-                s.name.toUpperCase(),
-                s.needs || 'N/A',
-                s.expectations || 'N/A',
-                s.influence
-            ]);
-
-            autoTable(doc, {
-                startY: currentY,
-                margin: { left: margin, right: margin },
-                head: [['TIPO', 'PARTE INTERESADA', 'REQUISITOS / NECESIDADES', 'EXPECTATIVAS', 'INFLUENCIA']],
-                body: tableData,
-                theme: 'striped',
-                headStyles: { 
-                    fillColor: [30, 41, 59], 
-                    textColor: [255, 255, 255], 
-                    fontSize: 10, 
-                    fontStyle: 'bold',
-                    halign: 'center'
-                },
-                columnStyles: {
-                    0: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
-                    1: { cellWidth: 40, fontStyle: 'bold' },
-                    2: { cellWidth: 'auto' },
-                    3: { cellWidth: 'auto', fontStyle: 'italic' },
-                    4: { cellWidth: 20, halign: 'center' }
-                },
-                styles: { fontSize: 9, cellPadding: 5 },
-                didDrawPage: (data) => {
-                    // Si hay múltiples páginas, se podría repetir algo aquí
-                }
-            });
-
-            doc.save(`Matriz_Partes_Interesadas_${safeTenantName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
             toast.success('Documento descargado exitosamente');
         } catch (error) {
             console.error('Error generando PDF:', error);
-            toast.error('Error al generar el PDF');
+            toast.error(error instanceof Error ? error.message : 'Error al generar el PDF');
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -334,9 +208,9 @@ export default function PartesInteresadasPage() {
                         
                         {/* UI Document Metadata (Now Dynamic) */}
                         <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setShowConfig(true)}>
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Código: {docMetadata.code}</span>
+                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Código: {docMetadata.code || 'Automático según estándar'}</span>
                             <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Versión: {docMetadata.version}</span>
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Aprobación: {docMetadata.approvalDate}</span>
+                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Aprobación: {docMetadata.approvalDate || 'Sin registrar'}</span>
                         </div>
                     </div>
                 </div>
@@ -350,6 +224,7 @@ export default function PartesInteresadasPage() {
                     </Button>
                     <Button 
                         onClick={handleDownloadPDF}
+                        disabled={isExporting}
                         variant="outline" 
                         className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10"
                     >
@@ -366,16 +241,7 @@ export default function PartesInteresadasPage() {
                 </div>
             </div>
 
-            <div id="pdf-content" ref={pdfRef} className={cn("bg-[#f8fafc] p-4 rounded-xl", isExporting && "p-8")}>
-                <div className={cn("hidden mb-6", isExporting && "block")}>
-                    <DocumentHeader 
-                        title="MATRIZ DE PARTES INTERESADAS"
-                        code={docMetadata.code}
-                        version={docMetadata.version}
-                        approvalDate={docMetadata.approvalDate}
-                        logoUrl={tenant?.logoUrl || undefined}
-                    />
-                </div>
+            <div className="bg-[#f8fafc] p-4 rounded-xl">
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                 {[
@@ -658,80 +524,10 @@ export default function PartesInteresadasPage() {
             </Dialog>
             {/* Configuration Dialog */}
             <Dialog open={showConfig} onOpenChange={setShowConfig}>
-                <DialogContent className="max-w-lg bg-white border border-slate-200/60 rounded-2xl shadow-xl p-0 overflow-hidden">
-                    <div className="px-6 pt-6 pb-4 border-b border-slate-100">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                                <Settings className="w-5 h-5 text-blue-500" />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-800">Configurar Documento</h2>
-                                <p className="text-xs text-slate-400 mt-0.5">Metadatos de Partes Interesadas (4.2)</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="px-6 py-5 space-y-5">
-                        <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
-                            <div className="flex items-center gap-2 mb-1">
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                                <span className="text-[11px] font-semibold text-blue-600 uppercase tracking-wide">Asistente de Codificación</span>
-                            </div>
-                            <div className="space-y-3">
-                                <div>
-                                    <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Proceso Responsable</Label>
-                                    <Select value={builder.processId} onValueChange={(val) => setBuilder({...builder, processId: val})}>
-                                        <SelectTrigger className="h-10 bg-white border-slate-200 rounded-lg text-sm">
-                                            <SelectValue placeholder="Seleccionar proceso..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {processes.map(p => (
-                                                <SelectItem key={p.id} value={p.id} className="text-sm">{p.name} ({p.code})</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Tipo Documental</Label>
-                                        <Select value={builder.type} onValueChange={(val) => setBuilder({...builder, type: val})}>
-                                            <SelectTrigger className="h-10 bg-white border-slate-200 rounded-lg text-sm">
-                                                <SelectValue placeholder="Tipo" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {docTypePrefixes && Object.keys(docTypePrefixes).map(t => (
-                                                    <SelectItem key={t} value={t} className="text-sm">{t}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Consecutivo</Label>
-                                        <Input value={builder.consecutive} onChange={e => setBuilder({...builder, consecutive: e.target.value})} className="h-10 bg-white border-slate-200 rounded-lg text-sm text-center font-semibold" placeholder="001" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div>
-                            <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Código del Documento</Label>
-                            <Input value={docMetadata.code} onChange={e => setDocMetadata({...docMetadata, code: e.target.value.toUpperCase()})} className="h-12 border-slate-200 bg-slate-50/70 rounded-lg font-bold text-blue-600 uppercase text-center text-base tracking-wider" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Versión</Label>
-                                <Input value={docMetadata.version} onChange={e => setDocMetadata({...docMetadata, version: e.target.value})} className="h-10 border-slate-200 bg-slate-50/70 rounded-lg font-semibold text-sm" />
-                            </div>
-                            <div>
-                                <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Fecha de Aprobación</Label>
-                                <Input type="date" value={docMetadata.approvalDate} onChange={e => setDocMetadata({...docMetadata, approvalDate: e.target.value})} className="h-10 border-slate-200 bg-slate-50/70 rounded-lg font-medium text-sm" />
-                            </div>
-                        </div>
-                        <p className="text-[11px] text-slate-400 italic">* Estos datos se reflejarán en el encabezado oficial del PDF.</p>
-                    </div>
-                    <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-3">
-                        <Button variant="ghost" onClick={() => setShowConfig(false)} className="text-slate-500 text-sm font-medium h-10 px-4 rounded-lg hover:bg-slate-100">Cancelar</Button>
-                        <Button onClick={handleSaveConfig} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 h-10 rounded-lg shadow-sm">Guardar Configuración</Button>
-                    </div>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader><DialogTitle>Estándar documental de la empresa</DialogTitle></DialogHeader>
+                    <p className="text-sm text-slate-600">El logo, el encabezado, los tipos documentales y los códigos se administran en un único lugar. Las descargas PDF usan siempre esa configuración.</p>
+                    <Button asChild><Link href="/apoyo/estandar-documental">Abrir estándar documental</Link></Button>
                 </DialogContent>
             </Dialog>
 

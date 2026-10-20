@@ -97,6 +97,8 @@ export interface Document {
   code: string;
   name: string;
   type: DocumentType;
+  documentTypeId?: string | null;
+  documentTypeName?: string | null;
   status: DocumentStatus;
   processId?: string;
   processName?: string;

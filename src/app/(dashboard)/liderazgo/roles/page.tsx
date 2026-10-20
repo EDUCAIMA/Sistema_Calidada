@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { LeadershipHistory, leadershipSelectClass, type LeadershipEvent } from '@/components/leadership-records';
+import { downloadStandardPdf, pdfDate, type PdfSection } from '@/lib/document-pdf';
 import {
   RACI_ROLES,
   RESPONSIBILITY_MATRIX_STATUSES,
@@ -86,6 +87,7 @@ export default function RolesPage() {
   const [editing, setEditing] = useState<Assignment | null>(null);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [historyId, setHistoryId] = useState<string | null>(null);
   const [matrixHistoryOpen, setMatrixHistoryOpen] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
@@ -132,6 +134,52 @@ export default function RolesPage() {
   const selectedResponsible = current.users.find(user => user.id === selectedProcess?.responsibleId);
   const responsibleMismatch = Boolean(selectedProcess && form.assignedToId && form.raciRoles.includes('RESPONSABLE')
     && selectedProcess.responsibleId !== form.assignedToId);
+
+  async function downloadMatrixPdf() {
+    if (!current.matrix) return;
+    const matrix = current.matrix;
+    setExporting(true);
+    try {
+      const dutyCodes = Object.keys(SGC_DUTIES);
+      const sections: PdfSection[] = [
+        { title: '1. Control de la matriz', head: ['Campo', 'Información'], rows: [
+          ['Alcance', matrix.scope || 'Sin alcance registrado'],
+          ['Estado de implementación', implementationLabels[current.coverage.implementationStatus] || current.coverage.implementationStatus],
+          ['Enviada a revisión', matrix.submittedAt ? `${matrix.submittedByName || ''} · ${pdfDate(matrix.submittedAt)}` : 'No enviada'],
+          ['Aprobación', matrix.approvedAt ? `${matrix.approvedByName || ''} · ${pdfDate(matrix.approvedAt)}` : 'Sin aprobación registrada'],
+          ['Observaciones de aprobación', matrix.approvalNote || 'Sin observaciones registradas'],
+          ['Vigencia / próxima revisión', `${matrix.effectiveAt?.slice(0, 10) || 'Sin vigencia registrada'} / ${matrix.nextReviewAt?.slice(0, 10) || 'Sin fecha registrada'}`],
+          ['Contenido', `${current.records.filter(record => record.active).length} asignaciones activas; ${current.records.filter(record => !record.active).length} archivadas. Se exporta la versión completa, sin aplicar filtros de pantalla.`],
+        ] },
+        { title: '2. Responsabilidades y autoridades', head: ['Proceso / estado', 'Cargo / titular / área', 'Reporta a', 'Responsabilidades', 'Autoridades', 'RACI / deberes 5.3'], rows: current.records.map(record => [
+          `${record.processName || 'Transversal al SGC'}\n${record.active ? 'Activa' : 'Archivada'}`,
+          `${record.title}\n${record.assignedToName}\n${record.department}`,
+          record.reportsTo,
+          record.responsibilities,
+          record.authorities,
+          `${record.raciRoles.map(role => RACI_ROLES[role]).join('\n')}\n${record.sgcDuties.map(duty => `5.3 ${String.fromCharCode(97 + dutyCodes.indexOf(duty))}`).join(', ')}`,
+        ]) },
+        { title: '3. Referencias de responsabilidad', head: ['Referencia', 'Descripción'], rows: [
+          ...Object.entries(RACI_ROLES).map(([key, label]) => [key, label]),
+          ...Object.entries(SGC_DUTIES).map(([, label], index) => [`5.3 ${String.fromCharCode(97 + index)}`, label]),
+        ] },
+        { title: '4. Comunicación y comprensión', head: ['Titular / cargo', 'Comunicación', 'Destinatarios / evidencia', 'Comprensión'], rows: current.records.map(record => [
+          `${record.assignedToName}\n${record.title}${record.active ? '' : '\nArchivada'}`,
+          record.communicatedAt ? `${pdfDate(record.communicatedAt)}\n${record.communicationMethod || ''}` : 'Pendiente de comunicar',
+          `${record.communicationAudience || ''}\n${record.communicationEvidence || 'Sin evidencia registrada'}`,
+          record.acknowledgedAt ? `${pdfDate(record.acknowledgedAt)}\n${record.understandingEvidence || 'Confirmación registrada'}` : 'Pendiente de confirmar',
+        ]) },
+      ];
+      await downloadStandardPdf({
+        tenantId: tenant.id, moduleKey: '5.3', title: 'Matriz de responsabilidades y autoridades',
+        filename: `${matrix.code}-v${matrix.version}`, orientation: 'landscape',
+        metadata: { code: matrix.code, version: matrix.version, status: RESPONSIBILITY_MATRIX_STATUSES[matrix.status], approvalDate: matrix.approvedAt, approvedBy: matrix.approvedByName },
+        sections,
+      });
+      toast.success(`PDF de la matriz versión ${matrix.version} descargado.`);
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'No se pudo descargar la matriz en PDF.'); }
+    finally { setExporting(false); }
+  }
 
   function downloadMatrixCsv() {
     if (!current.matrix) {
@@ -305,6 +353,7 @@ export default function RolesPage() {
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div><h1 className="text-3xl font-bold">Matriz de responsabilidades y autoridades</h1><p className="mt-2 text-slate-600">ISO 9001:2015 · 5.3 — versiones, aprobación, comunicación y comprensión verificables.</p></div>
       <div className="flex flex-wrap gap-2">
+        <Button disabled={exporting || loading || Boolean(error) || !current.matrix} onClick={() => void downloadMatrixPdf()}><Download className="mr-2 h-4 w-4" />{exporting ? 'Generando PDF…' : 'Descargar PDF'}</Button>
         <Button variant="outline" disabled={loading || Boolean(error) || !current.matrix} onClick={downloadMatrixCsv}><Download className="mr-2 h-4 w-4" />Descargar CSV</Button>
         <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Imprimir</Button>
         {canManage && !loading && !error && (editable || !current.matrix) && <Button onClick={() => edit(null)}><Plus className="mr-2 h-4 w-4" />Agregar asignación</Button>}

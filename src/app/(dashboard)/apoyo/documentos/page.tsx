@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import {
     Plus, Download, Search, Filter, Eye,
-    FileText, FileSpreadsheet, File, Clock, CheckCircle2, XCircle, AlertCircle, Save,
+    FileText, FileSpreadsheet, File, Clock, CheckCircle2, XCircle, AlertCircle,
     History, Settings2, FileCheck, Info,
     HelpCircle, ShieldAlert, Layers, BookOpen,
     FileSignature, LayoutGrid, Edit, Send, ShieldCheck, Loader2, RotateCcw
@@ -18,29 +19,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import type { Document, DocumentStatus, DocumentType, ProcessCategory, Process } from '@/lib/types';
+import type { Document, DocumentStatus, DocumentType, Process } from '@/lib/types';
+import { formatDocumentCode, type DocumentStandardConfig } from '@/lib/document-standard';
+import { downloadStandardPdf } from '@/lib/document-pdf';
 import { toast } from 'sonner';
 import { useApp } from '@/context/app-context';
-
-const initialCategoryPrefixes: Record<ProcessCategory, string> = {
-    ESTRATEGICO: 'ES',
-    MISIONAL: 'MI',
-    APOYO: 'AP',
-    EVALUACION: 'EV',
-};
-
-const initialTypePrefixes: Record<DocumentType, string> = {
-    MANUAL: 'MA',
-    PROCEDIMIENTO: 'PR',
-    INSTRUCTIVO: 'IN',
-    FORMATO: 'FO',
-    POLITICA: 'PO',
-    GUIA: 'GU',
-    REGISTRO: 'RE',
-    OTRO: 'OT',
-};
 
 const statusConfig: Record<DocumentStatus, { label: string; bg: string; text: string; icon: React.ReactNode }> = {
     BORRADOR: { label: 'Borrador', bg: 'bg-slate-100', text: 'text-slate-600', icon: <Edit className="w-3 h-3" /> },
@@ -59,6 +43,7 @@ interface DocumentForm {
     code?: string;
     name?: string;
     type: DocumentType;
+    documentTypeId?: string;
     status: DocumentStatus;
     processId: string;
     medio: 'DIGITAL' | 'FISICO';
@@ -70,6 +55,11 @@ interface DocumentForm {
 }
 
 export default function DocumentosPage() {
+    const { tenant } = useApp();
+    return <DocumentosContent key={tenant.id} />;
+}
+
+function DocumentosContent() {
     const { tenant, currentUser } = useApp();
     
     // States FIRST
@@ -80,28 +70,10 @@ export default function DocumentosPage() {
     const [showNew, setShowNew] = useState(false);
     const [showISOInfo, setShowISOInfo] = useState(false);
     
-    const [catPrefixes, setCatPrefixes] = useState<Record<ProcessCategory, string>>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('sgc_cat_prefixes');
-            return saved ? JSON.parse(saved) : initialCategoryPrefixes;
-        }
-        return initialCategoryPrefixes;
-    });
-
-    const [docTypePrefixes, setDocTypePrefixes] = useState<Record<DocumentType, string>>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('sgc_doc_prefixes');
-            return saved ? JSON.parse(saved) : initialTypePrefixes;
-        }
-        return initialTypePrefixes;
-    });
-
+    const [standard, setStandard] = useState<DocumentStandardConfig | null>(null);
+    const [standardError, setStandardError] = useState('');
+    const [pdfBusy, setPdfBusy] = useState(false);
     const [processes, setProcesses] = useState<Process[]>([]);
-    const [showStandardization, setShowStandardization] = useState(false);
-    const [showProcessModal, setShowProcessModal] = useState(false);
-    const [tempCatPrefixes, setTempCatPrefixes] = useState(catPrefixes);
-    const [tempDocTypePrefixes, setTempDocTypePrefixes] = useState(docTypePrefixes);
-    const [newProcess, setNewProcess] = useState({ name: '', code: '', category: 'APOYO' });
     const [newDoc, setNewDoc] = useState<DocumentForm>({
         type: 'PROCEDIMIENTO', 
         status: 'BORRADOR',
@@ -110,58 +82,59 @@ export default function DocumentosPage() {
         version: 1,
         autor: currentUser?.name || 'Sistema'
     });
-    const [docTypeLabels, setDocTypeLabels] = useState<Record<DocumentType, string>>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('sgc_doc_labels');
-            return saved ? JSON.parse(saved) : typeLabels;
-        }
-        return typeLabels;
-    });
     const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
-    const [isEditingStandard, setIsEditingStandard] = useState(false);
     const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
     const [workflowDoc, setWorkflowDoc] = useState<Document | null>(null);
     const [workflowAction, setWorkflowAction] = useState<'APPROVE' | 'CHANGES'>('APPROVE');
     const [workflowNote, setWorkflowNote] = useState('');
     const [workflowBusy, setWorkflowBusy] = useState(false);
     const canApprove = currentUser?.role === 'ADMIN_EMPRESA' || currentUser?.role === 'SUPER_ADMIN';
+    const canWrite = canApprove || currentUser?.role === 'USUARIO';
+    const activeTypes = standard?.documentTypes.filter(type => type.active) || [];
 
     useEffect(() => {
         if (!tenant?.id) return;
+        const controller = new AbortController();
         const fetchDocuments = async () => {
             setLoadingDocuments(true);
             try {
-                const response = await fetch(`/api/apoyo/documentos?tenantId=${encodeURIComponent(tenant.id)}`);
+                const response = await fetch(`/api/apoyo/documentos?tenantId=${encodeURIComponent(tenant.id)}`, { signal: controller.signal, cache: 'no-store' });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'No fue posible cargar los documentos.');
                 setDocuments(data);
             } catch (error) {
+                if (controller.signal.aborted) return;
                 toast.error(error instanceof Error ? error.message : 'No fue posible cargar los documentos.');
             } finally {
-                setLoadingDocuments(false);
+                if (!controller.signal.aborted) setLoadingDocuments(false);
             }
         };
         fetchDocuments();
+        return () => controller.abort();
     }, [tenant?.id]);
 
     useEffect(() => {
-        localStorage.setItem('sgc_cat_prefixes', JSON.stringify(catPrefixes));
-        localStorage.setItem('sgc_doc_prefixes', JSON.stringify(docTypePrefixes));
-        localStorage.setItem('sgc_doc_labels', JSON.stringify(docTypeLabels));
-    }, [catPrefixes, docTypePrefixes, docTypeLabels]);
-
+        if (!tenant.id) return;
+        let cancelled = false;
+        setStandard(null);
+        setStandardError('');
+        fetch('/api/document-standard?tenantId=' + encodeURIComponent(tenant.id))
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'No fue posible cargar los tipos documentales.');
+                if (data.tenant?.id !== tenant.id) throw new Error('El estándar no corresponde a esta empresa.');
+                if (!cancelled) setStandard(data.config);
+            })
+            .catch(error => { if (!cancelled) setStandardError(error instanceof Error ? error.message : 'No fue posible cargar el estándar.'); });
+        return () => { cancelled = true; };
+    }, [tenant.id]);
 
     useEffect(() => {
-        if (showStandardization) {
-            setTempCatPrefixes(catPrefixes);
-            setTempDocTypePrefixes(docTypePrefixes);
-        }
-    }, [showStandardization, catPrefixes, docTypePrefixes]);
-
-    useEffect(() => {
+        if (!tenant.id) return;
+        const controller = new AbortController();
         const fetchProcesses = async () => {
             try {
-                const res = await fetch(`/api/procesos?tenantId=${tenant.id}`);
+                const res = await fetch(`/api/procesos?tenantId=${encodeURIComponent(tenant.id)}`, { signal: controller.signal });
                 const data = await res.json();
                 if (data && !data.error) {
                     setProcesses(data);
@@ -171,38 +144,18 @@ export default function DocumentosPage() {
                     }
                 }
             } catch (error) { 
+                if (controller.signal.aborted) return;
                 console.error('Error fetching processes:', error); 
             }
         };
         fetchProcesses();
+        return () => controller.abort();
     }, [tenant.id]);
-
-    useEffect(() => {
-        if (showNew && !editingDocumentId && newDoc.processId && newDoc.type) {
-            const process = processes.find(p => p.id === newDoc.processId);
-            const macroPref = process ? catPrefixes[process.category as ProcessCategory] : 'GN';
-            const processPref = process ? process.code : 'GNS';
-            const typePref = docTypePrefixes[newDoc.type as DocumentType] || 'OT';
-            
-            // Contar cuántos documentos de este mismo tipo y proceso existen para el consecutivo
-            const prefixToMatch = `${macroPref}.${processPref}.${typePref}`;
-            const count = documents.filter(d => 
-                d.code && d.code.startsWith(prefixToMatch)
-            ).length + 1;
-            
-            const nextIdx = count.toString().padStart(2, '0');
-            const generatedCode = `${prefixToMatch}.${nextIdx}`;
-            
-            if (newDoc.code !== generatedCode) {
-                setNewDoc(prev => ({ ...prev, code: generatedCode }));
-            }
-        }
-    }, [newDoc.type, newDoc.processId, newDoc.code, showNew, editingDocumentId, docTypePrefixes, catPrefixes, documents, processes]);
 
     const filtered = useMemo(() => {
         return documents.filter(d => {
-            const matchSearch = !search || d.name.toLowerCase().includes(search.toLowerCase()) || (d.code && d.code.toLowerCase().includes(search.toLowerCase()));
-            const matchType = filterType === 'ALL' || d.type === filterType;
+            const matchSearch = !search || `${d.name} ${d.code} ${d.processName || ''}`.toLowerCase().includes(search.toLowerCase());
+            const matchType = filterType === 'ALL' || (d.documentTypeId || d.type) === filterType;
             return matchSearch && matchType;
         });
     }, [documents, search, filterType]);
@@ -226,8 +179,10 @@ export default function DocumentosPage() {
 
     const resetDocumentForm = () => {
         setEditingDocumentId(null);
+        const defaultType = activeTypes.find(type => type.baseType === 'PROCEDIMIENTO') || activeTypes[0];
         setNewDoc({
-            type: 'PROCEDIMIENTO',
+            type: defaultType?.baseType || 'PROCEDIMIENTO',
+            documentTypeId: defaultType?.id,
             status: 'BORRADOR',
             processId: processes[0]?.id || '',
             medio: 'DIGITAL',
@@ -249,6 +204,7 @@ export default function DocumentosPage() {
             code: document.code,
             name: document.name,
             type: document.type,
+            documentTypeId: document.documentTypeId || undefined,
             status: document.status,
             processId: document.processId || '',
             medio: 'DIGITAL',
@@ -262,8 +218,8 @@ export default function DocumentosPage() {
     };
 
     const handleSaveDocument = async () => {
-        if (!tenant?.id || !newDoc.name || !newDoc.code || !newDoc.processId) {
-            toast.error('Complete el proceso, nombre y código del documento.');
+        if (!tenant?.id || !newDoc.name?.trim() || !newDoc.processId || (!editingDocumentId && !newDoc.documentTypeId)) {
+            toast.error('Complete el proceso, el nombre y el tipo documental.');
             return;
         }
         setWorkflowBusy(true);
@@ -278,6 +234,7 @@ export default function DocumentosPage() {
                     code: newDoc.code,
                     name: newDoc.name,
                     type: newDoc.type,
+                    documentTypeId: newDoc.documentTypeId,
                     processId: newDoc.processId,
                     processName: process?.name,
                     currentVersion: Number(newDoc.version) || 1,
@@ -376,6 +333,7 @@ export default function DocumentosPage() {
                     code: document.code,
                     name: document.name,
                     type: document.type,
+                    documentTypeId: document.documentTypeId || undefined,
                     processId: document.processId,
                     processName: document.processName,
                     currentVersion: document.currentVersion + 1,
@@ -407,6 +365,54 @@ export default function DocumentosPage() {
         SUPERSEDED: 'Versión sustituida',
     }[action] || action.replaceAll('_', ' '));
 
+    const downloadDocumentPdf = async (document?: Document) => {
+        setPdfBusy(true);
+        try {
+            const dateLabel = (date?: Date | string) => date ? new Date(date).toLocaleDateString('es-CO') : 'Pendiente';
+            await downloadStandardPdf({
+                tenantId: tenant.id,
+                moduleKey: '7.5',
+                title: document ? `Ficha documental: ${document.name}` : 'Listado maestro de documentos',
+                filename: document ? `Ficha_${document.code}_v${document.currentVersion}.pdf` : 'Listado_maestro_documentos.pdf',
+                orientation: document ? 'portrait' : 'landscape',
+                metadata: document ? {
+                    code: document.code,
+                    version: String(document.currentVersion),
+                    status: document.status,
+                    approvalDate: document.approvedDate ? new Date(document.approvedDate).toISOString() : undefined,
+                    approvedBy: document.approvedByName,
+                } : undefined,
+                sections: document ? [
+                    { title: 'Identificación y control', head: ['Campo', 'Información'], rows: [
+                        ['Título', document.name], ['Código', document.code],
+                        ['Tipo documental', document.documentTypeName || typeLabels[document.type]],
+                        ['Proceso', document.processName || 'General'], ['Versión', document.currentVersion],
+                        ['Estado', statusConfig[document.status].label],
+                        ['Elaborado por', document.createdByName || document.author || 'No registrado'],
+                        ['Creación', dateLabel(document.createdAt)],
+                        ['Enviado a revisión por', document.submittedByName || 'Pendiente'],
+                        ['Fecha de envío', dateLabel(document.submittedAt)],
+                        ['Aprobado por', document.approvedByName || 'Pendiente'],
+                        ['Fecha de aprobación', dateLabel(document.approvedDate)],
+                        ['Próxima revisión', dateLabel(document.nextReviewDate)],
+                        ['Archivo original', document.fileName || 'Sin archivo adjunto'],
+                    ] },
+                    { title: 'Historial documental', head: ['Fecha', 'Acción', 'Responsable', 'Observación'],
+                        rows: (document.approvalEvents || []).map(event => [dateLabel(event.createdAt), eventLabel(event.action), event.userName, event.note || '—']) },
+                    { text: 'Esta ficha resume la identificación y trazabilidad del registro. No sustituye el contenido del archivo original adjunto, que conserva su formato.' },
+                ] : [
+                    { text: `Documentos incluidos: ${filtered.length}. Filtros: ${search || 'sin texto de búsqueda'}; tipo: ${filterType === 'ALL' ? 'todos' : standard?.documentTypes.find(type => type.id === filterType)?.name || typeLabels[filterType as DocumentType] || filterType}.` },
+                    { head: ['Código', 'Documento', 'Tipo', 'Proceso', 'Versión', 'Estado', 'Aprobación'],
+                        rows: filtered.map(item => [item.code, item.name, item.documentTypeName || typeLabels[item.type], item.processName || 'General', item.currentVersion, statusConfig[item.status].label, dateLabel(item.approvedDate)]) },
+                ],
+            });
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'No fue posible generar el PDF.');
+        } finally {
+            setPdfBusy(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#f8fafc] -m-6 p-8 font-sans text-slate-900 pb-20">
             {/* Page Header */}
@@ -424,22 +430,20 @@ export default function DocumentosPage() {
                     <div className="flex items-center gap-3">
                         <span className="bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 7.5</span>
                         <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">Control Documental</span>
-                        <div className="w-px h-4 bg-slate-300 mx-1"></div>
-                        <div className="flex items-center gap-2 group cursor-pointer">
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-slate-800 group-hover:text-slate-900 transition-colors">Código: SIG-DOC-05</span>
-                        </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Button variant="outline" className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10">
-                        <History className="w-4 h-4 text-slate-400" /> Registro de Cambios
+                <div className="flex flex-wrap items-center gap-3">
+                    <Button asChild variant="outline"><Link href="/apoyo/estandar-documental"><Settings2 className="mr-2 h-4 w-4" /> Estándar documental</Link></Button>
+                    <Button variant="outline" disabled={pdfBusy || loadingDocuments} onClick={() => void downloadDocumentPdf()} className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10">
+                        {pdfBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Listado PDF
                     </Button>
-                    <Button onClick={openNewDocument} className="flex items-center gap-2 px-5 py-2 bg-slate-900 text-white rounded-lg hover:bg-black font-bold text-xs shadow-lg transition-all h-10 uppercase tracking-wider">
+                    <Button onClick={openNewDocument} disabled={!canWrite || !standard} className="flex items-center gap-2 px-5 py-2 bg-slate-900 text-white rounded-lg hover:bg-black font-bold text-xs shadow-lg transition-all h-10 uppercase tracking-wider">
                         <Plus className="w-4 h-4" /> Nuevo Documento
                     </Button>
                 </div>
             </div>
 
+            {standardError && <p role="alert" className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">{standardError} Los documentos existentes siguen disponibles; recargue para crear nuevos registros con la codificación corporativa.</p>}
             {/* Document Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                 {[
@@ -494,17 +498,19 @@ export default function DocumentosPage() {
                                     <div className="bg-white w-[90%] h-[90%] shadow-2xl rounded-lg border border-slate-300 flex flex-col overflow-hidden">
                                         <div className="bg-slate-800 p-2 flex items-center justify-between text-white/50">
                                             <div className="flex items-center gap-4 ml-4">
-                                                <div className="flex items-center gap-1"><FileText className="w-3 h-3"/> <span className="text-[10px] font-bold">Página 1 de 4</span></div>
+                                                <div className="flex items-center gap-1"><FileText className="w-3 h-3"/> <span className="text-[10px] font-bold">Ficha de identificación documental</span></div>
                                             </div>
                                             <div className="flex items-center gap-2 mr-2">
-                                                <Button variant="ghost" className="h-6 text-white text-[10px] hover:bg-white/10 uppercase font-black">Imprimir Copia Controlada</Button>
+                                                <Button variant="ghost" disabled={pdfBusy} onClick={() => void downloadDocumentPdf(selectedDoc)} className="h-6 text-white text-[10px] hover:bg-white/10 uppercase font-black">Descargar ficha PDF</Button>
                                             </div>
                                         </div>
                                         <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-4">
                                             <FileSignature className="w-20 h-20 text-slate-100" />
-                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Visor de Documento Seguro (PDF)</p>
+                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">{selectedDoc.documentTypeName || typeLabels[selectedDoc.type]}</p>
                                             <div className="p-10 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
-                                                <p className="text-slate-500 italic text-sm">Contenido del documento &quot;{selectedDoc.name}&quot; protegido por norma ISO 9001:2015</p>
+                                                <p className="text-slate-700 text-sm font-semibold">{selectedDoc.name}</p>
+                                                <p className="mt-3 text-slate-500 text-sm">{selectedDoc.fileName ? `Archivo adjunto: ${selectedDoc.fileName}` : 'Este registro aún no tiene un archivo original adjunto.'}</p>
+                                                <p className="mt-3 text-xs text-slate-500">La ficha PDF usa el encabezado corporativo y contiene la identificación e historial. El archivo original mantiene su formato.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -596,7 +602,7 @@ export default function DocumentosPage() {
                                         </div>
 
                                         <div className="pt-4 space-y-3">
-                                            {selectedDoc.status === 'BORRADOR' && (
+                                            {selectedDoc.status === 'BORRADOR' && canWrite && (
                                                 <>
                                                     <Button onClick={() => openEditDocument(selectedDoc)} variant="outline" disabled={workflowBusy} className="w-full h-11 border-slate-200 text-slate-600 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50">
                                                         <Edit className="mr-2 h-3.5 w-3.5" /> Editar borrador
@@ -621,11 +627,14 @@ export default function DocumentosPage() {
                                                     Pendiente de decisión por un administrador de la empresa.
                                                 </div>
                                             )}
-                                            {(selectedDoc.status === 'APROBADO' || selectedDoc.status === 'OBSOLETO') && (
+                                            {canWrite && (selectedDoc.status === 'APROBADO' || selectedDoc.status === 'OBSOLETO') && (
                                                 <Button onClick={() => handleCreateVersion(selectedDoc)} disabled={workflowBusy} variant="outline" className="w-full h-11 border-indigo-200 text-indigo-700 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-indigo-50">
                                                     {workflowBusy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-2 h-3.5 w-3.5" />} Crear nueva versión
                                                 </Button>
                                             )}
+                                            <Button onClick={() => void downloadDocumentPdf(selectedDoc)} disabled={pdfBusy} variant="outline" className="w-full">
+                                                {pdfBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />} Descargar ficha PDF
+                                            </Button>
                                             <Button
                                                 disabled={!selectedDoc.fileUrl}
                                                 onClick={() => selectedDoc.fileUrl && window.open(selectedDoc.fileUrl, '_blank', 'noopener,noreferrer')}
@@ -655,13 +664,12 @@ export default function DocumentosPage() {
                                         <SelectTrigger className="w-44 border-slate-200 bg-white h-10 rounded-xl font-bold uppercase text-[10px] tracking-widest"><SelectValue placeholder="TIPO DOCUMENTO" /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="ALL">TODOS</SelectItem>
-                                            {Object.entries(docTypeLabels).map(([k, v]) => (
-                                                <SelectItem key={k} value={k}>{v.toUpperCase()}</SelectItem>
-                                            ))}
+                                            {(standard?.documentTypes || []).map(type => <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>)}
+                                            {Object.entries(typeLabels).filter(([id]) => !standard?.documentTypes.some(type => type.id === id)).map(([id, label]) => <SelectItem key={id} value={id}>{label} (histórico)</SelectItem>)}
 
                                         </SelectContent>
                                     </Select>
-                                    <Button variant="outline" className="h-10 w-10 p-0 border-slate-200 bg-white rounded-xl text-slate-400 hover:text-slate-900 transition-colors"><Filter className="w-4 h-4"/></Button>
+                                    <Button variant="outline" title="Limpiar filtros" aria-label="Limpiar filtros" onClick={() => { setSearch(''); setFilterType('ALL'); }} className="h-10 w-10 p-0 border-slate-200 bg-white rounded-xl text-slate-400 hover:text-slate-900 transition-colors"><Filter className="w-4 h-4"/></Button>
                                 </div>
                             </div>
 
@@ -693,7 +701,7 @@ export default function DocumentosPage() {
                                                         <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-white transition-colors border border-slate-100">{getFileIcon(doc.fileName)}</div>
                                                         <div className="flex flex-col">
                                                             <span className="font-bold text-slate-800 text-sm leading-tight group-hover:text-blue-600 transition-colors">{doc.name}</span>
-                                                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{docTypeLabels[doc.type]}</span>
+                                                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{doc.documentTypeName || typeLabels[doc.type]}</span>
 
                                                         </div>
                                                     </div>
@@ -728,170 +736,16 @@ export default function DocumentosPage() {
                     )}
                 </TabsContent>
 
-                {/* 7.5.2 ESTANDARIZACION (Configuracion) */}
-                <TabsContent value="estandarizacion" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="flex justify-end mb-2">
-                        <Button 
-                            onClick={() => setIsEditingStandard(!isEditingStandard)} 
-                            variant="outline" 
-                            className={cn(
-                                "gap-2 px-6 font-black uppercase text-xs tracking-widest h-12 rounded-xl transition-all",
-                                isEditingStandard ? "bg-amber-500 text-white border-amber-600 hover:bg-amber-600" : "bg-white text-slate-700 border-slate-200"
-                            )}
-                        >
-                            {isEditingStandard ? <><Save className="w-4 h-4" /> Finalizar Edición</> : <><Edit className="w-4 h-4" /> Editar Estándares</>}
-                        </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {/* 1. MACROPROCESOS */}
-                        <Card className="border border-slate-200 rounded-[2.5rem] shadow-sm bg-white overflow-hidden flex flex-col">
-                            <CardHeader className="bg-slate-50 border-b border-slate-100 p-8">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-indigo-500 rounded-2xl text-white shadow-lg shadow-indigo-200">
-                                        <Layers className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-xl font-black uppercase tracking-tighter text-slate-900">Macroprocesos</CardTitle>
-                                        <CardDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Codificación Superior</CardDescription>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-8 space-y-4">
-                                {Object.entries(catPrefixes).map(([cat, pref]) => (
-                                    <div key={cat} className="group flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-2xl transition-all">
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Categoría</span>
-                                            <span className="text-sm font-black text-slate-800 uppercase leading-none">{cat}</span>
-                                        </div>
-                                        {isEditingStandard ? (
-                                            <Input 
-                                                value={pref} 
-                                                onChange={e => setCatPrefixes({...catPrefixes, [cat]: e.target.value.toUpperCase()})}
-                                                className="w-16 h-10 bg-white border-2 border-slate-200 text-center font-black text-indigo-600 uppercase rounded-xl"
-                                                maxLength={3}
-                                            />
-                                        ) : (
-                                            <div className="h-10 w-12 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center font-black text-indigo-600">
-                                                {pref.toUpperCase()}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </CardContent>
-                        </Card>
-
-                        {/* 2. PROCESOS */}
-                        <Card className="border border-slate-200 rounded-[2.5rem] shadow-sm bg-white overflow-hidden flex flex-col shadow-xl">
-                            <CardHeader className="bg-slate-900 border-b border-slate-800 p-8">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
-                                        <CheckCircle2 className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-xl font-black uppercase tracking-tighter text-white">Procesos</CardTitle>
-                                        <CardDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Códigos Operativos</CardDescription>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-8 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
-                                {processes.map(p => (
-                                    <div key={p.id} className="group flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-2xl transition-all">
-                                        <div className="flex flex-col flex-1 truncate mr-4">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Nombre Proceso</span>
-                                            <span className="text-sm font-black text-slate-800 uppercase leading-none truncate">{(p.name || '').toUpperCase()}</span>
-                                        </div>
-                                        <div className="h-10 px-3 bg-white border border-slate-200 rounded-xl flex items-center justify-center font-black text-emerald-600 shadow-sm">
-                                            {(p.code || '').toUpperCase()}
-                                        </div>
-                                    </div>
-                                ))}
-                                {processes.length === 0 && (
-                                    <div className="py-20 text-center grayscale opacity-30">
-                                        <Info className="w-12 h-12 mx-auto mb-4" />
-                                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">Sincroniza procesos en el Mapa de Procesos</p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* 3. TIPOS DOCUMENTALES */}
-                        <Card className="border border-slate-200 rounded-[2.5rem] shadow-sm bg-white overflow-hidden flex flex-col">
-                            <CardHeader className="bg-slate-50 border-b border-slate-100 p-8">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-amber-500 rounded-2xl text-white shadow-lg shadow-amber-200">
-                                        <FileText className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-xl font-black uppercase tracking-tighter text-slate-900">Tipos de Documento</CardTitle>
-                                        <CardDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Códigos de Registro</CardDescription>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-8 space-y-4">
-                                {Object.entries(docTypePrefixes).map(([type, pref]) => (
-                                    <div key={type} className="group flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-2xl transition-all">
-                                        <div className="flex flex-col flex-1 mr-2">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Nombre Tipo</span>
-                                            {isEditingStandard ? (
-                                                <Input 
-                                                    value={docTypeLabels[type as DocumentType]} 
-                                                    onChange={e => setDocTypeLabels({...docTypeLabels, [type]: e.target.value.toUpperCase()})}
-                                                    className="h-9 mt-1 bg-white border-slate-200 font-extrabold text-xs uppercase rounded-lg"
-                                                />
-                                            ) : (
-                                                <span className="text-sm font-black text-slate-800 uppercase leading-none">{docTypeLabels[type as DocumentType]}</span>
-                                            )}
-                                        </div>
-                                        {isEditingStandard ? (
-                                            <Input 
-                                                value={pref} 
-                                                onChange={e => setDocTypePrefixes({...docTypePrefixes, [type]: e.target.value.toUpperCase()})}
-                                                className="w-16 h-10 mt-5 bg-white border-2 border-slate-200 text-center font-black text-amber-600 uppercase rounded-xl"
-                                                maxLength={3}
-                                            />
-                                        ) : (
-                                            <div className="h-10 w-12 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-center font-black text-amber-600">
-                                                {pref.toUpperCase()}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    <div className="p-10 bg-indigo-900 rounded-[3rem] text-white overflow-hidden relative shadow-2xl">
-                        <div className="absolute top-0 right-0 p-12 opacity-10">
-                            <Settings2 className="w-48 h-48 rotate-12" />
-                        </div>
-                        <div className="relative z-10 max-w-2xl">
-                            <h3 className="text-3xl font-black italic tracking-tighter uppercase mb-4">Lógica de Codificación ISO</h3>
-                            <p className="text-indigo-200 text-sm font-medium leading-relaxed mb-8">
-                                La estructura de codificación estándar para el SGC de Vexvel sigue un modelo de cuatro segmentos (AAAA.BBBB.CCCC.NN), garantizando la integridad exigida por la Cláusula 7.5.2 de la norma ISO 9001:2015.
-                            </p>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-black uppercase text-indigo-400">Macro</span>
-                                    <div className="h-12 bg-white/10 rounded-2xl flex items-center justify-center font-black text-xl border border-white/20">ES</div>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-black uppercase text-indigo-400">Proceso</span>
-                                    <div className="h-12 bg-white/10 rounded-2xl flex items-center justify-center font-black text-xl border border-white/20">CAL</div>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-black uppercase text-indigo-400">Tipo</span>
-                                    <div className="h-12 bg-white/10 rounded-2xl flex items-center justify-center font-black text-xl border border-white/20">PR</div>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-black uppercase text-indigo-400">No.</span>
-                                    <div className="h-12 bg-white/10 rounded-2xl flex items-center justify-center font-black text-xl border border-white/20">01</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <TabsContent value="estandarizacion" className="space-y-6">
+                    <Card>
+                        <CardHeader><CardTitle>Estándar documental corporativo</CardTitle><CardDescription>El logo, encabezado, pie de página, tipos y códigos se administran en un único lugar para esta empresa.</CardDescription></CardHeader>
+                        <CardContent className="space-y-5">
+                            <Button asChild><Link href="/apoyo/estandar-documental"><Settings2 className="mr-2 h-4 w-4" /> Abrir estándar documental</Link></Button>
+                            {standard && <><p className="text-sm text-muted-foreground">Ejemplo de codificación: <strong className="font-mono">{formatDocumentCode(standard, standard.documentTypes.find(type => type.active)?.prefix || 'FO', 1)}</strong>. El consecutivo definitivo se asigna al guardar, sin cambiar códigos históricos.</p><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{standard.documentTypes.map(type => <div key={type.id} className="flex items-center justify-between rounded-lg border p-3"><div><p className="font-medium">{type.name}</p><p className="text-xs text-muted-foreground">{typeLabels[type.baseType]} · {type.active ? 'Activo' : 'Inactivo'}</p></div><Badge variant="outline">{type.prefix}</Badge></div>)}</div></>}
+                            <p className="text-sm text-muted-foreground">Los PDF generados usan el estándar corporativo. Los archivos originales adjuntos no se modifican; su ficha PDF identifica el documento, su versión y su trazabilidad.</p>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
-
 
                 {/* 7.5.1 GENERALIDADES */}
                 <TabsContent value="generalidades" className="space-y-6">
@@ -982,82 +836,6 @@ export default function DocumentosPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Modals from previous code preserved and redesigned */}
-            {/* STANDARDIZATION DIALOG (Prefixes) */}
-            <Dialog open={showStandardization} onOpenChange={setShowStandardization}>
-                <DialogContent className="max-w-2xl border-none shadow-2xl rounded-[2rem] p-0 overflow-hidden font-sans bg-white">
-                    <header className="bg-slate-900 text-white p-8 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-10"><Settings2 className="w-20 h-20"/></div>
-                        <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-3 font-sans">
-                             Configuración de Prefijos
-                        </DialogTitle>
-                        <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">Personalización de la Codificación (ISO 7.5.2)</DialogDescription>
-                    </header>
-                    
-                    <div className="p-8 space-y-8 max-h-[60vh] overflow-y-auto">
-                        <div className="space-y-6">
-                            <div>
-                                <h4 className="text-xs font-black uppercase text-slate-800 mb-4 flex items-center gap-2">
-                                    <Layers className="w-4 h-4 text-indigo-500"/> Tipos de Documento
-                                </h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {Object.entries(tempDocTypePrefixes).map(([type, pref]) => (
-                                        <div key={type} className="flex flex-col gap-1.5 focus-within:translate-x-1 transition-transform">
-                                            <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">{docTypeLabels[type as DocumentType]}</Label>
-
-                                            <Input 
-                                                value={pref} 
-                                                onChange={e => setTempDocTypePrefixes({...tempDocTypePrefixes, [type]: e.target.value.toUpperCase()})}
-                                                className="h-10 bg-slate-50 border-none rounded-xl font-black text-xs uppercase"
-                                                maxLength={4}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <Separator className="bg-slate-100" />
-
-                            <div>
-                                <h4 className="text-xs font-black uppercase text-slate-800 mb-4 flex items-center gap-2">
-                                    <LayoutGrid className="w-4 h-4 text-emerald-500"/> Categorías de Proceso
-                                </h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {Object.entries(tempCatPrefixes).map(([cat, pref]) => (
-                                        <div key={cat} className="flex flex-col gap-1.5 focus-within:translate-x-1 transition-transform">
-                                            <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">{cat}</Label>
-                                            <Input 
-                                                value={pref} 
-                                                onChange={e => setTempCatPrefixes({...tempCatPrefixes, [cat]: e.target.value.toUpperCase()})}
-                                                className="h-10 bg-slate-50 border-none rounded-xl font-black text-xs uppercase"
-                                                maxLength={4}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <DialogFooter className="p-8 pt-0 bg-white">
-                        <Button variant="ghost" onClick={() => setShowStandardization(false)} className="h-12 px-8 font-black uppercase text-xs tracking-widest text-slate-400">Cancelar</Button>
-                        <Button 
-                            onClick={() => {
-                                setDocTypePrefixes(tempDocTypePrefixes);
-                                setCatPrefixes(tempCatPrefixes);
-                                setShowStandardization(false);
-                                toast.success("Codificación actualizada", {
-                                    description: "Los nuevos prefijos se aplicarán a los futuros documentos."
-                                });
-                            }} 
-                            className="h-12 px-10 bg-slate-900 text-white font-black uppercase text-xs rounded-xl shadow-xl"
-                        >
-                            <Save className="w-4 h-4 mr-2" /> Guardar Cambios
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
             {/* NEW RECORD MODAL REDESIGN 7.5.2 */}
             <Dialog open={showNew} onOpenChange={open => {
                 if (!workflowBusy) {
@@ -1087,10 +865,16 @@ export default function DocumentosPage() {
                                 </div>
                                 <div className="space-y-2">
                                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo de Documento *</label>
-                                     <Select value={newDoc.type} onValueChange={v => setNewDoc({ ...newDoc, type: v as DocumentType })}>
-                                        <SelectTrigger className="h-12 bg-slate-50 border-none rounded-2xl font-bold shadow-inner"><SelectValue /></SelectTrigger>
-                                        <SelectContent className="font-sans">{Object.entries(docTypeLabels).map(([k,v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}</SelectContent>
-
+                                     <Select value={newDoc.documentTypeId || (editingDocumentId ? `legacy:${newDoc.type}` : '')} onValueChange={value => {
+                                         const selectedType = activeTypes.find(type => type.id === value);
+                                         if (selectedType) setNewDoc({ ...newDoc, type: selectedType.baseType, documentTypeId: selectedType.id });
+                                     }}>
+                                        <SelectTrigger className="h-12 bg-slate-50 border-none rounded-2xl font-bold shadow-inner"><SelectValue placeholder="Seleccione tipo documental" /></SelectTrigger>
+                                        <SelectContent className="font-sans">
+                                            {activeTypes.map(type => <SelectItem key={type.id} value={type.id}>{type.name} ({type.prefix})</SelectItem>)}
+                                            {editingDocumentId && newDoc.documentTypeId && !activeTypes.some(type => type.id === newDoc.documentTypeId) && <SelectItem value={newDoc.documentTypeId} disabled>{standard?.documentTypes.find(type => type.id === newDoc.documentTypeId)?.name || typeLabels[newDoc.type]} (inactivo)</SelectItem>}
+                                            {editingDocumentId && !newDoc.documentTypeId && <SelectItem value={`legacy:${newDoc.type}`} disabled>{typeLabels[newDoc.type]} (clasificación histórica)</SelectItem>}
+                                        </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-2 pt-2">
@@ -1107,8 +891,9 @@ export default function DocumentosPage() {
 
                             <div className="space-y-4">
                                 <div className="p-6 bg-slate-900 rounded-[2rem] flex flex-col justify-center items-center text-center">
-                                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2">Código Generado (7.5.2 a)</label>
-                                    <div className="text-3xl font-black text-white tracking-tighter">{newDoc.code || '---'}</div>
+                                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2">Código documental (7.5.2 a)</label>
+                                    <div className="break-all text-xl font-black text-white tracking-tighter">{newDoc.code || 'Se asigna al guardar'}</div>
+                                    {!editingDocumentId && <p className="mt-2 text-xs text-slate-400">Consecutivo único de la empresa; no se reserva al abrir este formulario.</p>}
                                     <div className="mt-4 flex gap-4">
                                         <div className="text-center">
                                             <p className="text-[9px] font-black text-slate-500 uppercase">Versión</p>
@@ -1121,6 +906,7 @@ export default function DocumentosPage() {
                                         </div>
                                     </div>
                                 </div>
+                                {!editingDocumentId && <div className="space-y-2"><Label htmlFor="manual-document-code">Código existente (opcional)</Label><Input id="manual-document-code" value={newDoc.code || ''} maxLength={100} placeholder="Vacío = código automático" onChange={event => setNewDoc({ ...newDoc, code: event.target.value.toUpperCase() })} /><p className="text-xs text-muted-foreground">Úselo solo para registrar un documento que ya tiene un código. Se verificará que no esté duplicado.</p></div>}
                                 <div className="space-y-2">
                                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Título descriptivo del recurso *</label>
                                      <Input placeholder="Ej: PROCEDIMIENTO DE VENTAS" className="h-14 bg-slate-50 border-none rounded-2xl font-black text-sm uppercase px-6 focus-visible:ring-indigo-500" value={newDoc.name || ''} onChange={e => setNewDoc({ ...newDoc, name: e.target.value.toUpperCase() })} />
@@ -1141,7 +927,7 @@ export default function DocumentosPage() {
                         <Button variant="ghost" disabled={workflowBusy} onClick={() => { setShowNew(false); resetDocumentForm(); }} className="h-14 px-8 font-black uppercase text-[10px] tracking-widest text-slate-400 hover:text-slate-600">Cancelar</Button>
                         <Button 
                             onClick={handleSaveDocument}
-                            disabled={workflowBusy}
+                            disabled={workflowBusy || !canWrite || (!editingDocumentId && !standard)}
                             className="h-14 px-12 bg-slate-900 text-white font-black uppercase text-xs rounded-2xl shadow-2xl shadow-slate-900/20"
                         >
                             {workflowBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -1211,124 +997,6 @@ export default function DocumentosPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* MODAL: SINCRONIZAR NUEVO PROCESO (Vinculación 4.4 <-> 7.5) */}
-            <Dialog open={showProcessModal} onOpenChange={setShowProcessModal}>
-                <DialogContent className="max-w-xl border-none shadow-2xl rounded-[2rem] p-0 overflow-hidden font-sans bg-white">
-                    <header className="bg-indigo-900 text-white p-8 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-10"><Layers className="w-20 h-20"/></div>
-                        <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-3">
-                             <Plus className="h-6 w-6 text-indigo-400" /> Sincronizar Proceso
-                        </DialogTitle>
-                        <DialogDescription className="text-indigo-300 font-bold uppercase tracking-widest text-[10px] mt-2 leading-relaxed">
-                            Crea un nuevo proceso en el Mapa (4.4) y genera automáticamente su documentación base.
-                        </DialogDescription>
-                    </header>
-                    
-                    <div className="p-8 space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase text-slate-400">Macroproceso (Categoría)</Label>
-                                <Select value={newProcess.category} onValueChange={v => setNewProcess({...newProcess, category: v})}>
-                                    <SelectTrigger className="h-12 bg-slate-50 border-none rounded-xl font-bold">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {Object.keys(initialCategoryPrefixes).map(cat => (
-                                            <SelectItem key={cat} value={cat} className="font-bold">{cat}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase text-slate-400">Código del Proceso (ej: COM)</Label>
-                                <Input 
-                                    placeholder="COM, OPS, CAL..." 
-                                    className="h-12 bg-slate-50 border-none rounded-xl font-black uppercase" 
-                                    value={newProcess.code}
-                                    onChange={e => setNewProcess({...newProcess, code: e.target.value.toUpperCase()})}
-                                    maxLength={4}
-                                />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-slate-400">Nombre Completo del Proceso</Label>
-                            <Input 
-                                placeholder="Ej: Gestión Comercial" 
-                                className="h-12 bg-slate-50 border-none rounded-xl font-black uppercase" 
-                                value={newProcess.name}
-                                onChange={e => setNewProcess({...newProcess, name: e.target.value.toUpperCase()})}
-                            />
-                        </div>
-                        
-                        <div className="p-5 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-start gap-4">
-                            <Info className="w-5 h-5 text-indigo-600 mt-0.5" />
-                            <p className="text-[11px] text-indigo-900/70 font-medium leading-relaxed">
-                                Al sincronizar, el sistema creará automáticamente el documento de <strong>Caracterización</strong> en el Listado Maestro con el código: {catPrefixes[newProcess.category as ProcessCategory] || '--'}.{newProcess.code || '---'}.CP.01
-                            </p>
-                        </div>
-                    </div>
-
-                    <DialogFooter className="p-8 pt-0 bg-white">
-                        <Button variant="ghost" onClick={() => setShowProcessModal(false)} className="h-12 px-8 font-black uppercase text-xs tracking-widest text-slate-400">Cancelar</Button>
-                        <Button 
-                            onClick={() => {
-                                if(!newProcess.name || !newProcess.code) {
-                                    toast.error("Complete todos los campos del proceso");
-                                    return;
-                                }
-                                
-                                const pToAdd: Process = {
-                                    id: `proc-${Date.now()}`,
-                                    tenantId: tenant.id,
-                                    name: newProcess.name,
-                                    code: newProcess.code,
-                                    category: newProcess.category as ProcessCategory,
-                                    active: true,
-                                    order: processes.length,
-                                    objective: '',
-                                    scope: '',
-                                    responsibleId: ''
-                                };
-                                
-                                // 1. Agregar a la lista de procesos para que salga en la tarjeta
-                                setProcesses(prev => [...prev, pToAdd]);
-                                
-                                // 2. Generar automáticamente su caracterización en el listado maestro
-                                const macro = catPrefixes[pToAdd.category as ProcessCategory] || 'GN';
-                                const cpCode = `${macro}.${pToAdd.code}.CP.01`;
-                                
-                                const cpDoc: Document = {
-                                    id: `cp-${pToAdd.id}`,
-                                    tenantId: tenant.id,
-                                    code: cpCode,
-                                    name: `Caracterización del Proceso ${pToAdd.name}`,
-                                    type: 'PROCEDIMIENTO',
-                                    processName: pToAdd.category,
-                                    processId: pToAdd.id,
-                                    currentVersion: 1,
-                                    status: 'BORRADOR', // Inicia en borrador como exige la norma para nuevos
-                                    author: currentUser?.name || 'Sistema',
-                                    fileName: `cp-${pToAdd.code.toLowerCase()}.pdf`,
-                                    createdBy: currentUser?.id || 'Sistema',
-                                    createdByName: currentUser?.name || 'Sistema',
-                                    createdAt: new Date(),
-                                    updatedAt: new Date(),
-                                };
-                                
-                                setDocuments(prev => [cpDoc, ...prev]);
-                                
-                                setShowProcessModal(false);
-                                toast.success("Proceso Sincronizado", {
-                                    description: `Se ha creado el proceso y su caracterización ${cpCode}.`
-                                });
-                            }} 
-                            className="h-12 px-10 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-xs rounded-xl shadow-xl shadow-indigo-500/20"
-                        >
-                            Confirmar Sincronización
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }

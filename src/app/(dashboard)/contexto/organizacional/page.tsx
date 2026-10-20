@@ -1,29 +1,25 @@
 "use client";
 
+import Link from 'next/link';
+
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/app-context';
 import {
     Plus, Edit, Trash2, Save, Lightbulb, ShieldCheck,
-    AlertTriangle, TrendingUp as ChartLine, Eye,
-    ShieldAlert, User, Clock, CheckCircle, Info,
-    Download, HelpCircle, Settings
+    AlertTriangle, Eye,
+    ShieldAlert, Clock, Info,
+    Download, HelpCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { DOFAItem, DOFACategory } from '@/lib/types';
 import { toast } from 'sonner';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { domToPng } from 'modern-screenshot';
-import { useRef } from 'react';
-import { DocumentHeader } from '@/components/DocumentHeader';
+import { downloadStandardPdf } from '@/lib/document-pdf';
 
 // Elegant Bento/DOFA Palette
 const categoryConfig: Record<DOFACategory, {
@@ -69,26 +65,15 @@ export default function ContextoOrganizacionalPage() {
     const [showISOInfo, setShowISOInfo] = useState(false);
     const [newItem, setNewItem] = useState<Partial<DOFAItem>>({ category: 'FORTALEZA' });
     const [isExporting, setIsExporting] = useState(false);
-    const pdfRef = useRef<HTMLDivElement>(null);
     
     // Document Metadata State (Configurable)
     const [docMetadata, setDocMetadata] = useState({
-        code: 'DIR-REG-001',
+        code: '',
         version: '01',
-        approvalDate: new Date().toISOString().split('T')[0]
+        approvalDate: ''
     });
     const [showConfig, setShowConfig] = useState(false);
     
-    // Coding Standard States
-    const [processes, setProcesses] = useState<any[]>([]);
-    const [catPrefixes, setCatPrefixes] = useState<any>(null);
-    const [docTypePrefixes, setDocTypePrefixes] = useState<any>(null);
-    const [builder, setBuilder] = useState({
-        processId: '',
-        type: 'REGISTRO',
-        consecutive: '001'
-    });
-
     useEffect(() => {
         const fetchItems = async () => {
             try {
@@ -105,6 +90,7 @@ export default function ContextoOrganizacionalPage() {
         };
 
         const fetchMetadata = async () => {
+            setDocMetadata({ code: '', version: '01', approvalDate: '' });
             try {
                 const res = await fetch(`/api/formatos?tenantId=${tenant.id}&moduleKey=4.1`);
                 const data = await res.json();
@@ -124,149 +110,32 @@ export default function ContextoOrganizacionalPage() {
         if (tenant?.id) {
             fetchMetadata();
             
-            // Fetch standards for coding
-            const savedCats = localStorage.getItem('sgc_cat_prefixes');
-            const savedDocs = localStorage.getItem('sgc_doc_prefixes');
-            if (savedCats) setCatPrefixes(JSON.parse(savedCats));
-            if (savedDocs) setDocTypePrefixes(JSON.parse(savedDocs));
-
-            const fetchProcesses = async () => {
-                try {
-                    const res = await fetch(`/api/procesos?tenantId=${tenant.id}`);
-                    const data = await res.json();
-                    if (data && !data.error) setProcesses(data);
-                } catch (e) { console.error(e); }
-            };
-            fetchProcesses();
         }
     }, [tenant?.id]);
 
-    // Auto-generate code when builder changes
-    useEffect(() => {
-        if (showConfig && builder.processId && catPrefixes && docTypePrefixes) {
-            const process = processes.find(p => p.id === builder.processId);
-            if (process) {
-                const macro = catPrefixes[process.category] || 'GN';
-                const procCode = process.code || 'PROC';
-                const type = docTypePrefixes[builder.type] || 'RE';
-                const generated = `${macro}.${procCode}.${type}.${builder.consecutive}`;
-                setDocMetadata(prev => ({ ...prev, code: generated }));
-            }
-        }
-    }, [builder, showConfig, catPrefixes, docTypePrefixes, processes]);
-
-    const handleSaveConfig = async () => {
-        if (!tenant?.id) return toast.error('Error: Empresa no identificada');
+    const handleDownloadPDF = async () => {
+        setIsExporting(true);
         try {
-            const res = await fetch('/api/formatos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tenantId: tenant.id,
-                    moduleKey: '4.1',
-                    ...docMetadata
-                }),
+            await downloadStandardPdf({
+                tenantId: tenant.id,
+                moduleKey: '4.1',
+                title: 'Análisis de contexto — Matriz DOFA',
+                filename: 'Analisis_DOFA.pdf',
+                sections: categories.map(category => ({
+                    title: categoryConfig[category].plural,
+                    head: ['Descripción', 'Impacto', 'Estrategia de acción', 'Responsable'],
+                    rows: items.filter(item => item.category === category).map(item => [
+                        item.description || '—', item.impact || 'Sin definir',
+                        item.actions || '—', item.responsible || '—',
+                    ]),
+                })),
             });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            
-            setShowConfig(false);
-            toast.success('Configuración de encabezado guardada');
-        } catch (error) {
-            toast.error('Error al guardar la configuración');
-        }
-    };
-
-    const handleDownloadPDF = () => {
-        try {
-            // Asegurar que tenemos metadatos básicos
-            const safeCode = docMetadata.code || 'SGC-DOFA-001';
-            const safeVersion = docMetadata.version || '01';
-            const safeDate = docMetadata.approvalDate || new Date().toISOString().split('T')[0];
-            const safeTenantName = tenant?.name || "Calidad SGC";
-
-            const doc = new jsPDF('p', 'mm', 'letter');
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const margin = 20;
-
-            // --- 1. ENCABEZADO FORMAL ISO ---
-            const headerHeight = 22;
-            doc.setDrawColor(30, 41, 59);
-            doc.setLineWidth(0.4);
-            doc.rect(margin, margin, pageWidth - (margin * 2), headerHeight);
-            
-            const col1Width = 40;
-            const col3Width = 60;
-            const col2Width = pageWidth - (margin * 2) - col1Width - col3Width;
-
-            doc.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
-            doc.line(margin + col1Width + col2Width, margin, margin + col1Width + col2Width, margin + headerHeight);
-
-            // --- 1. LOGO O NOMBRE DE EMPRESA ---
-            if (tenant?.logo) {
-                try {
-                    // El logo en tenant.logo es un base64 (DataURL)
-                    doc.addImage(tenant.logo, 'PNG', margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
-                } catch (e) {
-                    console.error("Error adding logo to PDF:", e);
-                    doc.setFontSize(9).setFont('helvetica', 'bold');
-                    doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-                }
-            } else {
-                doc.setFontSize(9).setFont('helvetica', 'bold');
-                doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-            }
-
-            doc.setFontSize(14).text("Análisis de contexto", margin + col1Width + col2Width/2, margin + 14, { align: 'center' });
-            // Eliminado subtítulo ISO por solicitud del usuario
-
-            doc.setFontSize(8).setFont('helvetica', 'normal');
-            const metaX = margin + col1Width + col2Width + 4;
-            // Subimos las posiciones Y unos píxeles (antes 6, 11, 16, 21)
-            doc.text(`Código: ${safeCode}`, metaX, margin + 5);
-            doc.text(`Versión: ${safeVersion}`, metaX, margin + 9.5);
-            doc.text(`Fecha: ${safeDate}`, metaX, margin + 14);
-            doc.text(`Página: 1 de 1`, metaX, margin + 18.5);
-
-            let currentY = margin + headerHeight + 10;
-
-            // --- 2. TABLAS POR CATEGORÍA ---
-            categories.forEach((cat) => {
-                const cfg = categoryConfig[cat];
-                const catItems = items.filter(i => i.category === cat);
-                const colors: Record<DOFACategory, [number, number, number]> = {
-                    FORTALEZA: [22, 163, 74], OPORTUNIDAD: [37, 99, 235], DEBILIDAD: [217, 119, 6], AMENAZA: [225, 29, 72]
-                };
-
-                doc.setFontSize(10).setFont('helvetica', 'bold');
-                doc.setTextColor(colors[cat][0], colors[cat][1], colors[cat][2]);
-                doc.text(`${cfg.plural.toUpperCase()}`, margin, currentY);
-                currentY += 4;
-
-                autoTable(doc, {
-                    startY: currentY,
-                    head: [['Descripción', 'Impacto', 'Estrategia de Acción', 'Responsable']],
-                    body: catItems.length > 0 ? catItems.map(item => [item.description || '-', item.impact || 'Medio', item.actions || '-', item.responsible || '-']) : [['Ninguno', '-', '-', '-']],
-                    styles: { fontSize: 8, cellPadding: 3, textColor: [30, 41, 59] },
-                    headStyles: { fillColor: colors[cat], textColor: [255, 255, 255], fontStyle: 'bold' },
-                    margin: { left: margin, right: margin }
-                });
-
-                currentY = (doc as any).lastAutoTable.finalY + 12;
-                if (currentY > pageHeight - 30) {
-                    doc.addPage();
-                    currentY = margin + 10;
-                }
-            });
-
-            // 100% SÍNCRONO: doc.save usa la ventana de activación del usuario nativa
-            doc.save(`Analisis_DOFA_${safeTenantName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'documento'}.pdf`);
             toast.success('Documento descargado exitosamente');
-
-        } catch (error: any) {
+        } catch (error) {
             console.error('ERROR_PDF:', error);
-            toast.error('Error al descargar');
+            toast.error(error instanceof Error ? error.message : 'Error al descargar el PDF');
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -355,9 +224,9 @@ export default function ContextoOrganizacionalPage() {
                         
                         {/* UI Document Metadata (Now Dynamic) */}
                         <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setShowConfig(true)}>
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Código: {docMetadata.code}</span>
+                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Código: {docMetadata.code || 'Automático según estándar'}</span>
                             <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Versión: {docMetadata.version}</span>
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Aprobación: {docMetadata.approvalDate}</span>
+                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Aprobación: {docMetadata.approvalDate || 'Sin registrar'}</span>
                         </div>
                     </div>
                 </div>
@@ -371,6 +240,7 @@ export default function ContextoOrganizacionalPage() {
                     </Button>
                     <Button
                         onClick={handleDownloadPDF}
+                        disabled={isExporting}
                         variant="outline"
                         className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10"
                     >
@@ -388,16 +258,7 @@ export default function ContextoOrganizacionalPage() {
             </div>
 
             {/* DOFA Sections Grid */}
-            <div id="pdf-content" ref={pdfRef} className={cn("bg-[#f8fafc] p-4 rounded-xl", isExporting && "p-8")}>
-                <div className={cn("hidden mb-6", isExporting && "block")}>
-                    <DocumentHeader 
-                        title="ANÁLISIS DE CONTEXTO (MATRIZ DOFA)"
-                        code={docMetadata.code}
-                        version={docMetadata.version}
-                        approvalDate={docMetadata.approvalDate}
-                        logoUrl={tenant?.logo || tenant?.logoUrl || undefined}
-                    />
-                </div>
+            <div className="bg-[#f8fafc] p-4 rounded-xl">
 
                 <div className="space-y-12">
                 {categories.map(cat => {
@@ -684,111 +545,10 @@ export default function ContextoOrganizacionalPage() {
             {/* ISO 9001:2015 Clause 4.1 Info Dialog - Professional Redesign */}
             {/* Configuration Dialog */}
             <Dialog open={showConfig} onOpenChange={setShowConfig}>
-                <DialogContent className="max-w-lg bg-white border border-slate-200/60 rounded-2xl shadow-xl p-0 overflow-hidden">
-                    {/* Clean Light Header */}
-                    <div className="px-6 pt-6 pb-4 border-b border-slate-100">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                                <Settings className="w-5 h-5 text-blue-500" />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-800">Configurar Documento</h2>
-                                <p className="text-xs text-slate-400 mt-0.5">Metadatos del Análisis de Contexto (4.1)</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="px-6 py-5 space-y-5">
-                        {/* Code Builder Section */}
-                        <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
-                            <div className="flex items-center gap-2 mb-1">
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                                <span className="text-[11px] font-semibold text-blue-600 uppercase tracking-wide">Asistente de Codificación</span>
-                            </div>
-                            
-                            <div className="space-y-3">
-                                <div>
-                                    <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Proceso Responsable</Label>
-                                    <Select value={builder.processId} onValueChange={(val) => setBuilder({...builder, processId: val})}>
-                                        <SelectTrigger className="h-10 bg-white border-slate-200 rounded-lg text-sm">
-                                            <SelectValue placeholder="Seleccionar proceso..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {processes.map(p => (
-                                                <SelectItem key={p.id} value={p.id} className="text-sm">
-                                                    {p.name} ({p.code})
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Tipo Documental</Label>
-                                        <Select value={builder.type} onValueChange={(val) => setBuilder({...builder, type: val})}>
-                                            <SelectTrigger className="h-10 bg-white border-slate-200 rounded-lg text-sm">
-                                                <SelectValue placeholder="Tipo" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {docTypePrefixes && Object.keys(docTypePrefixes).map(t => (
-                                                    <SelectItem key={t} value={t} className="text-sm">{t}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Consecutivo</Label>
-                                        <Input 
-                                            value={builder.consecutive}
-                                            onChange={e => setBuilder({...builder, consecutive: e.target.value})}
-                                            className="h-10 bg-white border-slate-200 rounded-lg text-sm text-center font-semibold"
-                                            placeholder="001"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Code Result */}
-                        <div>
-                            <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Código del Documento</Label>
-                            <Input 
-                                value={docMetadata.code}
-                                onChange={e => setDocMetadata({...docMetadata, code: e.target.value.toUpperCase()})}
-                                className="h-12 border-slate-200 bg-slate-50/70 rounded-lg font-bold text-blue-600 uppercase text-center text-base tracking-wider"
-                            />
-                        </div>
-
-                        {/* Version & Date Row */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Versión</Label>
-                                <Input 
-                                    value={docMetadata.version}
-                                    onChange={e => setDocMetadata({...docMetadata, version: e.target.value})}
-                                    className="h-10 border-slate-200 bg-slate-50/70 rounded-lg font-semibold text-sm"
-                                />
-                            </div>
-                            <div>
-                                <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Fecha de Aprobación</Label>
-                                <Input 
-                                    type="date"
-                                    value={docMetadata.approvalDate}
-                                    onChange={e => setDocMetadata({...docMetadata, approvalDate: e.target.value})}
-                                    className="h-10 border-slate-200 bg-slate-50/70 rounded-lg font-medium text-sm"
-                                />
-                            </div>
-                        </div>
-                        
-                        <p className="text-[11px] text-slate-400 italic">* Estos datos se reflejarán en el encabezado oficial del PDF.</p>
-                    </div>
-                    
-                    {/* Footer */}
-                    <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-3">
-                        <Button variant="ghost" onClick={() => setShowConfig(false)} className="text-slate-500 text-sm font-medium h-10 px-4 rounded-lg hover:bg-slate-100">Cancelar</Button>
-                        <Button onClick={handleSaveConfig} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 h-10 rounded-lg shadow-sm">Guardar Configuración</Button>
-                    </div>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader><DialogTitle>Estándar documental de la empresa</DialogTitle></DialogHeader>
+                    <p className="text-sm text-slate-600">El logo, el encabezado, los tipos documentales y los códigos se administran en un único lugar. Las descargas PDF usan siempre esa configuración.</p>
+                    <Button asChild><Link href="/apoyo/estandar-documental">Abrir estándar documental</Link></Button>
                 </DialogContent>
             </Dialog>
 

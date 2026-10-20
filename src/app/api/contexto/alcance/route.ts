@@ -1,78 +1,58 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import prisma from '@/lib/db';
+import { ApiError, apiError, requireTenantAccess } from '@/lib/api-auth';
+
+const scopeSchema = z.object({
+    id: z.string().trim().min(1).max(200).optional(),
+    tenantId: z.string().trim().min(1).max(200),
+    scopeStatement: z.string().trim().min(1, 'La declaración de alcance es obligatoria.').max(100000),
+});
 
 export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get('tenantId');
-
-    if (!tenantId) {
-        return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
-    }
-
     try {
+        const tenantId = new URL(request.url).searchParams.get('tenantId')?.trim() ?? '';
+        await requireTenantAccess(request, tenantId);
         const scope = await prisma.sGCScope.findFirst({
             where: { tenantId },
             orderBy: { lastReviewDate: 'desc' },
         });
         return NextResponse.json(scope);
     } catch (error) {
-        return NextResponse.json({ error: 'Failed to fetch scope' }, { status: 500 });
+        return apiError(error);
     }
 }
 
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
-        const { id, tenantId, scopeStatement, approvedBy } = body;
-
-        if (!tenantId || !scopeStatement) {
-            return NextResponse.json({ error: 'Faltan campos obligatorios (tenantId, scopeStatement)' }, { status: 400 });
-        }
-
-        // Asegurar que el tenant existe
-        const tenantExists = await prisma.tenant.findUnique({ where: { id: tenantId } });
-        if (!tenantExists) {
-            await prisma.tenant.create({
-                data: {
-                    id: tenantId,
-                    name: 'Empresa Demo',
-                    slug: `demo-${tenantId.slice(-4)}`,
-                    active: true,
-                }
+        const raw = await request.json();
+        await requireTenantAccess(request, raw?.tenantId, { write: true });
+        const { id, tenantId, scopeStatement } = scopeSchema.parse(raw);
+        if (id) {
+            const existing = await prisma.sGCScope.findFirst({ where: { id, tenantId } });
+            if (!existing) throw new ApiError(404, 'Alcance no encontrado en esta empresa.');
+            const updated = await prisma.sGCScope.update({
+                where: { id, tenantId, updatedAt: existing.updatedAt },
+                // Saving the declaration must not erase the remaining scope information.
+                data: { scopeStatement, lastReviewDate: new Date() },
             });
+            return NextResponse.json(updated);
         }
-
-        const data = {
-            tenantId,
-            scopeStatement,
-            applicableStandards: [],
-            exclusions: [],
-            sites: [],
-            processes: [],
-            lastReviewDate: new Date(),
-            approvedBy: approvedBy || 'Admin',
-        };
-
-        let result;
-        if (id && !id.startsWith('scope-')) {
-            // Update existing using real ID
-            result = await prisma.sGCScope.update({
-                where: { id },
-                data,
-            });
-        } else {
-            // Create new
-            result = await prisma.sGCScope.create({
-                data,
-            });
-        }
-
-        return NextResponse.json(result);
-    } catch (error: any) {
-        console.error('Error detallado en Alcance API:', error);
-        return NextResponse.json({
-            error: 'Error al procesar la solicitud en el servidor',
-            details: error.message
-        }, { status: 500 });
+        const created = await prisma.sGCScope.create({
+            data: {
+                tenantId,
+                scopeStatement,
+                applicableStandards: [],
+                exclusions: [],
+                sites: [],
+                processes: [],
+                lastReviewDate: new Date(),
+                // This endpoint saves content; it does not constitute an approval.
+                approvedBy: '',
+            },
+        });
+        return NextResponse.json(created);
+    } catch (error) {
+        return apiError(error);
     }
 }

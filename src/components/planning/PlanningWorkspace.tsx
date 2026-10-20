@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search } from 'lucide-react';
+import { Download, Loader2, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApp } from '@/context/app-context';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { downloadStandardPdf, type PdfSection } from '@/lib/document-pdf';
 
 type Option = { id: string; name: string };
 type Form = Record<string, string>;
@@ -63,6 +64,11 @@ function FieldInput({ field, form, setForm, disabled = false }: { field: Field; 
 }
 
 export function PlanningWorkspace({ kind }: { kind: 'risk' | 'change' }) {
+    const { tenant } = useApp();
+    return <PlanningWorkspaceContent key={`${tenant.id}:${kind}`} kind={kind} />;
+}
+
+function PlanningWorkspaceContent({ kind }: { kind: 'risk' | 'change' }) {
     const { tenant, currentUser } = useApp();
     const [records, setRecords] = useState<Plan[]>([]);
     const [metadata, setMetadata] = useState<Metadata>(emptyMetadata);
@@ -76,6 +82,8 @@ export function PlanningWorkspace({ kind }: { kind: 'risk' | 'change' }) {
     const [evaluating, setEvaluating] = useState(false);
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState('');
+    const [exporting, setExporting] = useState(false);
+    const [loadedTenantId, setLoadedTenantId] = useState('');
     const risk = kind === 'risk';
     const canWrite = !!currentUser && ['SUPER_ADMIN', 'ADMIN_EMPRESA', 'USUARIO'].includes(currentUser.role);
     const endpoint = `/api/planificacion/${risk ? 'riesgos' : 'cambios'}`;
@@ -84,11 +92,12 @@ export function PlanningWorkspace({ kind }: { kind: 'risk' | 'change' }) {
         if (!tenant.id) return;
         setLoading(true);
         setError('');
+        setLoadedTenantId('');
         try {
             const response = await fetch(`${endpoint}?tenantId=${encodeURIComponent(tenant.id)}`, { cache: 'no-store', signal });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'No fue posible cargar los registros.');
-            if (!signal?.aborted) { setRecords(data.records); setMetadata(data); }
+            if (!signal?.aborted) { setRecords(data.records); setMetadata(data); setLoadedTenantId(tenant.id); }
         } catch (caught) {
             if (!signal?.aborted) { setError(caught instanceof Error ? caught.message : 'Error de conexión.'); setRecords([]); setMetadata(emptyMetadata); }
         } finally { if (!signal?.aborted) setLoading(false); }
@@ -155,6 +164,76 @@ export function PlanningWorkspace({ kind }: { kind: 'risk' | 'change' }) {
         return matchesQuery && (filter === 'ALL' || (filter === 'CLOSED' ? isClosed(record) : filter === 'OPEN' ? !isClosed(record) : record.kind === filter));
     }), [records, query, filter]);
     const editable = canWrite && (!selected || !isClosed(selected));
+    const exportReady = !loading && !error && !saving && !exporting && !!tenant.id && loadedTenantId === tenant.id;
+
+    const planRows = (plan: Record<string, unknown>): Array<Array<string | number>> => fields.map(field => {
+        let value = String(plan[field.name] ?? '').trim() || 'Sin información registrada';
+        if (field.name === 'processId') value = String(plan.processName || metadata.processes.find(item => item.id === plan.processId)?.name || 'Proceso no disponible');
+        if (field.name === 'responsibleId') value = String(plan.responsibleName || plan.responsible || metadata.users.find(item => item.id === plan.responsibleId)?.name || 'Responsable no disponible');
+        if (field.name === 'sourceType') value = sourceTypes.find(item => item.id === plan.sourceType)?.name || 'Origen no registrado';
+        if (field.name === 'sourceId') {
+            const origins = plan.sourceType === 'CONTEXTO' ? metadata.dofa.map(item => ({ id: item.id, name: `${item.category}: ${item.description}` }))
+                : plan.sourceType === 'PARTE_INTERESADA' ? metadata.stakeholders : metadata.processes;
+            value = origins.find(item => item.id === plan.sourceId)?.name || 'Registro de origen no disponible; consulte la referencia declarada';
+        }
+        if (field.name === 'status') value = statuses[String(plan.status)] || String(plan.status || 'Sin estado');
+        if (field.name === 'kind') value = plan.kind === 'OPORTUNIDAD' ? 'Oportunidad' : 'Riesgo';
+        if (field.type === 'date') value = plan[field.name] ? dateText(String(plan[field.name])) : 'Sin fecha';
+        const label = field.name === 'impact' ? (plan.kind === 'OPORTUNIDAD' ? 'Beneficio esperado (1–5)' : 'Impacto (1–5)') : field.label;
+        return [label, value];
+    });
+
+    const exportPdf = async (record?: Plan) => {
+        if (!exportReady) return;
+        setExporting(true);
+        try {
+            const included = record ? [record] : filtered;
+            const sections: PdfSection[] = [
+                { text: `Registros incluidos: ${included.length}. ${record ? 'Detalle del registro guardado.' : `Filtros: ${query || 'sin texto de búsqueda'}; ${filter === 'ALL' ? 'todos' : filter === 'OPEN' ? 'pendientes' : filter === 'CLOSED' ? 'cerrados' : filter === 'RIESGO' ? 'riesgos' : 'oportunidades'}.`} El estado refleja el seguimiento registrado; la descarga no constituye aprobación.` },
+            ];
+            if (!record) sections.push({
+                title: risk ? 'Resumen de riesgos y oportunidades' : 'Resumen de cambios',
+                head: ['Registro', 'Proceso', 'Responsable', 'Fecha límite', 'Estado'],
+                rows: included.map(item => [item.description || item.title || 'Sin título', item.processName || 'Sin proceso', item.responsibleName || item.responsible || 'Sin responsable', dateText(item.dueDate), statuses[item.status] || item.status]),
+            });
+            included.forEach((item, index) => {
+                sections.push(
+                    { title: `${index + 1}. ${item.description || item.title || 'Registro'}`, head: ['Campo', 'Información'], rows: planRows(item) },
+                    { title: 'Trazabilidad del registro', head: ['Campo', 'Información'], rows: [
+                        ['Creado por', item.createdByName || 'Sin dato histórico'],
+                        ['Fecha de creación', dateText(item.createdAt)],
+                        ['Última actualización', dateText(item.updatedAt)],
+                        ...(risk ? [['Valoración inicial', `${item.riskValue ?? 'Sin dato'} / 25`]] : []),
+                    ] },
+                );
+                if (!item.reviews.length) sections.push({ title: 'Evaluación de eficacia', text: 'No hay evaluaciones registradas.' });
+                item.reviews.forEach((review, reviewIndex) => {
+                    sections.push({ title: `Evaluación ${reviewIndex + 1}`, head: ['Campo', 'Información'], rows: [
+                        ['Fecha', dateText(review.createdAt)],
+                        ['Evaluador', review.userName],
+                        ['Resultado', review.result === 'EFICAZ' ? 'Eficaz' : review.result === 'NO_EFICAZ' ? 'No eficaz' : review.result],
+                        ['Evaluación frente al criterio planificado', review.evaluation],
+                        ['Evidencia verificable', review.evidence],
+                        ['Seguimiento y ajustes', review.followUp || 'Sin seguimiento adicional registrado'],
+                        ...(review.residualProbability != null && review.residualImpact != null ? [['Valoración residual', `${review.residualProbability} × ${review.residualImpact} = ${review.residualProbability * review.residualImpact}`]] : []),
+                    ] });
+                    if (review.planSnapshot) sections.push({ title: `Plan conservado en la evaluación ${reviewIndex + 1}`, head: ['Campo', 'Información'], rows: planRows(review.planSnapshot) });
+                });
+            });
+            await downloadStandardPdf({
+                tenantId: tenant.id,
+                moduleKey: risk ? '6.1' : '6.3',
+                title: record ? `${risk ? (record.kind === 'OPORTUNIDAD' ? 'Oportunidad' : 'Riesgo') : 'Plan de cambio'}: ${record.description || record.title}` : risk ? 'Registro de riesgos y oportunidades' : 'Registro de planificación de cambios',
+                filename: `${risk ? 'Riesgos_oportunidades' : 'Planificacion_cambios'}${record ? '_detalle' : ''}.pdf`,
+                metadata: { status: record ? statuses[record.status] || record.status : 'Registro de seguimiento', approvalDate: null },
+                sections,
+            });
+        } catch (caught) {
+            toast.error(caught instanceof Error ? caught.message : 'No fue posible generar el PDF.');
+        } finally {
+            setExporting(false);
+        }
+    };
 
     const openPlan = (plan: Plan | null) => {
         setSelected(plan); setEvaluating(false); setFormError('');
@@ -190,7 +269,10 @@ export function PlanningWorkspace({ kind }: { kind: 'risk' | 'change' }) {
         <div className="flex flex-wrap items-start justify-between gap-4">
             <div><h1 className="text-2xl font-semibold">{risk ? 'Riesgos y oportunidades' : 'Planificación de cambios'}</h1>
                 <p className="mt-1 text-sm text-muted-foreground">ISO 9001:2015 · {risk ? '6.1 · Acciones, integración en procesos y evaluación de eficacia.' : '6.3 · Propósito, consecuencias, integridad del SGC, recursos y responsabilidades.'}</p></div>
-            {canWrite && <Button onClick={() => openPlan(null)} disabled={loading || !!error || !metadata.processes.length || !metadata.users.length}><Plus className="mr-2 h-4 w-4" />{risk ? 'Nuevo registro' : 'Planificar cambio'}</Button>}
+            <div className="flex flex-wrap gap-2">
+                <Button variant="outline" disabled={!exportReady} onClick={() => void exportPdf()}>{exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} Descargar PDF</Button>
+                {canWrite && <Button onClick={() => openPlan(null)} disabled={loading || !!error || loadedTenantId !== tenant.id || !metadata.processes.length || !metadata.users.length}><Plus className="mr-2 h-4 w-4" />{risk ? 'Nuevo registro' : 'Planificar cambio'}</Button>}
+            </div>
         </div>
         {!loading && !error && (!metadata.processes.length || !metadata.users.length) && <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">Se necesita un proceso y un responsable activos de la empresa. Revisa <Link className="underline" href="/contexto/procesos">Procesos</Link> y <Link className="underline" href="/admin/usuarios">Usuarios</Link> para poder planificar.</p>}
         {error && <div role="alert" className="rounded-md border border-red-200 p-4 text-red-700">{error}<Button variant="outline" className="ml-3" onClick={() => void load()}>Reintentar</Button></div>}
@@ -219,6 +301,7 @@ export function PlanningWorkspace({ kind }: { kind: 'risk' | 'change' }) {
                 <fieldset disabled={saving || !editable} className="grid gap-4 md:grid-cols-2">{(evaluating ? reviewFields : fields).map((field) => <FieldInput key={field.name} field={field.name === 'status' && (!selected || !isClosed(selected)) ? { ...field, options: field.options?.filter((option) => option.id !== 'CERRADA' && option.id !== 'COMPLETADO') } : field} form={form} setForm={setForm} disabled={(field.name === 'kind' && !!selected) || (field.name === 'status' && !selected)} />)}</fieldset>
                 {formError && <p role="alert" className="text-sm text-red-700">{formError}</p>}
                 <DialogFooter className="flex-wrap gap-2"><Button type="button" variant="outline" disabled={saving} onClick={() => setOpen(false)}>Cerrar</Button>
+                    {selected && !evaluating && <Button type="button" variant="outline" disabled={!exportReady} onClick={() => void exportPdf(selected)}>{exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} PDF del registro guardado</Button>}
                     {editable && selected && !evaluating && ['EN_PROGRESO', 'EN_EJECUCION'].includes(selected.status) && <Button type="button" variant="outline" onClick={() => { setForm({ result: 'NO_EFICAZ' }); setFormError(''); setEvaluating(true); }}>Evaluar eficacia</Button>}
                     {editable && <Button type="submit" disabled={saving}>{saving ? 'Guardando…' : evaluating ? 'Registrar evaluación' : 'Guardar plan'}</Button>}
                 </DialogFooter>

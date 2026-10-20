@@ -9,8 +9,7 @@ import {
     Download, Edit, Eye, Filter, Info, Loader2, MoreVertical, Plus, RefreshCw,
     Save, Search, ShieldCheck, Target, Archive, User,
 } from 'lucide-react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { downloadStandardPdf, type PdfSection } from '@/lib/document-pdf';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -428,56 +427,55 @@ export default function ObjetivosPage() {
         return <Badge variant="outline" className={`${config.className} rounded-full px-3 py-1`}>{config.label}</Badge>;
     };
 
-    const handleDownloadPDF = () => {
-        const doc = new jsPDF('l', 'mm', 'letter');
-        const tenantName = tenant?.name || 'SISTEMA DE GESTIÓN DE CALIDAD';
-        doc.setFontSize(15).setFont('helvetica', 'bold');
-        doc.text('MATRIZ DE OBJETIVOS DE CALIDAD — ISO 9001:2015, 6.2', 14, 16);
-        doc.setFontSize(8).setFont('helvetica', 'normal');
-        doc.text(`${tenantName} · Exportado: ${new Date().toLocaleString('es-CO')}`, 14, 22);
-        autoTable(doc, {
-            startY: 27,
-            head: [['Objetivo', 'Política / proceso', 'Indicador / meta', 'Responsable', 'Plazo / evaluación', 'Actual / avance', 'Estado']],
-            body: filteredObjectives.map((objective) => [
-                objective.description,
-                `${getPolicyName(objective.policyId)}\n${getProcessName(objective.processId)}`,
-                `${objective.indicator}\nMeta: ${objective.target}`,
-                objective.responsibleName || '—',
-                `${displayDate(objective.deadline)}\n${objective.evaluationFreq || '—'}`,
-                `${objective.actual || '—'}\n${objective.progress}%`,
-                getStatusLabel(objective.status),
-            ]),
-            theme: 'grid',
-            headStyles: { fillColor: [30, 41, 59], fontSize: 7 },
-            styles: { fontSize: 6.5, cellPadding: 2, overflow: 'linebreak' },
-        });
-        for (const objective of filteredObjectives) {
-            doc.addPage();
-            doc.setFontSize(12).text('PLANIFICACIÓN Y SEGUIMIENTO DEL OBJETIVO', 14, 16);
-            autoTable(doc, {
-                startY: 22,
-                head: [['Campo', 'Información documentada']],
-                body: [
-                    ['Objetivo', objective.description],
-                    ['Política / proceso / nivel', `${getPolicyName(objective.policyId)} / ${getProcessName(objective.processId)} / ${objective.organizationalLevel || '—'}`],
-                    ['Requisitos y relevancia', `${objective.applicableRequirements || '—'}\n${objective.relevance || '—'}`],
-                    ['Indicador, meta y método', `${objective.indicator}\nMeta: ${objective.target}\n${objective.evaluationMethod || 'Sin definir'}`],
-                    ['Acciones', objective.actionPlan || 'Sin definir'],
-                    ['Recursos', objective.resources || '—'],
-                    ['Responsable y plazos', `${objective.responsibleName || '—'}\nPlazo: ${displayDate(objective.deadline)}\nEvaluación: ${objective.evaluationFreq || '—'}; próxima: ${displayDate(objective.nextEvaluationDate)}`],
-                    ['Comunicación', `${objective.communicationRecipients || '—'}\nFecha: ${displayDate(objective.communicationDate)}\nEvidencia: ${objective.communicationEvidence || 'Sin soporte'}`],
-                    ['Resultado y estado', `${objective.actual || 'Sin medición'}\nAvance de acciones: ${objective.progress}%\n${getStatusLabel(objective.status)}`],
-                    ...objective.tracking.map((event) => [
-                        `${displayDate(event.date)}\n${event.actorName || 'Autor no registrado'}`,
-                        `${event.eventType === 'MEASUREMENT' ? `Medición: ${event.actual || '—'}; meta ${event.targetMet == null ? 'sin evaluar' : event.targetMet ? 'cumplida' : 'no cumplida'}. ` : ''}${event.note}${event.evidence ? `\nEvidencia: ${event.evidence}` : ''}`,
-                    ]),
-                ],
-                headStyles: { fillColor: [30, 41, 59] }, styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
-                columnStyles: { 0: { cellWidth: 55 } },
+    const handleDownloadPDF = async () => {
+        const toastId = toast.loading('Generando matriz de objetivos...');
+        try {
+            const sections: PdfSection[] = [{
+                title: 'Resumen de los objetivos seleccionados',
+                head: ['Objetivo', 'Política / proceso', 'Indicador / meta', 'Responsable', 'Plazo / evaluación', 'Actual / avance', 'Estado'],
+                rows: filteredObjectives.map(objective => [
+                    objective.description,
+                    `${getPolicyName(objective.policyId)}\n${getProcessName(objective.processId)}`,
+                    `${objective.indicator}\nMeta: ${objective.target}`,
+                    objective.responsibleName || '—',
+                    `${displayDate(objective.deadline)}\n${objective.evaluationFreq || '—'}`,
+                    `${objective.actual || '—'}\n${objective.progress}%`,
+                    getStatusLabel(objective.status),
+                ]),
+            }];
+            for (const objective of filteredObjectives) {
+                sections.push({
+                    title: 'Planificación y seguimiento del objetivo',
+                    head: ['Campo', 'Información documentada'],
+                    rows: [
+                        ['Objetivo', objective.description],
+                        ['Política / proceso / nivel', `${getPolicyName(objective.policyId)} / ${getProcessName(objective.processId)} / ${objective.organizationalLevel || '—'}`],
+                        ['Requisitos y relevancia', `${objective.applicableRequirements || '—'}\n${objective.relevance || '—'}`],
+                        ['Indicador, meta y método', `${objective.indicator}\nMeta: ${objective.target}\n${objective.evaluationMethod || 'Sin definir'}`],
+                        ['Acciones', objective.actionPlan || 'Sin definir'],
+                        ['Recursos', objective.resources || '—'],
+                        ['Responsable y plazos', `${objective.responsibleName || '—'}\nPlazo: ${displayDate(objective.deadline)}\nEvaluación: ${objective.evaluationFreq || '—'}; próxima: ${displayDate(objective.nextEvaluationDate)}`],
+                        ['Comunicación', `${objective.communicationRecipients || '—'}\nFecha: ${displayDate(objective.communicationDate)}\nEvidencia: ${objective.communicationEvidence || 'Sin soporte'}`],
+                        ['Resultado y estado', `${objective.actual || 'Sin medición'}\nAvance de acciones: ${objective.progress}%\n${getStatusLabel(objective.status)}`],
+                        ...objective.tracking.map(event => [
+                            `${displayDate(event.date)}\n${event.actorName || 'Autor no registrado'}`,
+                            `${event.eventType === 'MEASUREMENT' ? `Medición: ${event.actual || '—'}; meta ${event.targetMet == null ? 'sin evaluar' : event.targetMet ? 'cumplida' : 'no cumplida'}. ` : ''}${event.note}${event.evidence ? `\nEvidencia: ${event.evidence}` : ''}`,
+                        ]),
+                    ],
+                });
+            }
+            await downloadStandardPdf({
+                tenantId: tenant.id,
+                moduleKey: '6.2',
+                title: 'Matriz de objetivos de calidad',
+                filename: 'Objetivos_de_Calidad.pdf',
+                orientation: 'landscape',
+                sections,
             });
+            toast.success('Matriz de objetivos descargada.', { id: toastId });
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'No fue posible generar el PDF.', { id: toastId });
         }
-        doc.save(`OBJETIVOS_CALIDAD_${tenantName.replace(/\s+/g, '_').toUpperCase()}.pdf`);
-        toast.success('Matriz de objetivos descargada.');
     };
 
     if (loading) {

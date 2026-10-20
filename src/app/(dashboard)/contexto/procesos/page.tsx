@@ -1,27 +1,24 @@
 "use client";
 
+import Link from 'next/link';
+
 import React, { useState, useRef } from 'react';
 import { 
-    Plus, Eye, Edit, ChevronRight, ArrowRight, X, Save, HelpCircle, 
-    Box, ShieldCheck, TrendingUp, History, Settings2, CheckCircle2,
-    Download, Trash2, Archive, Printer, FileEdit, Check, Settings, Clock
+    Plus, Eye, Edit, ArrowRight, HelpCircle,
+    Box, TrendingUp, Settings2,
+    Download, Trash2, Archive, Printer, FileEdit, Check, Clock
 } from 'lucide-react';
 import { domToPng } from 'modern-screenshot';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { downloadStandardPdf, type PdfSection } from '@/lib/document-pdf';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { DocumentHeader } from '@/components/DocumentHeader';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { mockProcesses, mockCharacterization, mockUsers } from '@/lib/mock-data';
+import { mockUsers } from '@/lib/mock-data';
 import type { Process, ProcessCategory, ProcessCharacterization, PHVARow } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -137,109 +134,69 @@ function CharacterizationView({ process, characterization: initialChar, tenant, 
     };
 
     const handlePrint = async () => {
+        if (isEditing || !initialChar) {
+            toast.error('Guarde la caracterización antes de descargar el PDF.');
+            return;
+        }
         const toastId = toast.loading('Generando PDF de caracterización...');
         try {
-            const doc = new jsPDF('p', 'mm', 'a4'); // Portrait
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const margin = 12;
-
-            // --- 1. DRAW ISO HEADER ---
-            const headerHeight = 22;
-            doc.setDrawColor(0);
-            doc.setLineWidth(0.3);
-            doc.rect(margin, margin, pageWidth - (margin * 2), headerHeight);
-            
-            const col1Width = 35;
-            const col3Width = 50;
-            const col2Width = pageWidth - (margin * 2) - col1Width - col3Width;
-
-            doc.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
-            doc.line(margin + col1Width + col2Width, margin, margin + col1Width + col2Width, margin + headerHeight);
-
-            // Col 1: Logo/Logo Placeholder
-            if (tenant?.logo) {
-                try {
-                    doc.addImage(tenant.logo, 'PNG', margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
-                } catch (e) {
-                    doc.setFontSize(8).setFont('helvetica', 'bold').text(tenant.name.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-                }
-            } else {
-                doc.setFontSize(8).setFont('helvetica', 'bold').text(tenant.name.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-            }
-
-            // Col 2: Info
-            doc.setFontSize(12).text(`PROCESO: ${process.name.toUpperCase()}`, margin + col1Width + col2Width/2, margin + 10, { align: 'center' });
-            doc.setFontSize(9).setFont('helvetica', 'normal').text("Caracterización del Proceso", margin + col1Width + col2Width/2, margin + 16, { align: 'center' });
-
-            // Col 3: Meta
-            doc.setFontSize(8);
-            const metaX = margin + col1Width + col2Width + 4;
-            doc.text(`Código: ${process.code}`, metaX, margin + 5);
-            doc.text(`Versión: ${formData.version}`, metaX, margin + 9.5);
-            doc.text(`Fecha: ${formData.date}`, metaX, margin + 14);
-            doc.text(`Página: 1 de 1`, metaX, margin + 18.5);
-
-            // --- 2. BASIC INFO TABLE ---
-            autoTable(doc, {
-                startY: margin + headerHeight + 5,
-                head: [['Responsable', 'Objetivo', 'Alcance']],
-                body: [[process.responsibleName || '—', formData.objective || '—', formData.scope || '—']],
-                styles: { fontSize: 8 },
-                headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }
-            });
-
-            // --- 3. PHVA TABLES ---
-            let currentY = (doc as any).lastAutoTable.finalY + 5;
-
+            const sections: PdfSection[] = [{
+                title: 'Información del proceso',
+                head: ['Campo', 'Información'],
+                rows: [
+                    ['Proceso', process.name],
+                    ['Código del proceso', process.code],
+                    ['Categoría', categoryLabels[process.category]],
+                    ['Responsable', process.responsibleName || '—'],
+                    ['Objetivo', formData.objective || '—'],
+                    ['Alcance', formData.scope || '—'],
+                    ['Fecha de caracterización', formData.date || 'Sin registrar'],
+                ],
+            }];
             (['planear', 'hacer', 'verificar', 'actuar'] as const).forEach(phase => {
-                const rows = formData[phase] || [];
+                const rows: PHVARow[] = formData[phase] || [];
                 if (rows.length === 0) return;
-
-                doc.setFontSize(9).setFont('helvetica', 'bold');
-                doc.text(phase.toUpperCase(), margin, currentY + 4);
-                currentY += 6;
-
-                autoTable(doc, {
-                    startY: currentY,
-                    head: [['Proveedores', 'Insumos', 'Actividad', 'Productos', 'Clientes']],
-                    body: rows.map((r: any) => [
-                        r.providers?.join(', '), 
-                        r.inputs?.join(', '), 
-                        r.activity, 
-                        r.outputs?.join(', '), 
-                        r.clients?.join(', ')
+                sections.push({
+                    title: phase.toUpperCase(),
+                    head: ['Proveedores', 'Insumos', 'Actividad', 'Productos', 'Clientes'],
+                    rows: rows.map(row => [
+                        row.providers?.join(', ') || '—',
+                        row.inputs?.join(', ') || '—',
+                        row.activity || '—',
+                        row.outputs?.join(', ') || '—',
+                        row.clients?.join(', ') || '—',
                     ]),
-                    styles: { fontSize: 7, cellPadding: 2.5, valign: 'middle', overflow: 'linebreak' },
-                    columnStyles: {
-                        0: { cellWidth: 30 },
-                        1: { cellWidth: 35 },
-                        2: { cellWidth: 'auto', fontStyle: 'bold' },
-                        3: { cellWidth: 35 },
-                        4: { cellWidth: 30 }
-                    },
-                    headStyles: { fillColor: [70, 70, 70], textColor: [255, 255, 255] }
                 });
-                currentY = (doc as any).lastAutoTable.finalY + 6;
             });
-
-            // --- 4. FOOTER TABLES ---
-            autoTable(doc, {
-                startY: currentY,
-                head: [['Recursos', 'Documentos', 'Riesgos']],
-                body: [[
+            sections.push({
+                head: ['Recursos', 'Documentos', 'Riesgos'],
+                rows: [[
                     formData.resources?.join(', ') || 'N/A',
                     formData.documents?.join(', ') || 'N/A',
-                    formData.risks?.join(', ') || 'N/A'
+                    formData.risks?.join(', ') || 'N/A',
                 ]],
-                styles: { fontSize: 8 },
-                headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }
             });
-
-            doc.save(`Caracterizacion_${process.code}.pdf`);
+            if (formData.indicators?.length) {
+                sections.push({
+                    title: 'Indicadores del proceso',
+                    head: ['Indicador', 'Fórmula', 'Frecuencia', 'Meta'],
+                    rows: (formData.indicators as ProcessCharacterization['indicators']).map(indicator => [
+                        indicator.name, indicator.formula, indicator.frequency, indicator.target,
+                    ]),
+                });
+            }
+            await downloadStandardPdf({
+                tenantId: tenant.id,
+                moduleKey: '4.4',
+                title: `Caracterización del proceso: ${process.name}`,
+                filename: `Caracterizacion_${process.code}.pdf`,
+                metadata: { code: process.code, version: formData.version, status: 'Sin aprobación registrada', approvalDate: null },
+                sections,
+            });
             toast.success('PDF generado con éxito', { id: toastId });
         } catch (error) {
             console.error(error);
-            toast.error('Error al generar PDF', { id: toastId });
+            toast.error(error instanceof Error ? error.message : 'Error al generar PDF', { id: toastId });
         }
     };
 
@@ -633,43 +590,12 @@ export default function ProcessMapPage() {
     
     // Document Metadata State (Configurable)
     const [docMetadata, setDocMetadata] = useState({
-        code: 'DIR-REG-003',
+        code: '',
         version: '01',
-        approvalDate: '2026-03-21' // Changed to YYYY-MM-DD for consistency with input[type=date]
+        approvalDate: ''
     });
     const [showConfig, setShowConfig] = useState(false);
 
-    // Coding Standard States
-    const [catPrefixes, setCatPrefixes] = useState<any>(null);
-    const [docTypePrefixes, setDocTypePrefixes] = useState<any>(null);
-    const [builder, setBuilder] = useState({
-        processId: '',
-        type: 'MAPA',
-        consecutive: '001'
-    });
-
-    useEffect(() => {
-        // Fetch standards for coding
-        const savedCats = localStorage.getItem('sgc_cat_prefixes');
-        const savedDocs = localStorage.getItem('sgc_doc_prefixes');
-        if (savedCats) setCatPrefixes(JSON.parse(savedCats));
-        if (savedDocs) setDocTypePrefixes(JSON.parse(savedDocs));
-    }, []);
-
-    // Auto-generate doc code when builder changes
-    useEffect(() => {
-        if (showConfig && builder.processId && catPrefixes && docTypePrefixes) {
-            const process = processes.find(p => p.id === builder.processId);
-            if (process) {
-                const macro = catPrefixes[process.category] || 'GN';
-                const procCode = process.code || 'PROC';
-                const type = docTypePrefixes[builder.type] || 'MA';
-                const generated = `${macro}.${procCode}.${type}.${builder.consecutive}`;
-                setDocMetadata(prev => ({ ...prev, code: generated }));
-            }
-        }
-    }, [builder, showConfig, catPrefixes, docTypePrefixes, processes]);
-    
     const mapRef = useRef<HTMLDivElement>(null);
 
     const fetchProcesses = async () => {
@@ -692,6 +618,7 @@ export default function ProcessMapPage() {
 
     useEffect(() => {
         const fetchMetadata = async () => {
+            setDocMetadata({ code: '', version: '01', approvalDate: '' });
             try {
                 const res = await fetch(`/api/formatos?tenantId=${tenant.id}&moduleKey=4.4`);
                 const data = await res.json();
@@ -712,28 +639,6 @@ export default function ProcessMapPage() {
             fetchMetadata();
         }
     }, [tenant?.id]);
-
-    const handleSaveConfig = async () => {
-        if (!tenant?.id) return toast.error('Error: Empresa no identificada');
-        try {
-            const res = await fetch('/api/formatos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tenantId: tenant.id,
-                    moduleKey: '4.4',
-                    ...docMetadata
-                }),
-            });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            
-            setShowConfig(false);
-            toast.success('Configuración de encabezado guardada');
-        } catch (error) {
-            toast.error('Error al guardar la configuración');
-        }
-    };
 
     const handleCreateProcess = async () => {
         if (!newProcess.name || !newProcess.code) {
@@ -797,7 +702,7 @@ export default function ProcessMapPage() {
 
     const handleDownload = async () => {
         if (!mapRef.current) return;
-        const toastId = toast.loading('Exportando mapa (V-MS)...');
+        const toastId = toast.loading('Exportando mapa de procesos...');
         try {
             // Capturamos el mapa usando modern-screenshot que soporta lab/oklch
             const dataUrl = await domToPng(mapRef.current, {
@@ -805,69 +710,26 @@ export default function ProcessMapPage() {
                 backgroundColor: '#f8fafc',
             });
 
-            // Creamos el PDF - Formato A4 Horizontal
-            const pdf = new jsPDF('l', 'mm', 'a4');
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const margin = 10;
-
-            // --- 1. DRAW FORMAL ISO HEADER ---
-            const headerHeight = 22;
-            pdf.setDrawColor(0);
-            pdf.setLineWidth(0.3);
-            pdf.rect(margin, margin, pageWidth - (margin * 2), headerHeight);
-            
-            const col1Width = 40;
-            const col3Width = 60;
-            const col2Width = pageWidth - (margin * 2) - col1Width - col3Width;
-
-            pdf.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
-            pdf.line(margin + col1Width + col2Width, margin, margin + col1Width + col2Width, margin + headerHeight);
-
-            // Col 1: Logo Label
-            if (tenant?.logo) {
-                try {
-                    pdf.addImage(tenant.logo, 'PNG', margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
-                } catch (e) {
-                    pdf.setFontSize(8).setFont('helvetica', 'bold').text(tenant.name.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-                }
-            } else {
-                pdf.setFontSize(8).setFont('helvetica', 'bold').text(tenant.name.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-            }
-
-            // Col 2: Title
-            pdf.setFontSize(14).text("MAPA DE PROCESOS", margin + col1Width + col2Width/2, margin + headerHeight/2 + 2, { align: 'center' });
-
-            // Col 3: Metadata
-            pdf.setFontSize(8);
-            pdf.setFont('helvetica', 'normal');
-            const metaX = margin + col1Width + col2Width + 4;
-            pdf.text(`Código: ${docMetadata.code}`, metaX, margin + 5);
-            pdf.text(`Versión: ${docMetadata.version}`, metaX, margin + 9.5);
-            pdf.text(`Fecha: ${docMetadata.approvalDate}`, metaX, margin + 14);
-            pdf.text(`Página: 1 de 1`, metaX, margin + 18.5);
-            
-            // Insertamos la imagen capturada debajo del header
-            const mapY = margin + headerHeight + 5;
-            const mapHeight = pageHeight - mapY - margin;
-            pdf.addImage(dataUrl, 'PNG', margin, mapY, pageWidth - (margin * 2), mapHeight);
-            
-            // Método de descarga robusto
-            const pdfBlob = pdf.output('blob');
-            const url = URL.createObjectURL(pdfBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'Mapa_de_Procesos_Vexvel.pdf';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            
+            await downloadStandardPdf({
+                tenantId: tenant.id,
+                moduleKey: '4.4',
+                title: 'Mapa de procesos',
+                filename: 'Mapa_de_Procesos.pdf',
+                orientation: 'landscape',
+                sections: [{ image: { dataUrl } }, {
+                    title: 'Relación de procesos',
+                    head: ['Código', 'Proceso', 'Categoría', 'Responsable', 'Objetivo'],
+                    rows: processes.map(process => [
+                        process.code, process.name, categoryLabels[process.category],
+                        process.responsibleName || '—', process.objective || '—',
+                    ]),
+                }],
+            });
             toast.success('¡PDF descargado con éxito!', { id: toastId });
 
         } catch (error) {
             console.error('ERROR_DOWNLOADING_PDF:', error);
-            toast.error('No se pudo generar el PDF. Informe al soporte.', { id: toastId });
+            toast.error(error instanceof Error ? error.message : 'No se pudo generar el PDF.', { id: toastId });
         }
     };
 
@@ -901,9 +763,9 @@ export default function ProcessMapPage() {
                         
                         {/* UI Document Metadata (Now Dynamic) */}
                         <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setShowConfig(true)}>
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Código: {docMetadata.code}</span>
+                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Código: {docMetadata.code || 'Automático según estándar'}</span>
                             <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Versión: {docMetadata.version}</span>
-                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Aprobación: {docMetadata.approvalDate}</span>
+                            <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Aprobación: {docMetadata.approvalDate || 'Sin registrar'}</span>
                         </div>
                     </div>
                 </div>
@@ -938,15 +800,6 @@ export default function ProcessMapPage() {
                 {/* Subtle background pattern */}
                 <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #64748b 1px, transparent 0)', backgroundSize: '24px 24px' }} />
 
-                <div className="hidden [.pdf-rendering_&]:block w-full max-w-5xl mb-12 flex-shrink-0 z-10">
-                    <DocumentHeader 
-                        title="MAPA DE PROCESOS"
-                        code={docMetadata.code}
-                        version={docMetadata.version}
-                        approvalDate={docMetadata.approvalDate}
-                        logoUrl={tenant?.logoUrl || undefined}
-                    />
-                </div>
 
                 <div className="flex flex-row items-stretch justify-center w-full gap-4 md:gap-8 z-10">
                     {/* Left Bar: Requirements (Stakeholders) */}
@@ -1136,11 +989,6 @@ export default function ProcessMapPage() {
                                 <Label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Macroproceso *</Label>
                                 <Select value={newProcess.category} onValueChange={v => {
                                     setNewProcess({ ...newProcess, category: v as ProcessCategory });
-                                    // Auto-prefix code if empty
-                                    if (!newProcess.code && catPrefixes) {
-                                        const prefix = catPrefixes[v] || '';
-                                        if (prefix) setNewProcess(prev => ({ ...prev, category: v as ProcessCategory, code: prefix + '-' }));
-                                    }
                                 }}>
                                     <SelectTrigger className="bg-slate-50/50 border-2 border-slate-100 h-14 rounded-2xl font-bold">
                                         <SelectValue />
@@ -1228,67 +1076,10 @@ export default function ProcessMapPage() {
 
             {/* Configuration Dialog */}
             <Dialog open={showConfig} onOpenChange={setShowConfig}>
-                <DialogContent className="max-w-lg bg-white border border-slate-200/60 rounded-2xl shadow-xl p-0 overflow-hidden">
-                    <div className="px-6 pt-6 pb-4 border-b border-slate-100">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                                <Settings className="w-5 h-5 text-blue-500" />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-800">Configurar Documento</h2>
-                                <p className="text-xs text-slate-400 mt-0.5">Metadatos del Mapa de Procesos (4.4)</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="px-6 py-5 space-y-5">
-                        <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
-                            <div className="flex items-center gap-2 mb-1">
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                                <span className="text-[11px] font-semibold text-blue-600 uppercase tracking-wide">Asistente de Codificación</span>
-                            </div>
-                            <div className="space-y-3">
-                                <div>
-                                    <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Proceso Responsable</Label>
-                                    <Select value={builder.processId} onValueChange={(val) => setBuilder({...builder, processId: val})}>
-                                        <SelectTrigger className="h-10 bg-white border-slate-200 rounded-lg text-sm"><SelectValue placeholder="Seleccionar proceso..." /></SelectTrigger>
-                                        <SelectContent>{processes.map(p => (<SelectItem key={p.id} value={p.id} className="text-sm">{p.name} ({p.code})</SelectItem>))}</SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Tipo Documental</Label>
-                                        <Select value={builder.type} onValueChange={(val) => setBuilder({...builder, type: val})}>
-                                            <SelectTrigger className="h-10 bg-white border-slate-200 rounded-lg text-sm"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                                            <SelectContent>{docTypePrefixes && Object.keys(docTypePrefixes).map(t => (<SelectItem key={t} value={t} className="text-sm">{t}</SelectItem>))}</SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Consecutivo</Label>
-                                        <Input value={builder.consecutive} onChange={e => setBuilder({...builder, consecutive: e.target.value})} className="h-10 bg-white border-slate-200 rounded-lg text-sm text-center font-semibold" placeholder="001" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div>
-                            <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Código del Documento</Label>
-                            <Input value={docMetadata.code} onChange={e => setDocMetadata({...docMetadata, code: e.target.value.toUpperCase()})} className="h-12 border-slate-200 bg-slate-50/70 rounded-lg font-bold text-blue-600 uppercase text-center text-base tracking-wider" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Versión</Label>
-                                <Input value={docMetadata.version} onChange={e => setDocMetadata({...docMetadata, version: e.target.value})} className="h-10 border-slate-200 bg-slate-50/70 rounded-lg font-semibold text-sm" />
-                            </div>
-                            <div>
-                                <Label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Fecha de Aprobación</Label>
-                                <Input type="date" value={docMetadata.approvalDate} onChange={e => setDocMetadata({...docMetadata, approvalDate: e.target.value})} className="h-10 border-slate-200 bg-slate-50/70 rounded-lg font-medium text-sm" />
-                            </div>
-                        </div>
-                        <p className="text-[11px] text-slate-400 italic">* Estos datos se reflejarán en el encabezado oficial del PDF.</p>
-                    </div>
-                    <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-3">
-                        <Button variant="ghost" onClick={() => setShowConfig(false)} className="text-slate-500 text-sm font-medium h-10 px-4 rounded-lg hover:bg-slate-100">Cancelar</Button>
-                        <Button onClick={handleSaveConfig} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 h-10 rounded-lg shadow-sm">Guardar Configuración</Button>
-                    </div>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader><DialogTitle>Estándar documental de la empresa</DialogTitle></DialogHeader>
+                    <p className="text-sm text-slate-600">El logo, el encabezado, los tipos documentales y los códigos se administran en un único lugar. Las descargas PDF usan siempre esa configuración.</p>
+                    <Button asChild><Link href="/apoyo/estandar-documental">Abrir estándar documental</Link></Button>
                 </DialogContent>
             </Dialog>
         </div>

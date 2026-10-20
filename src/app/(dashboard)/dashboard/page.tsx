@@ -1,20 +1,22 @@
 "use client";
 
 import Link from 'next/link';
+import { useMemo, useState } from 'react';
 import {
     Network, FileText, ShieldAlert, ClipboardCheck,
-    AlertTriangle, Clock, FileCheck, TrendingUp,
-    ArrowUpRight, ArrowDownRight, BarChart3, CheckCircle2, ListChecks, BookOpen
+    AlertTriangle, Clock,
+    ArrowUpRight, ArrowDownRight, ListChecks, BookOpen, Search
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { DOCUMENT_CATALOG } from '@/lib/document-catalog';
 import { mockDashboardStats, mockRisks, mockAudits, mockDocuments } from '@/lib/mock-data';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip,
-    ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart
+    Tooltip as RechartTooltip,
+    ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 
 const stats = [
@@ -33,12 +35,6 @@ const riskByLevel = [
     { name: 'Crítico', value: mockRisks.filter(r => r.level === 'CRITICO').length, color: '#ef4444' },
 ];
 
-const riskByType = [
-    { type: 'Operacional', count: mockRisks.filter(r => r.type === 'OPERACIONAL').length },
-    { type: 'Calidad', count: mockRisks.filter(r => r.type === 'CALIDAD').length },
-    { type: 'SST', count: mockRisks.filter(r => r.type === 'SST').length },
-];
-
 const docsByStatus = [
     { status: 'Aprobados', count: mockDocuments.filter(d => d.status === 'APROBADO').length },
     { status: 'En revisión', count: mockDocuments.filter(d => d.status === 'EN_REVISION').length },
@@ -46,16 +42,16 @@ const docsByStatus = [
     { status: 'Obsoletos', count: mockDocuments.filter(d => d.status === 'OBSOLETO').length },
 ];
 
-const monthlyData = [
-    { month: 'Sep', riesgos: 12, documentos: 15, hallazgos: 5 },
-    { month: 'Oct', riesgos: 14, documentos: 18, hallazgos: 4 },
-    { month: 'Nov', riesgos: 11, documentos: 20, hallazgos: 6 },
-    { month: 'Dic', riesgos: 10, documentos: 22, hallazgos: 3 },
-    { month: 'Ene', riesgos: 9, documentos: 25, hallazgos: 4 },
-    { month: 'Feb', riesgos: 8, documentos: 28, hallazgos: 2 },
-];
-
 export default function DashboardPage() {
+    const [documentSearch, setDocumentSearch] = useState('');
+    const documentGroups = useMemo(() => {
+        const query = documentSearch.trim().toLocaleLowerCase('es');
+        const matches = DOCUMENT_CATALOG.filter(document => `${document.title} ${document.clause} ${document.group}`.toLocaleLowerCase('es').includes(query));
+        return [...new Set(matches.map(document => document.group))].map(group => ({
+            name: group,
+            documents: matches.filter(document => document.group === group),
+        }));
+    }, [documentSearch]);
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Header */}
@@ -65,6 +61,28 @@ export default function DashboardPage() {
                     Resumen general del Sistema de Gestión de Calidad
                 </p>
             </div>
+
+            <Card className="border-slate-200 shadow-sm">
+                <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <CardTitle className="flex items-center gap-2 text-lg"><BookOpen className="h-5 w-5 text-indigo-600" /> Documentos principales del sistema</CardTitle>
+                        <p className="mt-1 text-sm text-muted-foreground">Acceso a los módulos documentales disponibles. Consulte su contenido y estado en cada módulo.</p>
+                    </div>
+                    <div className="relative w-full sm:max-w-xs">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input aria-label="Buscar documento o numeral" className="pl-9" placeholder="Buscar documento o numeral..." value={documentSearch} onChange={event => setDocumentSearch(event.target.value)} />
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <nav aria-label="Documentos principales" className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+                        {documentGroups.map(group => <section key={group.name}>
+                            <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">{group.name}</h2>
+                            <ul className="space-y-2">{group.documents.map(document => <li key={document.key}><Link href={document.href} className="group flex items-start gap-3 rounded-lg border border-slate-100 p-3 text-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50 dark:border-slate-800 dark:hover:bg-indigo-950"><span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{document.clause}</span><span className="flex-1 font-medium">{document.title}</span><ArrowUpRight className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-indigo-600" /></Link></li>)}</ul>
+                        </section>)}
+                    </nav>
+                    {documentGroups.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No hay documentos que coincidan con la búsqueda.</p>}
+                </CardContent>
+            </Card>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {stats.map((stat, i) => (
@@ -127,7 +145,7 @@ export default function DashboardPage() {
                                                 <Badge variant="secondary" className="text-[9px] font-mono">4.1, 4.2, 5.2</Badge>
                                             </div>
                                             <p className="text-[10px] text-slate-500 leading-relaxed italic">
-                                                Antes de cualquier trámite, defina el "Por qué" y el "Para qué". Realice el Análisis DOFA/PESTAL y defina la Política de Calidad que guiará el sistema.
+                                                Antes de cualquier trámite, defina el &quot;Por qué&quot; y el &quot;Para qué&quot;. Realice el Análisis DOFA/PESTAL y defina la Política de Calidad que guiará el sistema.
                                             </p>
                                         </div>
                                     </div>
