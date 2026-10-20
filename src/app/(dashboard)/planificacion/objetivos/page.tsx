@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import {
     AlertCircle, Building2, Calendar, Check, ChevronLeft, ChevronRight, ClipboardList,
     Download, Edit, Eye, Filter, Info, Loader2, MoreVertical, Plus, RefreshCw,
-    Save, Search, ShieldCheck, Target, Trash2, User,
+    Save, Search, ShieldCheck, Target, Archive, User,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -29,10 +29,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-type Lookup = { id: string; name?: string; title?: string; email?: string; code?: string; status?: string };
-type Tracking = { id: string; date: string; note: string; progress: number; actual?: string | null };
+type Lookup = { id: string; name?: string; title?: string; email?: string; code?: string; status?: string; type?: string; active?: boolean };
+type Tracking = { id: string; date: string; note: string; progress: number; actual?: string | null; eventType?: string; evidence?: string | null; targetMet?: boolean | null; actorName?: string | null; snapshot?: { before?: Record<string, unknown>; after?: Record<string, unknown>; target?: string; evaluationMethod?: string } | null };
 type Objective = {
     id: string;
+    updatedAt: string;
     tenantId: string;
     policyId?: string | null;
     processId?: string | null;
@@ -44,6 +45,10 @@ type Objective = {
     applicableRequirements?: string | null;
     relevance?: string | null;
     resources?: string | null;
+    actionPlan?: string | null;
+    evaluationMethod?: string | null;
+    targetMet?: boolean | null;
+    archivedAt?: string | null;
     responsibleId?: string | null;
     responsibleName?: string | null;
     deadline: string;
@@ -68,6 +73,9 @@ type FormState = {
     applicableRequirements: string;
     relevance: string;
     resources: string;
+    actionPlan: string;
+    evaluationMethod: string;
+    changeReason: string;
     responsibleId: string;
     deadline: string;
     evaluationFreq: string;
@@ -81,8 +89,8 @@ type FormTab = 'alignment' | 'measurement' | 'planning';
 const STEP_ORDER: FormTab[] = ['alignment', 'measurement', 'planning'];
 const STEP_FIELDS: Record<FormTab, Array<keyof FormState>> = {
     alignment: ['policyId', 'processId', 'organizationalLevel', 'applicableRequirements', 'relevance'],
-    measurement: ['description', 'indicator', 'target'],
-    planning: ['responsibleId', 'deadline', 'evaluationFreq', 'resources', 'communicationRecipients', 'communicationDate'],
+    measurement: ['description', 'indicator', 'target', 'evaluationMethod'],
+    planning: ['actionPlan', 'responsibleId', 'deadline', 'evaluationFreq', 'resources', 'communicationRecipients', 'communicationDate', 'communicationEvidence'],
 };
 const FIELD_LABELS: Partial<Record<keyof FormState, string>> = {
     policyId: 'Selecciona una política vigente.',
@@ -93,12 +101,16 @@ const FIELD_LABELS: Partial<Record<keyof FormState, string>> = {
     description: 'Describe qué se va a lograr.',
     indicator: 'Define el indicador de medición.',
     target: 'Define la meta esperada.',
+    evaluationMethod: 'Describe la fórmula, fuente de datos y criterio de evaluación.',
+    actionPlan: 'Describe las acciones para alcanzar el objetivo.',
     responsibleId: 'Selecciona la persona responsable.',
     deadline: 'Indica la fecha límite.',
     evaluationFreq: 'Selecciona la frecuencia de evaluación.',
     resources: 'Describe los recursos requeridos.',
     communicationRecipients: 'Indica a quiénes se comunicará.',
     communicationDate: 'Indica la fecha de comunicación.',
+    communicationEvidence: 'Identifica la evidencia de comunicación.',
+    changeReason: 'Explica el motivo de la actualización.',
 };
 
 const emptyForm = (): FormState => ({
@@ -112,6 +124,9 @@ const emptyForm = (): FormState => ({
     applicableRequirements: '',
     relevance: '',
     resources: '',
+    actionPlan: '',
+    evaluationMethod: '',
+    changeReason: '',
     responsibleId: '',
     deadline: '',
     evaluationFreq: '',
@@ -121,10 +136,12 @@ const emptyForm = (): FormState => ({
 });
 
 const toDateInput = (value?: string | null) => value ? new Date(value).toISOString().split('T')[0] : '';
-const displayDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('es-CO') : '—';
+const displayDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('es-CO', { timeZone: 'UTC' }) : '—';
 
 export default function ObjetivosPage() {
-    const { tenant } = useApp();
+    const { tenant, currentUser } = useApp();
+    const canWrite = Boolean(currentUser && ['SUPER_ADMIN', 'ADMIN_EMPRESA', 'USUARIO'].includes(currentUser.role));
+    const canArchive = currentUser?.role === 'ADMIN_EMPRESA' || currentUser?.role === 'SUPER_ADMIN';
     const router = useRouter();
     const [objectives, setObjectives] = useState<Objective[]>([]);
     const [policies, setPolicies] = useState<Lookup[]>([]);
@@ -132,7 +149,7 @@ export default function ObjetivosPage() {
     const [users, setUsers] = useState<Lookup[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('TODOS');
+    const [statusFilter, setStatusFilter] = useState('ACTIVOS');
     const [processFilter, setProcessFilter] = useState('TODOS');
     const [showFilters, setShowFilters] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -141,15 +158,12 @@ export default function ObjetivosPage() {
     const [refreshingPolicies, setRefreshingPolicies] = useState(false);
     const [saving, setSaving] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingVersion, setEditingVersion] = useState<string | undefined>();
     const [formData, setFormData] = useState<FormState>(emptyForm());
     const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
-    const [trackingData, setTrackingData] = useState({ note: '', progress: 0, actual: '' });
-    const [docMetadata, setDocMetadata] = useState({
-        code: 'PLA-REG-001',
-        version: '01',
-        approvalDate: new Date().toISOString().split('T')[0],
-    });
+    const [trackingData, setTrackingData] = useState({ note: '', progress: 0, actual: '', evidence: '', targetMet: '' });
+    const [savingTracking, setSavingTracking] = useState(false);
 
     useEffect(() => {
         if (!tenant?.id) return;
@@ -157,28 +171,20 @@ export default function ObjetivosPage() {
             setLoading(true);
             try {
                 const query = `tenantId=${encodeURIComponent(tenant.id)}`;
-                const [objectivesRes, policiesRes, processesRes, usersRes, metadataRes] = await Promise.all([
+                const [objectivesRes, policiesRes, processesRes, usersRes] = await Promise.all([
                     fetch(`/api/planificacion/objetivos?${query}`, { cache: 'no-store' }),
                     fetch(`/api/liderazgo/politicas?${query}`, { cache: 'no-store' }),
                     fetch(`/api/procesos?${query}`, { cache: 'no-store' }),
                     fetch(`/api/admin/users?${query}`, { cache: 'no-store' }),
-                    fetch(`/api/formatos?${query}&moduleKey=6.2`, { cache: 'no-store' }),
                 ]);
-                const [objectiveData, policyData, processData, userData, metadata] = await Promise.all([
-                    objectivesRes.json(), policiesRes.json(), processesRes.json(), usersRes.json(), metadataRes.json(),
+                const [objectiveData, policyData, processData, userData] = await Promise.all([
+                    objectivesRes.json(), policiesRes.json(), processesRes.json(), usersRes.json(),
                 ]);
                 if (!objectivesRes.ok) throw new Error(objectiveData.error || 'No fue posible cargar los objetivos.');
                 setObjectives(objectiveData);
                 setPolicies(Array.isArray(policyData) ? policyData : []);
                 setProcesses(Array.isArray(processData) ? processData : []);
                 setUsers(Array.isArray(userData) ? userData : []);
-                if (metadata && !metadata.error) {
-                    setDocMetadata({
-                        code: metadata.code || 'PLA-REG-001',
-                        version: metadata.version || '01',
-                        approvalDate: metadata.approvalDate || new Date().toISOString().split('T')[0],
-                    });
-                }
             } catch (error) {
                 toast.error(error instanceof Error ? error.message : 'Error al cargar el módulo.');
             } finally {
@@ -198,7 +204,7 @@ export default function ObjetivosPage() {
         const term = searchTerm.toLowerCase();
         const matchesTerm = [objective.description, objective.indicator, objective.responsibleName]
             .some((value) => value?.toLowerCase().includes(term));
-        const matchesStatus = statusFilter === 'TODOS' || objective.status === statusFilter;
+        const matchesStatus = statusFilter === 'TODOS' || (statusFilter === 'ACTIVOS' ? !objective.archivedAt : objective.status === statusFilter);
         const matchesProcess = processFilter === 'TODOS' || objective.processId === processFilter;
         return matchesTerm && matchesStatus && matchesProcess;
     }), [objectives, processFilter, searchTerm, statusFilter]);
@@ -206,9 +212,10 @@ export default function ObjetivosPage() {
     const currentStepIndex = STEP_ORDER.indexOf(formTab);
     const currentStepNumber = currentStepIndex + 1;
     const vigentePolicies = useMemo(
-        () => policies.filter((policy) => policy.status === 'VIGENTE'),
+        () => policies.filter((policy) => policy.status === 'VIGENTE' && ['General', 'Calidad'].includes(policy.type || '')),
         [policies],
     );
+    const selectablePolicies = policies.filter((policy) => vigentePolicies.some((item) => item.id === policy.id) || (Boolean(editingId) && policy.id === formData.policyId));
 
     const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
         setFormData((current) => ({ ...current, [key]: value }));
@@ -243,9 +250,9 @@ export default function ObjetivosPage() {
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'No fue posible consultar las políticas.');
             const items = Array.isArray(data) ? data : [];
-            const activePolicies = items.filter((policy: Lookup) => policy.status === 'VIGENTE');
+            const activePolicies = items.filter((policy: Lookup) => policy.status === 'VIGENTE' && ['General', 'Calidad'].includes(policy.type || ''));
             setPolicies(items);
-            if (activePolicies.length === 1) {
+            if (!editingId && activePolicies.length === 1) {
                 updateField('policyId', activePolicies[0].id);
             }
             if (showFeedback) {
@@ -290,6 +297,7 @@ export default function ObjetivosPage() {
 
     const openNew = () => {
         setEditingId(null);
+        setEditingVersion(undefined);
         setFormData(emptyForm());
         setFormErrors({});
         setFormTab('alignment');
@@ -299,6 +307,7 @@ export default function ObjetivosPage() {
 
     const openEdit = (objective: Objective) => {
         setEditingId(objective.id);
+        setEditingVersion(objective.updatedAt);
         setFormData({
             policyId: objective.policyId || '',
             processId: objective.processId || '',
@@ -310,6 +319,9 @@ export default function ObjetivosPage() {
             applicableRequirements: objective.applicableRequirements || '',
             relevance: objective.relevance || '',
             resources: objective.resources || '',
+            actionPlan: objective.actionPlan || '',
+            evaluationMethod: objective.evaluationMethod || '',
+            changeReason: '',
             responsibleId: objective.responsibleId || '',
             deadline: toDateInput(objective.deadline),
             evaluationFreq: objective.evaluationFreq || '',
@@ -324,7 +336,7 @@ export default function ObjetivosPage() {
     };
 
     const handleSave = async () => {
-        const allRequired = STEP_ORDER.flatMap((step) => STEP_FIELDS[step]);
+        const allRequired = [...STEP_ORDER.flatMap((step) => STEP_FIELDS[step]), ...(editingId ? ['changeReason' as const] : [])];
         if (!validateFields(allRequired)) {
             const firstInvalidStep = STEP_ORDER.find((step) => STEP_FIELDS[step].some((key) => !formData[key].trim()));
             if (firstInvalidStep) setFormTab(firstInvalidStep);
@@ -337,7 +349,7 @@ export default function ObjetivosPage() {
             const response = await fetch('/api/planificacion/objetivos', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: editingId, tenantId: tenant.id, ...formData }),
+                body: JSON.stringify({ id: editingId, expectedUpdatedAt: editingVersion, tenantId: tenant.id, ...formData }),
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'No fue posible guardar el objetivo.');
@@ -357,60 +369,60 @@ export default function ObjetivosPage() {
         }
     };
 
-    const handleDelete = async (objective: Objective) => {
-        if (!window.confirm(`¿Eliminar el objetivo “${objective.description}”? Esta acción también elimina su historial.`)) return;
+    const handleArchive = async (objective: Objective) => {
+        if (!window.confirm(`¿Archivar el objetivo “${objective.description}”? Se conservará el historial para consulta.`)) return;
         try {
             const response = await fetch(
-                `/api/planificacion/objetivos?id=${encodeURIComponent(objective.id)}&tenantId=${encodeURIComponent(tenant.id)}`,
+                `/api/planificacion/objetivos?id=${encodeURIComponent(objective.id)}&tenantId=${encodeURIComponent(tenant.id)}&expectedUpdatedAt=${encodeURIComponent(objective.updatedAt)}`,
                 { method: 'DELETE' },
             );
             const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'No fue posible eliminar el objetivo.');
-            setObjectives((current) => current.filter((item) => item.id !== objective.id));
-            toast.success('Objetivo eliminado.');
+            if (!response.ok) throw new Error(data.error || 'No fue posible archivar el objetivo.');
+            setObjectives((current) => current.map((item) => item.id === objective.id ? data : item));
+            toast.success('Objetivo archivado. Su historial sigue disponible.');
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Error al eliminar el objetivo.');
+            toast.error(error instanceof Error ? error.message : 'Error al archivar el objetivo.');
         }
     };
 
     const openDetail = (objective: Objective) => {
         setSelectedObjective(objective);
-        setTrackingData({ note: '', progress: objective.progress || 0, actual: objective.actual || '' });
+        setTrackingData({ note: '', progress: objective.progress || 0, actual: objective.actual || '', evidence: '', targetMet: '' });
         setIsDetailOpen(true);
     };
 
     const handleSaveTracking = async () => {
-        if (!selectedObjective || !trackingData.note.trim() || !trackingData.actual.trim()) {
-            toast.error('El resultado actual y la nota de seguimiento son obligatorios.');
+        if (!selectedObjective || !trackingData.note.trim() || !trackingData.actual.trim() || !trackingData.evidence.trim() || !trackingData.targetMet) {
+            toast.error('Registra el resultado, análisis, evidencia y evaluación frente a la meta.');
             return;
         }
+        setSavingTracking(true);
         try {
             const response = await fetch('/api/planificacion/objetivos/tracking', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ objectiveId: selectedObjective.id, tenantId: tenant.id, ...trackingData }),
+                body: JSON.stringify({ objectiveId: selectedObjective.id, expectedUpdatedAt: selectedObjective.updatedAt, tenantId: tenant.id, ...trackingData, targetMet: trackingData.targetMet === 'SI' }),
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'No fue posible guardar el seguimiento.');
             setObjectives((current) => current.map((item) => item.id === data.objective.id ? data.objective : item));
             setSelectedObjective(data.objective);
-            setTrackingData({ note: '', progress: data.objective.progress, actual: data.objective.actual || '' });
+            setTrackingData({ note: '', progress: data.objective.progress, actual: data.objective.actual || '', evidence: '', targetMet: '' });
             toast.success('Seguimiento registrado y estado actualizado.');
         } catch (error) {
             toast.error(error instanceof Error ? error.message : 'Error al registrar el seguimiento.');
+        } finally {
+            setSavingTracking(false);
         }
     };
 
     const getStatusBadge = (status: string) => {
         const styles: Record<string, { label: string; className: string }> = {
             CUMPLIDO: { label: 'Cumplido', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-            Logrado: { label: 'Cumplido', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
             EN_RIESGO: { label: 'En riesgo', className: 'bg-amber-50 text-amber-700 border-amber-200' },
-            'En Riesgo': { label: 'En riesgo', className: 'bg-amber-50 text-amber-700 border-amber-200' },
             ATRASADO: { label: 'Atrasado', className: 'bg-rose-50 text-rose-700 border-rose-200' },
-            Retrasado: { label: 'Atrasado', className: 'bg-rose-50 text-rose-700 border-rose-200' },
             EN_PROGRESO: { label: 'En progreso', className: 'bg-blue-50 text-blue-700 border-blue-200' },
-            'En progreso': { label: 'En progreso', className: 'bg-blue-50 text-blue-700 border-blue-200' },
+            ARCHIVADO: { label: 'Archivado', className: 'bg-slate-50 text-slate-700 border-slate-200' },
         };
         const config = styles[status] || styles.EN_PROGRESO;
         return <Badge variant="outline" className={`${config.className} rounded-full px-3 py-1`}>{config.label}</Badge>;
@@ -422,7 +434,7 @@ export default function ObjetivosPage() {
         doc.setFontSize(15).setFont('helvetica', 'bold');
         doc.text('MATRIZ DE OBJETIVOS DE CALIDAD — ISO 9001:2015, 6.2', 14, 16);
         doc.setFontSize(8).setFont('helvetica', 'normal');
-        doc.text(`${tenantName} · Código ${docMetadata.code} · Versión ${docMetadata.version} · Aprobación ${docMetadata.approvalDate}`, 14, 22);
+        doc.text(`${tenantName} · Exportado: ${new Date().toLocaleString('es-CO')}`, 14, 22);
         autoTable(doc, {
             startY: 27,
             head: [['Objetivo', 'Política / proceso', 'Indicador / meta', 'Responsable', 'Plazo / evaluación', 'Actual / avance', 'Estado']],
@@ -439,6 +451,31 @@ export default function ObjetivosPage() {
             headStyles: { fillColor: [30, 41, 59], fontSize: 7 },
             styles: { fontSize: 6.5, cellPadding: 2, overflow: 'linebreak' },
         });
+        for (const objective of filteredObjectives) {
+            doc.addPage();
+            doc.setFontSize(12).text('PLANIFICACIÓN Y SEGUIMIENTO DEL OBJETIVO', 14, 16);
+            autoTable(doc, {
+                startY: 22,
+                head: [['Campo', 'Información documentada']],
+                body: [
+                    ['Objetivo', objective.description],
+                    ['Política / proceso / nivel', `${getPolicyName(objective.policyId)} / ${getProcessName(objective.processId)} / ${objective.organizationalLevel || '—'}`],
+                    ['Requisitos y relevancia', `${objective.applicableRequirements || '—'}\n${objective.relevance || '—'}`],
+                    ['Indicador, meta y método', `${objective.indicator}\nMeta: ${objective.target}\n${objective.evaluationMethod || 'Sin definir'}`],
+                    ['Acciones', objective.actionPlan || 'Sin definir'],
+                    ['Recursos', objective.resources || '—'],
+                    ['Responsable y plazos', `${objective.responsibleName || '—'}\nPlazo: ${displayDate(objective.deadline)}\nEvaluación: ${objective.evaluationFreq || '—'}; próxima: ${displayDate(objective.nextEvaluationDate)}`],
+                    ['Comunicación', `${objective.communicationRecipients || '—'}\nFecha: ${displayDate(objective.communicationDate)}\nEvidencia: ${objective.communicationEvidence || 'Sin soporte'}`],
+                    ['Resultado y estado', `${objective.actual || 'Sin medición'}\nAvance de acciones: ${objective.progress}%\n${getStatusLabel(objective.status)}`],
+                    ...objective.tracking.map((event) => [
+                        `${displayDate(event.date)}\n${event.actorName || 'Autor no registrado'}`,
+                        `${event.eventType === 'MEASUREMENT' ? `Medición: ${event.actual || '—'}; meta ${event.targetMet == null ? 'sin evaluar' : event.targetMet ? 'cumplida' : 'no cumplida'}. ` : ''}${event.note}${event.evidence ? `\nEvidencia: ${event.evidence}` : ''}`,
+                    ]),
+                ],
+                headStyles: { fillColor: [30, 41, 59] }, styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+                columnStyles: { 0: { cellWidth: 55 } },
+            });
+        }
         doc.save(`OBJETIVOS_CALIDAD_${tenantName.replace(/\s+/g, '_').toUpperCase()}.pdf`);
         toast.success('Matriz de objetivos descargada.');
     };
@@ -452,11 +489,11 @@ export default function ObjetivosPage() {
             <div className="flex flex-col gap-5 border-b border-slate-100 bg-slate-50/40 px-8 py-8 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-3xl font-extrabold text-slate-900">6.2 Objetivos de <span className="text-blue-600">Calidad</span></h1>
-                    <p className="mt-2 text-sm text-slate-500">Registro, planificación, comunicación y seguimiento conforme a 6.2.1 y 6.2.2.</p>
+                    <p className="mt-2 text-sm text-slate-500">Planifique acciones, comunique objetivos y evalúe resultados con evidencia.</p>
                 </div>
                 <div className="flex gap-3">
                     <Button variant="outline" className="h-11 rounded-xl" onClick={handleDownloadPDF}><Download className="mr-2 h-4 w-4 text-red-500" />Descargar PDF</Button>
-                    <Button className="h-11 rounded-xl bg-blue-600" onClick={openNew}><Plus className="mr-2 h-4 w-4" />Nuevo objetivo</Button>
+                    {canWrite && <Button className="h-11 rounded-xl bg-blue-600" onClick={openNew}><Plus className="mr-2 h-4 w-4" />Nuevo objetivo</Button>}
                 </div>
             </div>
 
@@ -474,10 +511,12 @@ export default function ObjetivosPage() {
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="TODOS">Todos los estados</SelectItem>
+                                <SelectItem value="ACTIVOS">Objetivos activos</SelectItem>
                                 <SelectItem value="EN_PROGRESO">En progreso</SelectItem>
                                 <SelectItem value="EN_RIESGO">En riesgo</SelectItem>
                                 <SelectItem value="ATRASADO">Atrasado</SelectItem>
                                 <SelectItem value="CUMPLIDO">Cumplido</SelectItem>
+                                <SelectItem value="ARCHIVADO">Archivados</SelectItem>
                             </SelectContent>
                         </Select>
                         <Select value={processFilter} onValueChange={setProcessFilter}>
@@ -510,9 +549,8 @@ export default function ObjetivosPage() {
                                         <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem onClick={() => openDetail(objective)}><Eye className="mr-2 h-4 w-4" />Seguimiento</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => openEdit(objective)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem className="text-rose-600" onClick={() => void handleDelete(objective)}><Trash2 className="mr-2 h-4 w-4" />Eliminar</DropdownMenuItem>
+                                                {canWrite && !objective.archivedAt && <DropdownMenuItem onClick={() => openEdit(objective)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>}
+                                                {canArchive && !objective.archivedAt && <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => void handleArchive(objective)}><Archive className="mr-2 h-4 w-4" />Archivar</DropdownMenuItem></>}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -560,9 +598,9 @@ export default function ObjetivosPage() {
                                 <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                                     <StepHeading step="Paso 1" title="Alineación y alcance" description="Relacione el objetivo con la política de calidad, el proceso y los requisitos aplicables." />
                                     <Field label="Política de calidad *" error={formErrors.policyId} hint={vigentePolicies.length ? `${vigentePolicies.length} política${vigentePolicies.length === 1 ? '' : 's'} vigente${vigentePolicies.length === 1 ? '' : 's'} disponible${vigentePolicies.length === 1 ? '' : 's'}.` : undefined}>
-                                        <Select value={formData.policyId} onValueChange={(value) => updateField('policyId', value)} disabled={!vigentePolicies.length || refreshingPolicies}><SelectTrigger className="h-11 w-full" aria-invalid={Boolean(formErrors.policyId)}><SelectValue placeholder={refreshingPolicies ? 'Consultando políticas...' : 'Seleccionar política vigente'} /></SelectTrigger><SelectContent>{vigentePolicies.map((policy) => <SelectItem key={policy.id} value={policy.id}>{policy.title}</SelectItem>)}</SelectContent></Select>
+                                        <Select value={formData.policyId} onValueChange={(value) => updateField('policyId', value)} disabled={!selectablePolicies.length || refreshingPolicies}><SelectTrigger className="h-11 w-full" aria-invalid={Boolean(formErrors.policyId)}><SelectValue placeholder={refreshingPolicies ? 'Consultando políticas...' : 'Seleccionar política vigente'} /></SelectTrigger><SelectContent>{selectablePolicies.map((policy) => <SelectItem key={policy.id} value={policy.id}>{policy.title}{policy.status !== 'VIGENTE' ? ' · Vínculo histórico' : ''}</SelectItem>)}</SelectContent></Select>
                                     </Field>
-                                    {!vigentePolicies.length && (
+                                    {!selectablePolicies.length && (
                                         <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
                                             <div className="flex gap-3"><span className="rounded-full bg-amber-100 p-2 text-amber-700"><Info className="h-4 w-4" /></span><div className="min-w-0"><p className="font-bold text-amber-950">No hay una política vigente en {tenant?.name || 'esta organización'}</p><p className="mt-1 text-sm leading-relaxed text-amber-800">Regístrela o apruébela en Liderazgo 5.2 para garantizar la trazabilidad del objetivo.</p></div></div>
                                             <div className="mt-3 flex flex-wrap gap-2 pl-0 sm:pl-11"><Button type="button" size="sm" variant="outline" className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100" onClick={() => void refreshPolicies()} disabled={refreshingPolicies}>{refreshingPolicies ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}Recargar</Button><Button type="button" size="sm" className="bg-amber-700 text-white hover:bg-amber-800" onClick={handleManagePolicies}>Gestionar políticas<ChevronRight className="ml-1 h-4 w-4" /></Button></div>
@@ -586,8 +624,9 @@ export default function ObjetivosPage() {
                                     <div className="grid gap-4 md:grid-cols-3">
                                         <Field label="Indicador *" error={formErrors.indicator}><Input className="h-11" aria-invalid={Boolean(formErrors.indicator)} value={formData.indicator} onChange={(event) => updateField('indicator', event.target.value)} placeholder="% de devoluciones" /></Field>
                                         <Field label="Meta esperada *" error={formErrors.target}><Input className="h-11" aria-invalid={Boolean(formErrors.target)} value={formData.target} onChange={(event) => updateField('target', event.target.value)} placeholder="≤ 2%" /></Field>
-                                        <Field label="Línea base / resultado actual" hint="Opcional"><Input className="h-11" value={formData.actual} onChange={(event) => updateField('actual', event.target.value)} placeholder="4,5%" /></Field>
+                                        <Field label={editingId ? 'Último resultado registrado' : 'Línea base'} hint={editingId ? 'Se actualiza en seguimiento' : 'Opcional'}><Input className="h-11" disabled={Boolean(editingId)} value={formData.actual} onChange={(event) => updateField('actual', event.target.value)} placeholder="4,5%" /></Field>
                                     </div>
+                                    <Field label="Método de evaluación *" error={formErrors.evaluationMethod}><Textarea value={formData.evaluationMethod} onChange={(event) => updateField('evaluationMethod', event.target.value)} placeholder="Fórmula, unidad, fuente de datos y criterio para decidir si el resultado cumple la meta." /></Field>
                                     <div className="flex gap-3 rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-sm leading-relaxed text-blue-900"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" /><p><b>Objetivo verificable:</b> use la misma unidad en el indicador, la meta y el resultado actual. Incluya la fuente o fórmula cuando sea necesario.</p></div>
                                 </section>
                             </TabsContent>
@@ -595,6 +634,7 @@ export default function ObjetivosPage() {
                             <TabsContent value="planning" className="m-0 min-w-0">
                                 <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                                     <StepHeading step="Paso 3" title="Plan y comunicación" description="Determine responsables, recursos, plazos, evaluación y evidencia de comunicación." />
+                                    <Field label="Acciones para lograr el objetivo *" error={formErrors.actionPlan}><Textarea value={formData.actionPlan} onChange={(event) => updateField('actionPlan', event.target.value)} placeholder="Describa las actividades y sus hitos. Si intervienen varias personas, indique quién realiza cada acción y en qué plazo." /></Field>
                                     <div className="grid gap-4 md:grid-cols-3">
                                         <Field label="Responsable *" error={formErrors.responsibleId}><Select value={formData.responsibleId} onValueChange={(value) => updateField('responsibleId', value)}><SelectTrigger className="h-11 w-full" aria-invalid={Boolean(formErrors.responsibleId)}><SelectValue placeholder="Seleccionar usuario" /></SelectTrigger><SelectContent>{users.map((user) => <SelectItem key={user.id} value={user.id}>{user.name}{user.email ? ` · ${user.email}` : ''}</SelectItem>)}</SelectContent></Select></Field>
                                         <Field label="Fecha límite *" error={formErrors.deadline}><Input className="h-11" type="date" aria-invalid={Boolean(formErrors.deadline)} value={formData.deadline} onChange={(event) => updateField('deadline', event.target.value)} /></Field>
@@ -607,8 +647,9 @@ export default function ObjetivosPage() {
                                             <Field label="Personas o grupos comunicados *" error={formErrors.communicationRecipients}><Input className="h-11 bg-white" aria-invalid={Boolean(formErrors.communicationRecipients)} value={formData.communicationRecipients} onChange={(event) => updateField('communicationRecipients', event.target.value)} placeholder="Equipo comercial y producción" /></Field>
                                             <Field label="Fecha de comunicación *" error={formErrors.communicationDate}><Input className="h-11 bg-white" type="date" aria-invalid={Boolean(formErrors.communicationDate)} value={formData.communicationDate} onChange={(event) => updateField('communicationDate', event.target.value)} /></Field>
                                         </div>
-                                        <div className="mt-4"><Field label="Evidencia o ubicación del soporte" hint="Opcional"><Input className="h-11 bg-white" value={formData.communicationEvidence} onChange={(event) => updateField('communicationEvidence', event.target.value)} placeholder="Acta, correo, enlace o código documental" /></Field></div>
+                                        <div className="mt-4"><Field label="Evidencia o ubicación del soporte *" error={formErrors.communicationEvidence}><Input className="h-11 bg-white" value={formData.communicationEvidence} onChange={(event) => updateField('communicationEvidence', event.target.value)} placeholder="Acta, correo, enlace o código documental verificable" /></Field></div>
                                     </div>
+                                    {editingId && <Field label="Motivo de la actualización *" error={formErrors.changeReason}><Textarea value={formData.changeReason} onChange={(event) => updateField('changeReason', event.target.value)} placeholder="Explique qué cambió y por qué. Si cambia la meta o el método, será necesaria una nueva evaluación." /></Field>}
                                 </section>
                             </TabsContent>
                         </div>
@@ -621,7 +662,7 @@ export default function ObjetivosPage() {
                             <div className="flex min-w-0 gap-2">
                                 {formTab !== 'alignment' && <Button type="button" variant="outline" className="px-3 sm:px-4" onClick={handlePreviousStep}><ChevronLeft className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Anterior</span></Button>}
                                 {formTab !== 'planning'
-                                    ? <Button type="button" className="bg-blue-600 shadow-sm hover:bg-blue-700" onClick={handleNextStep} disabled={refreshingPolicies || (formTab === 'alignment' && !vigentePolicies.length)}>Siguiente<ChevronRight className="ml-1 h-4 w-4" /></Button>
+                                    ? <Button type="button" className="bg-blue-600 shadow-sm hover:bg-blue-700" onClick={handleNextStep} disabled={refreshingPolicies || (formTab === 'alignment' && !selectablePolicies.length)}>Siguiente<ChevronRight className="ml-1 h-4 w-4" /></Button>
                                     : <Button type="button" className="bg-blue-600 px-3 shadow-sm hover:bg-blue-700 sm:px-4" onClick={() => void handleSave()} disabled={saving}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4 sm:mr-2" />}<span className="sm:hidden">{editingId ? 'Actualizar' : 'Guardar'}</span><span className="hidden sm:inline">{editingId ? 'Actualizar objetivo' : 'Guardar objetivo'}</span></Button>}
                             </div>
                         </div>
@@ -636,6 +677,8 @@ export default function ObjetivosPage() {
                         <div className="space-y-7 py-7">
                             <div className="grid grid-cols-2 gap-4 rounded-2xl border bg-slate-50 p-5"><Metric label="Meta" value={selectedObjective.target} detail={selectedObjective.indicator} /><Metric label="Resultado actual" value={selectedObjective.actual || 'Sin medición'} detail={`${selectedObjective.progress}% de avance`} /><div className="col-span-2"><Progress value={selectedObjective.progress} /></div></div>
                             <FormSection title="Planificación documentada">
+                                <Detail icon={<ClipboardList className="h-4 w-4" />} label="Acciones" value={selectedObjective.actionPlan} />
+                                <Detail icon={<ClipboardList className="h-4 w-4" />} label="Método de evaluación" value={selectedObjective.evaluationMethod} />
                                 <Detail icon={<User className="h-4 w-4" />} label="Responsable" value={selectedObjective.responsibleName} />
                                 <Detail icon={<Calendar className="h-4 w-4" />} label="Fecha límite" value={displayDate(selectedObjective.deadline)} />
                                 <Detail icon={<Calendar className="h-4 w-4" />} label="Próxima evaluación" value={`${displayDate(selectedObjective.nextEvaluationDate)} · ${selectedObjective.evaluationFreq || '—'}`} />
@@ -644,16 +687,19 @@ export default function ObjetivosPage() {
                                 <Detail icon={<ClipboardList className="h-4 w-4" />} label="Relevancia" value={selectedObjective.relevance} />
                                 <Detail icon={<ClipboardList className="h-4 w-4" />} label="Comunicación" value={`${selectedObjective.communicationRecipients || '—'} · ${displayDate(selectedObjective.communicationDate)}${selectedObjective.communicationEvidence ? ` · ${selectedObjective.communicationEvidence}` : ''}`} />
                             </FormSection>
-                            <FormSection title="Nuevo seguimiento">
-                                <div className="grid gap-4 sm:grid-cols-2"><Field label="Resultado actual *"><Input value={trackingData.actual} onChange={(event) => setTrackingData({ ...trackingData, actual: event.target.value })} placeholder="Ej.: 2,8%" /></Field><Field label="Progreso (0–100) *"><Input type="number" min="0" max="100" value={trackingData.progress} onChange={(event) => setTrackingData({ ...trackingData, progress: Number(event.target.value) })} /></Field></div>
-                                <Field label="Análisis y evidencia *"><Textarea value={trackingData.note} onChange={(event) => setTrackingData({ ...trackingData, note: event.target.value })} placeholder="Resultado de la medición, análisis y acciones tomadas..." /></Field>
-                                <Button className="bg-blue-600" onClick={() => void handleSaveTracking()}><Save className="mr-2 h-4 w-4" />Guardar seguimiento</Button>
-                            </FormSection>
+                            {canWrite && !selectedObjective.archivedAt && <FormSection title="Nuevo seguimiento">
+                                <p className="text-sm text-slate-600">El avance de las acciones no demuestra el cumplimiento de la meta. Evalúe el resultado con el método y la evidencia registrados.</p>
+                                <div className="grid gap-4 sm:grid-cols-2"><Field label="Resultado actual *"><Input value={trackingData.actual} onChange={(event) => setTrackingData({ ...trackingData, actual: event.target.value })} placeholder="Ej.: 2,8%" /></Field><Field label="Avance de acciones (0–100) *"><Input type="number" min="0" max="100" step="1" value={trackingData.progress} onChange={(event) => setTrackingData({ ...trackingData, progress: Number(event.target.value) })} /></Field></div>
+                                <Field label="¿El resultado cumple la meta? *"><Select value={trackingData.targetMet} onValueChange={(value) => setTrackingData({ ...trackingData, targetMet: value })}><SelectTrigger><SelectValue placeholder="Evaluar frente a la meta" /></SelectTrigger><SelectContent><SelectItem value="SI">Sí, la evidencia demuestra cumplimiento</SelectItem><SelectItem value="NO">No, la meta aún no se cumple</SelectItem></SelectContent></Select></Field>
+                                <Field label="Análisis y acciones *"><Textarea value={trackingData.note} onChange={(event) => setTrackingData({ ...trackingData, note: event.target.value })} placeholder="Compare el resultado con la meta y explique las acciones o ajustes necesarios." /></Field>
+                                <Field label="Evidencia de medición *"><Input value={trackingData.evidence} onChange={(event) => setTrackingData({ ...trackingData, evidence: event.target.value })} placeholder="Enlace, informe o registro que permite verificar el resultado" /></Field>
+                                <Button disabled={savingTracking} className="bg-blue-600" onClick={() => void handleSaveTracking()}>{savingTracking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Guardar seguimiento</Button>
+                            </FormSection>}
                             <FormSection title="Historial de seguimiento">
-                                {selectedObjective.tracking.length ? selectedObjective.tracking.map((item) => <div key={item.id} className="rounded-xl border p-4"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">{displayDate(item.date)}</span><Badge variant="outline">{item.progress}%</Badge></div><p className="text-sm font-semibold">Resultado: {item.actual || '—'}</p><p className="mt-1 text-sm text-slate-600">{item.note}</p></div>) : <p className="text-sm text-slate-500">Aún no hay mediciones registradas.</p>}
+                                {selectedObjective.tracking.length ? selectedObjective.tracking.map((item) => <div key={item.id} className="rounded-xl border p-4"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">{new Date(item.date).toLocaleString('es-CO')} · {item.actorName || 'Registro histórico sin autor'}</span><Badge variant="outline">{item.progress}% de acciones</Badge></div><p className="text-sm font-semibold">{({ PLAN_CREATED: 'Planificación inicial', PLAN_UPDATED: 'Actualización del plan', ARCHIVED: 'Archivo', MEASUREMENT: 'Medición' } as Record<string, string>)[item.eventType || 'MEASUREMENT']}</p>{(!item.eventType || item.eventType === 'MEASUREMENT') && <><p className="text-sm">Resultado: {item.actual || '—'} · {item.targetMet == null ? 'Sin evaluación de cumplimiento' : item.targetMet ? 'Meta cumplida' : 'Meta no cumplida'}</p>{item.snapshot?.target && <p className="text-xs text-slate-500">Meta evaluada: {item.snapshot.target}</p>}</>}<p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{item.note}</p>{item.evidence && <p className="mt-2 break-words text-xs text-slate-600">Evidencia: {item.evidence}</p>}{item.snapshot?.after && <details className="mt-3"><summary className="cursor-pointer text-xs text-blue-700">Ver planificación registrada</summary><PlanSnapshot snapshot={item.snapshot.after} /></details>}</div>) : <p className="text-sm text-slate-500">Aún no hay registros de seguimiento.</p>}
                             </FormSection>
                         </div>
-                        <div className="flex gap-3 border-t pt-5"><Button variant="outline" className="flex-1" onClick={() => setIsDetailOpen(false)}>Cerrar</Button><Button className="flex-1" onClick={() => openEdit(selectedObjective)}><Edit className="mr-2 h-4 w-4" />Editar planificación</Button></div>
+                        <div className="flex gap-3 border-t pt-5"><Button variant="outline" className="flex-1" onClick={() => setIsDetailOpen(false)}>Cerrar</Button>{canWrite && !selectedObjective.archivedAt && <Button className="flex-1" onClick={() => openEdit(selectedObjective)}><Edit className="mr-2 h-4 w-4" />Editar planificación</Button>}</div>
                     </>}
                 </SheetContent>
             </Sheet>
@@ -662,7 +708,12 @@ export default function ObjetivosPage() {
 }
 
 function getStatusLabel(status: string) {
-    return ({ EN_PROGRESO: 'En progreso', EN_RIESGO: 'En riesgo', ATRASADO: 'Atrasado', CUMPLIDO: 'Cumplido' } as Record<string, string>)[status] || status;
+    return ({ EN_PROGRESO: 'En progreso', EN_RIESGO: 'En riesgo', ATRASADO: 'Atrasado', CUMPLIDO: 'Cumplido', ARCHIVADO: 'Archivado' } as Record<string, string>)[status] || status;
+}
+
+function PlanSnapshot({ snapshot }: { snapshot: Record<string, unknown> }) {
+    const labels: Record<string, string> = { description: 'Objetivo', policyTitle: 'Política', processName: 'Proceso', organizationalLevel: 'Nivel', applicableRequirements: 'Requisitos', relevance: 'Relevancia', indicator: 'Indicador', target: 'Meta', actionPlan: 'Acciones', evaluationMethod: 'Método', resources: 'Recursos', responsibleName: 'Responsable', deadline: 'Plazo', evaluationFreq: 'Frecuencia', communicationRecipients: 'Destinatarios', communicationDate: 'Fecha de comunicación', communicationEvidence: 'Evidencia de comunicación' };
+    return <dl className="mt-3 space-y-2 text-xs">{Object.entries(labels).map(([key, label]) => <div key={key}><dt className="font-semibold">{label}</dt><dd className="whitespace-pre-wrap break-words text-slate-600">{snapshot[key] ? String(snapshot[key]) : '—'}</dd></div>)}</dl>;
 }
 
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {

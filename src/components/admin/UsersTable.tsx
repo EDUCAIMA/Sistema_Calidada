@@ -5,8 +5,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { 
   Users, 
-  Download, 
-  Filter, 
   MoreVertical, 
   Mail, 
   Shield, 
@@ -15,12 +13,11 @@ import {
   XCircle,
   Plus,
   Pencil,
-  Trash2,
-  ExternalLink
+  UserX
 } from 'lucide-react';
 import { UserDialogs } from './UserDialogs';
 import { useApp } from '@/context/app-context';
-import { useRouter } from 'next/navigation';
+import type { Role, Tenant } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +30,7 @@ interface User {
   email: string;
   name: string;
   position: string | null;
-  role: string;
+  role: Role;
   active: boolean;
   createdAt: string;
   tenantId: string;
@@ -41,9 +38,9 @@ interface User {
     id: string;
     name: string;
     slug: string;
-    plan: any;
+    plan: Tenant['plan'];
     active: boolean;
-    createdAt: any;
+    createdAt: string;
   };
 }
 
@@ -55,12 +52,11 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { setCurrentUser, setTenant } = useApp();
-  const router = useRouter();
+  const { currentUser } = useApp();
   
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogType, setDialogType] = useState<'create' | 'edit' | 'delete'>('create');
+  const [dialogType, setDialogType] = useState<'create' | 'edit' | 'deactivate'>('create');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const fetchUsers = async () => {
@@ -104,39 +100,10 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
     setDialogOpen(true);
   };
 
-  const handleDelete = (user: User) => {
-    setDialogType('delete');
+  const handleDeactivate = (user: User) => {
+    setDialogType('deactivate');
     setSelectedUser(user);
     setDialogOpen(true);
-  };
-
-  const handleImpersonate = (user: User) => {
-    // 1. Guardar la sesión del administrador actual
-    const adminSession = {
-      user: JSON.parse(localStorage.getItem('sgc_user') || 'null'),
-      tenant: JSON.parse(localStorage.getItem('sgc_tenant') || 'null')
-    };
-    
-    if (adminSession.user) {
-      localStorage.setItem('sgc_admin_session', JSON.stringify(adminSession));
-    }
-
-    // 2. Cambiar el contexto a este usuario y su tenant
-    const safeUser = {
-      ...user,
-      createdAt: new Date(user.createdAt)
-    };
-    
-    const safeTenant = {
-      ...user.tenant,
-      createdAt: new Date(user.tenant.createdAt)
-    };
-
-    setCurrentUser(safeUser as any);
-    setTenant(safeTenant as any);
-    
-    // 2. Redirigir al dashboard del sistema
-    router.push('/dashboard');
   };
 
   if (loading && users.length === 0) {
@@ -165,7 +132,7 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
               Usuarios Globales
             </CardTitle>
             <CardDescription className="text-slate-500 text-xs">
-              Gestión centralizada de todos los usuarios registrados en la plataforma ({filteredUsers.length} usuarios)
+              Usuarios activos y desactivados ({filteredUsers.length}). La desactivación conserva sus responsabilidades e historial.
             </CardDescription>
           </div>
           <div className="flex gap-3">
@@ -175,14 +142,6 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
             >
                 <Plus className="h-3.5 w-3.5" />
                 Agregar Usuario
-            </Button>
-            <Button variant="outline" size="sm" className="bg-white border-slate-200 hover:bg-slate-50 h-9 rounded-xl text-xs gap-2">
-              <Filter className="h-3.5 w-3.5" />
-              Filtrar
-            </Button>
-            <Button variant="outline" size="sm" className="bg-white border-slate-200 hover:bg-slate-50 h-9 rounded-xl text-xs gap-2">
-              <Download className="h-3.5 w-3.5" />
-              Exportar
             </Button>
           </div>
         </CardHeader>
@@ -248,7 +207,7 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
                           ) : (
                             <>
                               <XCircle className="w-3 h-3" />
-                              Inactivo
+                              Desactivado
                             </>
                           )}
                         </div>
@@ -269,13 +228,6 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-white border-slate-200 text-slate-800">
                             <DropdownMenuItem 
-                                onClick={() => handleImpersonate(user)}
-                                className="gap-2 focus:bg-blue-50 focus:text-blue-600 cursor-pointer text-blue-600 font-semibold"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                              Ver Implementación
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
                                 onClick={() => handleEdit(user)}
                                 className="gap-2 focus:bg-slate-50 focus:text-blue-600 cursor-pointer"
                             >
@@ -283,11 +235,12 @@ export function UsersTable({ searchTerm: externalSearchTerm }: UsersTableProps) 
                               Editar Usuario
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                                onClick={() => handleDelete(user)}
+                                onClick={() => handleDeactivate(user)}
+                                disabled={!user.active || user.id === currentUser?.id}
                                 className="gap-2 focus:bg-red-50 focus:text-red-600 cursor-pointer text-red-600"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Eliminar Usuario
+                              <UserX className="h-3.5 w-3.5" />
+                              {user.active ? 'Desactivar usuario' : 'Usuario desactivado'}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

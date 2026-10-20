@@ -1,191 +1,105 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import {
-    calculateNextEvaluationDate,
-    calculateQualityObjectiveStatus,
-} from '@/lib/quality-objectives';
+import { apiError, requireTenantAccess } from '@/lib/api-auth';
+import { calculatePlanEvaluationDate, calculateQualityObjectiveStatus, objectivePlanSchema, objectiveVersionSchema } from '@/lib/quality-objectives';
 
 export const dynamic = 'force-dynamic';
-
-const REQUIRED_FIELDS = [
-    ['description', 'descripción'],
-    ['indicator', 'indicador'],
-    ['target', 'meta'],
-    ['policyId', 'política de calidad'],
-    ['processId', 'proceso'],
-    ['organizationalLevel', 'nivel organizacional'],
-    ['applicableRequirements', 'requisitos aplicables'],
-    ['relevance', 'relevancia para la conformidad y el cliente'],
-    ['resources', 'recursos'],
-    ['responsibleId', 'responsable'],
-    ['deadline', 'fecha límite'],
-    ['evaluationFreq', 'frecuencia de evaluación'],
-    ['communicationRecipients', 'destinatarios de la comunicación'],
-    ['communicationDate', 'fecha de comunicación'],
-] as const;
-
-function text(value: unknown) {
-    return typeof value === 'string' ? value.trim() : '';
-}
-
-function validDate(value: unknown) {
-    if (!value || typeof value !== 'string') return null;
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? null : date;
-}
-
-async function validateReferences(
-    tenantId: string,
-    policyId: string,
-    processId: string,
-    responsibleId: string,
-) {
-    const [policy, process, responsible] = await Promise.all([
-        prisma.policy.findFirst({ where: { id: policyId, tenantId } }),
-        prisma.process.findFirst({ where: { id: processId, tenantId, active: true } }),
-        prisma.user.findFirst({ where: { id: responsibleId, tenantId, active: true } }),
-    ]);
-
-    if (!policy) return { error: 'La política seleccionada no pertenece a la empresa.' };
-    if (!process) return { error: 'El proceso seleccionado no pertenece a la empresa o está inactivo.' };
-    if (!responsible) return { error: 'El responsable seleccionado no pertenece a la empresa o está inactivo.' };
-    return { responsible };
-}
+const trackingOrder = { orderBy: { date: 'desc' as const } };
+const errorResponse = (error: string, status = 400) => NextResponse.json({ error }, { status });
 
 export async function GET(req: NextRequest) {
-    const tenantId = new URL(req.url).searchParams.get('tenantId');
-    if (!tenantId) {
-        return NextResponse.json({ error: 'Tenant ID is required' }, { status: 400 });
-    }
-
     try {
+        const tenantId = new URL(req.url).searchParams.get('tenantId') || '';
+        await requireTenantAccess(req, tenantId);
         const objectives = await prisma.qualityObjective.findMany({
-            where: { tenantId },
-            include: { tracking: { orderBy: { date: 'desc' } } },
-            orderBy: { createdAt: 'desc' },
+            where: { tenantId }, include: { tracking: trackingOrder }, orderBy: { createdAt: 'desc' },
         });
-
-        return NextResponse.json(objectives.map((objective) => ({
-            ...objective,
-            status: calculateQualityObjectiveStatus({
-                progress: objective.progress,
-                deadline: objective.deadline,
-                nextEvaluationDate: objective.nextEvaluationDate,
-            }),
-        })));
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Error fetching objectives';
-        console.error('Error fetching objectives:', error);
-        return NextResponse.json({ error: message }, { status: 500 });
-    }
+        return NextResponse.json(objectives.map((objective) => ({ ...objective, status: calculateQualityObjectiveStatus(objective) })));
+    } catch (error) { return apiError(error); }
 }
 
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
-        const tenantId = text(body.tenantId);
-        if (!tenantId) {
-            return NextResponse.json({ error: 'La empresa es obligatoria.' }, { status: 400 });
+        const raw = await req.json();
+        const tenantId = typeof raw?.tenantId === 'string' ? raw.tenantId.trim() : '';
+        const actor = await requireTenantAccess(req, tenantId, { write: true });
+        const parsed = objectivePlanSchema.safeParse(raw);
+        if (!parsed.success) return errorResponse(parsed.error.issues[0].message);
+        const body = parsed.data;
+        const existing = body.id ? await prisma.qualityObjective.findFirst({ where: { id: body.id, tenantId } }) : null;
+        if (body.id && !existing) return errorResponse('Objetivo no encontrado.', 404);
+        if (existing?.archivedAt) return errorResponse('Un objetivo archivado conserva su historial y no se puede modificar.', 409);
+        if (existing && existing.updatedAt.getTime() !== new Date(body.expectedUpdatedAt!).getTime()) {
+            return errorResponse('El objetivo cambió desde que abrió el formulario. Actualice la página y revise los cambios antes de guardar.', 409);
         }
-
-        const missing = REQUIRED_FIELDS
-            .filter(([key]) => !text(body[key]))
-            .map(([, label]) => label);
-        if (missing.length) {
-            return NextResponse.json(
-                { error: `Completa los campos requeridos: ${missing.join(', ')}.` },
-                { status: 400 },
-            );
+        const [policy, process, responsible] = await Promise.all([
+            prisma.policy.findFirst({ where: { id: body.policyId, tenantId } }),
+            prisma.process.findFirst({ where: { id: body.processId, tenantId } }),
+            prisma.user.findFirst({ where: { id: body.responsibleId, tenantId } }),
+        ]);
+        if (!policy || (existing?.policyId !== policy.id && (policy.status !== 'VIGENTE' || !['General', 'Calidad'].includes(policy.type)))) {
+            return errorResponse('Selecciona una política de calidad vigente de la empresa. Las asociaciones históricas existentes se conservan.');
         }
-
-        const deadline = validDate(body.deadline);
-        const communicationDate = validDate(body.communicationDate);
-        if (!deadline || !communicationDate) {
-            return NextResponse.json({ error: 'Las fechas ingresadas no son válidas.' }, { status: 400 });
-        }
-
-        const references = await validateReferences(
-            tenantId,
-            text(body.policyId),
-            text(body.processId),
-            text(body.responsibleId),
-        );
-        if ('error' in references) {
-            return NextResponse.json({ error: references.error }, { status: 400 });
-        }
-
-        const objectiveId = text(body.id);
-        const existing = objectiveId
-            ? await prisma.qualityObjective.findFirst({ where: { id: objectiveId, tenantId } })
-            : null;
-        if (objectiveId && !existing) {
-            return NextResponse.json({ error: 'Objetivo no encontrado.' }, { status: 404 });
-        }
-
-        const suppliedProgress = body.progress === undefined ? existing?.progress ?? 0 : Number(body.progress);
-        const progress = Math.min(100, Math.max(0, Number.isFinite(suppliedProgress) ? suppliedProgress : 0));
-        const nextEvaluationDate = calculateNextEvaluationDate(text(body.evaluationFreq));
-        const status = calculateQualityObjectiveStatus({ progress, deadline, nextEvaluationDate });
+        if (!process || (!process.active && existing?.processId !== process.id)) return errorResponse('Selecciona un proceso activo de la empresa.');
+        if (!responsible || (!responsible.active && existing?.responsibleId !== responsible.id)) return errorResponse('Selecciona un responsable activo de la empresa.');
+        const deadline = new Date(`${body.deadline}T00:00:00.000Z`);
+        const criteriaChanged = Boolean(existing && (existing.description !== body.description || existing.indicator !== body.indicator || existing.target !== body.target || existing.evaluationMethod !== body.evaluationMethod || existing.processId !== body.processId));
+        // Editar un plan no aplaza seguimientos vencidos ni altera mediciones registradas.
+        const nextEvaluationDate = calculatePlanEvaluationDate(body.evaluationFreq, existing);
+        const targetMet = criteriaChanged ? null : existing?.targetMet ?? null;
+        const progress = existing?.progress ?? 0;
         const data = {
-            tenantId,
-            policyId: text(body.policyId),
-            processId: text(body.processId),
-            organizationalLevel: text(body.organizationalLevel),
-            description: text(body.description),
-            indicator: text(body.indicator),
-            target: text(body.target),
-            actual: text(body.actual) || null,
-            applicableRequirements: text(body.applicableRequirements),
-            relevance: text(body.relevance),
-            resources: text(body.resources),
-            responsibleId: text(body.responsibleId),
-            responsibleName: references.responsible.name,
-            deadline,
-            evaluationFreq: text(body.evaluationFreq),
-            nextEvaluationDate,
-            communicationRecipients: text(body.communicationRecipients),
-            communicationDate,
-            communicationEvidence: text(body.communicationEvidence) || null,
-            status,
-            progress,
+            tenantId, policyId: body.policyId, processId: body.processId, organizationalLevel: body.organizationalLevel,
+            description: body.description, indicator: body.indicator, target: body.target,
+            actual: existing ? existing.actual : body.actual || null,
+            applicableRequirements: body.applicableRequirements, relevance: body.relevance,
+            actionPlan: body.actionPlan, evaluationMethod: body.evaluationMethod,
+            resources: body.resources, responsibleId: body.responsibleId, responsibleName: responsible.name,
+            deadline, evaluationFreq: body.evaluationFreq, nextEvaluationDate,
+            communicationRecipients: body.communicationRecipients,
+            communicationDate: new Date(`${body.communicationDate}T00:00:00.000Z`),
+            communicationEvidence: body.communicationEvidence, targetMet, progress,
+            status: calculateQualityObjectiveStatus({ deadline, nextEvaluationDate, targetMet }),
         };
-
-        if (existing) {
-            const updated = await prisma.qualityObjective.update({
-                where: { id: existing.id },
-                data,
-                include: { tracking: { orderBy: { date: 'desc' } } },
-            });
-            return NextResponse.json(updated);
-        }
-
-        const created = await prisma.qualityObjective.create({
-            data,
-            include: { tracking: true },
+        const result = await prisma.$transaction(async (tx) => {
+            const objective = existing
+                ? await tx.qualityObjective.update({ where: { id: existing.id, updatedAt: new Date(body.expectedUpdatedAt!), archivedAt: null }, data })
+                : await tx.qualityObjective.create({ data });
+            await tx.objectiveTracking.create({ data: {
+                objectiveId: objective.id, eventType: existing ? 'PLAN_UPDATED' : 'PLAN_CREATED',
+                note: existing ? body.changeReason! : 'Planificación inicial del objetivo.',
+                progress, actual: objective.actual, targetMet, actorId: actor.id, actorName: actor.name,
+                snapshot: JSON.parse(JSON.stringify({ before: existing || null, after: { ...data, policyTitle: policy.title, processName: process.name } })),
+            } });
+            return tx.qualityObjective.findUniqueOrThrow({ where: { id: objective.id }, include: { tracking: trackingOrder } });
         });
-        return NextResponse.json(created, { status: 201 });
-    } catch (error) {
-        console.error('Error saving objective:', error);
-        return NextResponse.json({ error: 'Error al guardar el objetivo.' }, { status: 500 });
-    }
+        return NextResponse.json(result, { status: existing ? 200 : 201 });
+    } catch (error) { return apiError(error); }
 }
 
+// Archivar conserva la planificación y las mediciones como información documentada.
 export async function DELETE(req: NextRequest) {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-    const tenantId = searchParams.get('tenantId');
-    if (!id || !tenantId) {
-        return NextResponse.json({ error: 'ID y empresa son obligatorios.' }, { status: 400 });
-    }
-
     try {
-        const result = await prisma.qualityObjective.deleteMany({ where: { id, tenantId } });
-        if (!result.count) {
-            return NextResponse.json({ error: 'Objetivo no encontrado.' }, { status: 404 });
+        const { searchParams } = new URL(req.url);
+        const tenantId = searchParams.get('tenantId') || '';
+        const actor = await requireTenantAccess(req, tenantId, { admin: true, write: true });
+        const id = searchParams.get('id');
+        if (!id) return errorResponse('El identificador del objetivo es obligatorio.');
+        const expectedUpdatedAt = objectiveVersionSchema.parse(searchParams.get('expectedUpdatedAt'));
+        const existing = await prisma.qualityObjective.findFirst({ where: { id, tenantId } });
+        if (!existing) return errorResponse('Objetivo no encontrado.', 404);
+        if (existing.archivedAt) return errorResponse('El objetivo ya está archivado.', 409);
+        if (existing.updatedAt.getTime() !== new Date(expectedUpdatedAt).getTime()) {
+            return errorResponse('El objetivo cambió. Actualice la página y revise la versión actual antes de archivarlo.', 409);
         }
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error('Error deleting objective:', error);
-        return NextResponse.json({ error: 'Error al eliminar el objetivo.' }, { status: 500 });
-    }
+        const objective = await prisma.$transaction(async (tx) => {
+            await tx.qualityObjective.update({ where: { id, updatedAt: new Date(expectedUpdatedAt), archivedAt: null }, data: { archivedAt: new Date(), status: 'ARCHIVADO' } });
+            await tx.objectiveTracking.create({ data: {
+                objectiveId: id, eventType: 'ARCHIVED', note: 'Objetivo archivado; se conserva el historial.',
+                progress: existing.progress, actual: existing.actual, targetMet: existing.targetMet, actorId: actor.id, actorName: actor.name,
+            } });
+            return tx.qualityObjective.findUniqueOrThrow({ where: { id }, include: { tracking: trackingOrder } });
+        });
+        return NextResponse.json(objective);
+    } catch (error) { return apiError(error); }
 }

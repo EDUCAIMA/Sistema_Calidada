@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import { 
     Plus, Eye, Edit, ChevronRight, ArrowRight, X, Save, HelpCircle, 
     Box, ShieldCheck, TrendingUp, History, Settings2, CheckCircle2,
-    Download, Trash2, Printer, FileEdit, Check, Settings, Clock
+    Download, Trash2, Archive, Printer, FileEdit, Check, Settings, Clock
 } from 'lucide-react';
 import { domToPng } from 'modern-screenshot';
 import { jsPDF } from 'jspdf';
@@ -774,20 +774,24 @@ export default function ProcessMapPage() {
         }
     };
 
-    const handleDeleteProcess = async (id: string, name: string) => {
-        if (!confirm(`¿Estás seguro de eliminar el proceso "${name}"? Esta acción no se puede deshacer.`)) return;
+    const handleArchiveProcess = async (id: string, name: string) => {
+        if (!confirm(`¿Deseas archivar el proceso "${name}"? Dejará de aparecer en el mapa de procesos activos. Se conservarán sus responsabilidades, documentos, riesgos e historial.`)) return;
 
         try {
             const res = await fetch(`/api/procesos?id=${id}`, {
                 method: 'DELETE',
             });
             const data = await res.json();
-            if (data.error) throw new Error(data.error);
+            if (!res.ok) throw new Error(data.error || 'No se pudo archivar el proceso.');
 
-            setProcesses(processes.filter(p => p.id !== id));
-            toast.success('Proceso eliminado correctamente');
+            setProcesses(previous => previous.filter(p => p.id !== id));
+            if (selectedProcess?.id === id) {
+                setSelectedProcess(null);
+                setShowCharacterization(false);
+            }
+            toast.success('Proceso archivado. Sus registros e historial se conservan.');
         } catch (error) {
-            toast.error('Error al eliminar el proceso');
+            toast.error(error instanceof Error ? error.message : 'No se pudo archivar el proceso.');
         }
     };
 
@@ -888,6 +892,7 @@ export default function ProcessMapPage() {
                             <HelpCircle className="w-5 h-5" />
                         </button>
                     </div>
+                    <p className="text-xs text-slate-500">Se muestran los procesos activos. Al archivar un proceso, sus responsabilidades, registros e historial se conservan.</p>
                     <div className="flex items-center gap-3">
                         <span className="bg-[#136dec]/10 text-[#136dec] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 4.4</span>
                         <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">SGC y sus procesos</span>
@@ -983,8 +988,8 @@ export default function ProcessMapPage() {
                                                 <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-1.5 bg-white rounded-lg shadow-md border border-emerald-100 text-emerald-600 hover:bg-emerald-50">
                                                     <Edit className="w-3.5 h-3.5" />
                                                 </button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteProcess(p.id, p.name); }} className="p-1.5 bg-white rounded-lg shadow-md border border-red-100 text-red-600 hover:bg-red-50">
-                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                <button title="Archivar proceso" aria-label={`Archivar ${p.name}`} onClick={(e) => { e.stopPropagation(); handleArchiveProcess(p.id, p.name); }} className="p-1.5 bg-white rounded-lg shadow-md border border-red-100 text-red-600 hover:bg-red-50">
+                                                    <Archive className="w-3.5 h-3.5" />
                                                 </button>
                                             </div>
                                         </div>
@@ -1023,8 +1028,8 @@ export default function ProcessMapPage() {
                                                 <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-2 bg-white rounded-xl shadow-lg border border-blue-100 text-blue-600 hover:bg-blue-50">
                                                     <Edit className="w-4 h-4" />
                                                 </button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteProcess(p.id, p.name); }} className="p-2 bg-white rounded-xl shadow-lg border border-red-100 text-red-600 hover:bg-red-50">
-                                                    <Trash2 className="w-4 h-4" />
+                                                <button title="Archivar proceso" aria-label={`Archivar ${p.name}`} onClick={(e) => { e.stopPropagation(); handleArchiveProcess(p.id, p.name); }} className="p-2 bg-white rounded-xl shadow-lg border border-red-100 text-red-600 hover:bg-red-50">
+                                                    <Archive className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </div>
@@ -1060,8 +1065,8 @@ export default function ProcessMapPage() {
                                                 <button onClick={(e) => { e.stopPropagation(); setNewProcess(p); setShowNewProcess(true); }} className="p-1.5 bg-white rounded-lg shadow-md border border-amber-100 text-amber-600 hover:bg-amber-50">
                                                     <Edit className="w-3.5 h-3.5" />
                                                 </button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteProcess(p.id, p.name); }} className="p-1.5 bg-white rounded-lg shadow-md border border-red-100 text-red-600 hover:bg-red-50">
-                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                <button title="Archivar proceso" aria-label={`Archivar ${p.name}`} onClick={(e) => { e.stopPropagation(); handleArchiveProcess(p.id, p.name); }} className="p-1.5 bg-white rounded-lg shadow-md border border-red-100 text-red-600 hover:bg-red-50">
+                                                    <Archive className="w-3.5 h-3.5" />
                                                 </button>
                                             </div>
                                         </div>

@@ -305,7 +305,7 @@ export default function ContextoOrganizacionalPage() {
             setSelectedItem(null);
             toast.success('Factor DOFA guardado exitosamente');
         } catch (error) {
-            toast.error('Error al guardar el factor DOFA');
+            toast.error(error instanceof Error ? error.message : 'Error al guardar el factor DOFA');
         }
     };
 
@@ -320,7 +320,7 @@ export default function ContextoOrganizacionalPage() {
             setItems(items.filter(i => i.id !== id));
             toast.success('Elemento eliminado de la base de datos');
         } catch (error) {
-            toast.error('Error al eliminar el elemento');
+            toast.error(error instanceof Error ? error.message : 'Error al eliminar el elemento');
         }
     };
 

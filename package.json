@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "db:deploy": "prisma db execute --file prisma/migrations/20261016000000_complete_quality_objectives_62/migration.sql",
+    "db:deploy": "node scripts/deploy-migrations.cjs",
+    "test": "node --test --require ./tests/register.cjs tests/*.test.cjs",
     "start": "npm run db:deploy && next start",
     "lint": "eslint"
   },

@@ -24,6 +24,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -35,7 +36,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, remember }),
       });
 
       const data = await res.json();
@@ -170,7 +171,12 @@ export default function LoginPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <Checkbox id="remember" className="border-slate-500 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
+                <Checkbox
+                  id="remember"
+                  checked={remember}
+                  onCheckedChange={checked => setRemember(checked === true)}
+                  className="border-slate-500 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                />
                 <label htmlFor="remember" className="text-sm text-slate-400 cursor-pointer select-none">
                   Mantener sesión iniciada por 30 días
                 </label>
@@ -204,7 +210,7 @@ export default function LoginPage() {
               </p>
               <div className="flex items-center justify-center gap-1.5 text-slate-400">
                 <Shield className="h-3 w-3" />
-                <span className="text-[10px] font-semibold">Cumplimiento SOC2 e ISO 9001 Certificado</span>
+                <span className="text-[10px] font-semibold">Sistema de gestión de calidad</span>
               </div>
             </div>
 

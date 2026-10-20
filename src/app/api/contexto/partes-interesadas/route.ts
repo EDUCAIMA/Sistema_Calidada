@@ -1,96 +1,56 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import prisma from '@/lib/db';
+import { ApiError, apiError, requireTenantAccess } from '@/lib/api-auth';
+import { getAuthenticatedUser } from '@/lib/auth-session';
+
+const optionalText = z.string().trim().max(5000).nullish().transform(value => value || '');
+const stakeholderSchema = z.object({
+    id: z.string().trim().min(1).max(200).optional(),
+    tenantId: z.string().trim().min(1).max(200),
+    name: z.string().trim().min(1, 'El nombre es obligatorio.').max(500),
+    type: z.enum(['INTERNO', 'EXTERNO']),
+    influence: z.enum(['ALTA', 'MEDIA', 'BAJA']),
+    needs: optionalText, expectations: optionalText, strategy: optionalText, contactInfo: optionalText,
+});
 
 export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get('tenantId');
-
-    if (!tenantId) {
-        return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
-    }
-
     try {
-        const stakeholders = await prisma.stakeholder.findMany({
-            where: { tenantId },
-            orderBy: { createdAt: 'desc' },
-        });
-        return NextResponse.json(stakeholders);
-    } catch (error) {
-        return NextResponse.json({ error: 'Failed to fetch stakeholders' }, { status: 500 });
-    }
+        const tenantId = new URL(request.url).searchParams.get('tenantId') || '';
+        await requireTenantAccess(request, tenantId);
+        return NextResponse.json(await prisma.stakeholder.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } }));
+    } catch (error) { return apiError(error); }
 }
 
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
-        const { id, tenantId, name, type, needs, expectations, influence, strategy, contactInfo } = body;
-
-        if (!tenantId || !name || !type || !influence) {
-            return NextResponse.json({ error: 'Faltan campos obligatorios (tenantId, name, type, influence)' }, { status: 400 });
+        const raw = await request.json();
+        await requireTenantAccess(request, raw?.tenantId, { write: true });
+        const { id, ...data } = stakeholderSchema.parse(raw);
+        if (id) {
+            const existing = await prisma.stakeholder.findFirst({ where: { id, tenantId: data.tenantId } });
+            if (!existing) throw new ApiError(404, 'Parte interesada no encontrada en esta empresa.');
+            return NextResponse.json(await prisma.stakeholder.update({ where: { id, tenantId: data.tenantId, updatedAt: existing.updatedAt }, data }));
         }
-
-        // Asegurar que el tenant existe
-        const tenantExists = await prisma.tenant.findUnique({ where: { id: tenantId } });
-        if (!tenantExists) {
-            await prisma.tenant.create({
-                data: {
-                    id: tenantId,
-                    name: 'Empresa Demo',
-                    slug: `demo-${tenantId.slice(-4)}`,
-                    active: true,
-                }
-            });
-        }
-
-        const data = {
-            tenantId,
-            name,
-            type,
-            needs: needs || '',
-            expectations: expectations || '',
-            influence,
-            strategy: strategy || '',
-            contactInfo: contactInfo || '',
-        };
-
-        let result;
-        if (id && !id.startsWith('sh-')) {
-            // Update existing
-            result = await prisma.stakeholder.update({
-                where: { id },
-                data,
-            });
-        } else {
-            // Create new
-            result = await prisma.stakeholder.create({
-                data,
-            });
-        }
-
-        return NextResponse.json(result);
-    } catch (error: any) {
-        console.error('Error detallado en Stakeholders API:', error);
-        return NextResponse.json({ 
-            error: 'Error al procesar la solicitud en el servidor',
-            details: error.message 
-        }, { status: 500 });
-    }
+        return NextResponse.json(await prisma.stakeholder.create({ data }), { status: 201 });
+    } catch (error) { return apiError(error); }
 }
 
 export async function DELETE(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-        return NextResponse.json({ error: 'id is required' }, { status: 400 });
-    }
-
     try {
-        await prisma.stakeholder.delete({
-            where: { id },
+        const actor = await getAuthenticatedUser(request);
+        if (!actor) throw new ApiError(401, 'La sesión expiró. Inicie sesión nuevamente.');
+        const id = new URL(request.url).searchParams.get('id');
+        if (!id) throw new ApiError(400, 'El identificador es obligatorio.');
+        const existing = await prisma.stakeholder.findFirst({ where: { id, ...(actor.role === 'SUPER_ADMIN' ? {} : { tenantId: actor.tenantId }) } });
+        if (!existing) throw new ApiError(404, 'Parte interesada no encontrada.');
+        await requireTenantAccess(request, existing.tenantId, { write: true });
+        await prisma.$transaction(async tx => {
+            if (await tx.risk.count({ where: { tenantId: existing.tenantId, sourceType: 'PARTE_INTERESADA', sourceId: id } })) {
+                throw new ApiError(409, 'Esta parte interesada es el origen de riesgos u oportunidades registrados. Debe conservarse para mantener su trazabilidad.');
+            }
+            await tx.stakeholder.delete({ where: { id, tenantId: existing.tenantId, updatedAt: existing.updatedAt } });
         });
         return NextResponse.json({ success: true });
-    } catch (error) {
-        return NextResponse.json({ error: 'Failed to delete stakeholder' }, { status: 500 });
-    }
+    } catch (error) { return apiError(error); }
 }

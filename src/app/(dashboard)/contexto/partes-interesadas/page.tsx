@@ -284,7 +284,7 @@ export default function PartesInteresadasPage() {
             setNewItem({ type: 'EXTERNO', influence: 'MEDIA' });
             setSelectedItem(null);
         } catch (error) {
-            toast.error('Error al guardar la parte interesada');
+            toast.error(error instanceof Error ? error.message : 'Error al guardar la parte interesada');
         }
     };
 
@@ -299,7 +299,7 @@ export default function PartesInteresadasPage() {
             setStakeholders(stakeholders.filter(s => s.id !== id));
             toast.success('Elemento eliminado de la base de datos');
         } catch (error) {
-            toast.error('Error al eliminar la parte interesada');
+            toast.error(error instanceof Error ? error.message : 'Error al eliminar la parte interesada');
         }
     };
 

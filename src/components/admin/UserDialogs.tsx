@@ -46,16 +46,16 @@ const userSchema = z.object({
 type UserFormValues = z.infer<typeof userSchema>;
 
 interface UserDialogsProps {
-  type: 'create' | 'edit' | 'delete';
+  type: 'create' | 'edit' | 'deactivate';
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  user?: any; // The user to edit or delete
+  user?: (Omit<UserFormValues, 'password' | 'position'> & { id: string; position?: string | null }) | null;
 }
 
 export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDialogsProps) {
   const [loading, setLoading] = useState(false);
-  const [tenants, setTenants] = useState<any[]>([]);
+  const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -72,7 +72,7 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
 
   useEffect(() => {
     if (isOpen) {
-      fetchTenants();
+      if (type !== 'deactivate') void fetchTenants();
       if (type === 'edit' && user) {
         form.reset({
           name: user.name,
@@ -101,6 +101,7 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
     try {
       const res = await fetch('/api/admin/tenants');
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudieron cargar las empresas.');
       setTenants(data);
     } catch (err) {
       console.error('Error fetching tenants:', err);
@@ -110,7 +111,8 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
   async function onSubmit(values: UserFormValues) {
     try {
       setLoading(true);
-      const url = type === 'create' ? '/api/admin/users' : `/api/admin/users/${user.id}`;
+      if (type !== 'create' && !user) throw new Error('Seleccione un usuario.');
+      const url = type === 'create' ? '/api/admin/users' : `/api/admin/users/${user!.id}`;
       const method = type === 'create' ? 'POST' : 'PATCH';
 
       // Remove empty password on edit
@@ -133,15 +135,16 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
       toast.success(type === 'create' ? 'Usuario creado correctamente' : 'Usuario actualizado correctamente');
       onSuccess();
       onClose();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo guardar el usuario.');
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleDelete() {
+  async function handleDeactivate() {
     try {
+      if (!user) throw new Error('Seleccione un usuario.');
       setLoading(true);
       const response = await fetch(`/api/admin/users/${user.id}`, {
         method: 'DELETE',
@@ -149,39 +152,39 @@ export function UserDialogs({ type, isOpen, onClose, onSuccess, user }: UserDial
 
       if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || 'Error al eliminar');
+          throw new Error(error.error || 'No se pudo desactivar el usuario.');
       }
 
-      toast.success('Usuario eliminado correctamente');
+      toast.success('Usuario desactivado. Sus responsabilidades e historial se conservan.');
       onSuccess();
       onClose();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo desactivar el usuario.');
     } finally {
       setLoading(false);
     }
   }
 
-  if (type === 'delete') {
+  if (type === 'deactivate') {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="bg-white border-slate-200 text-slate-900">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
-              Confirmar Eliminación
+              Desactivar usuario
             </DialogTitle>
             <DialogDescription className="text-slate-600">
-              ¿Estás seguro de que deseas eliminar al usuario <strong>{user?.name}</strong>? Esta acción no se puede deshacer.
+              Al desactivar a <strong>{user?.name}</strong>, se bloqueará su acceso al sistema. Sus responsabilidades y registros históricos se conservarán. Podrás reactivar la cuenta desde Editar usuario.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="ghost" onClick={onClose} disabled={loading} className="text-slate-500 hover:text-slate-900 hover:bg-slate-100">
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={loading} className="gap-2 bg-red-600 hover:bg-red-700">
+            <Button variant="destructive" onClick={handleDeactivate} disabled={loading} className="gap-2 bg-red-600 hover:bg-red-700">
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              Eliminar Permanentemente
+              Desactivar usuario
             </Button>
           </DialogFooter>
         </DialogContent>

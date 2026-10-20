@@ -1,1242 +1,313 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Download, Edit, FilePlus2, Loader2, Plus, RotateCcw, Send, ShieldCheck } from 'lucide-react';
+import { toast } from 'sonner';
+import { jsPDF } from 'jspdf';
 import { useApp } from '@/context/app-context';
-import {
-  FileText, Plus, Search, Edit, Trash2, Download, Eye, Save,
-  HelpCircle, Clock, Settings, Shield, BookOpen, Scale,
-  Leaf, Info, CheckCircle2, AlertTriangle, Megaphone, X
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
-// Type definitions
-interface PolicyCommunication {
-  id: string;
-  policyId: string;
-  audience: string;
-  method: string;
-  date: string;
-  evidence?: string | null;
-  responsibleName: string;
-  notes?: string | null;
-  createdAt: string;
+type Status = 'BORRADOR' | 'EN_REVISION' | 'VIGENTE' | 'OBSOLETA';
+interface Communication {
+  id: string; audience: string; audienceType: string; method: string; date: string;
+  evidence: string; understandingEvidence?: string; responsibleName: string; notes?: string;
 }
-
+interface ApprovalEvent {
+  id: string; action: string; userName: string; note?: string; createdAt: string;
+  snapshot?: { title: string; content: string; version: string };
+}
 interface Policy {
-  id: string;
-  title: string;
-  content: string;
-  version: string;
-  status: 'VIGENTE' | 'EN_REVISION' | 'OBSOLETA';
-  author: string;
-  type: string;
-  objectives?: string[];
-  createdAt: string;
-  updatedAt: string;
-  communications?: PolicyCommunication[];
+  id: string; title: string; content: string; type: string; version: string; status: Status;
+  author: string; objectives: string[]; updatedAt: string; approvedByName?: string; approvedAt?: string;
+  communications: Communication[]; approvalEvents: ApprovalEvent[];
 }
-
-const statusMap: Record<string, string> = {
-  'VIGENTE': 'Vigente',
-  'EN_REVISION': 'En Revisión',
-  'OBSOLETA': 'Obsoleta',
+interface PolicyForm {
+  id?: string; supersedesId?: string; expectedUpdatedAt?: string; title: string;
+  content: string; type: string; version: string; objectives: string;
+}
+const emptyForm: PolicyForm = { title: '', content: '', type: 'General', version: '1.0', objectives: '' };
+const emptyCommunication = { audience: '', audienceType: 'INTERNA', method: '', date: '', evidence: '', understandingEvidence: '', notes: '' };
+const checkLabels = {
+  context: 'Es adecuada al propósito, contexto y dirección estratégica de la organización.',
+  framework: 'Ofrece un marco para establecer y revisar los objetivos de calidad.',
+  requirements: 'Incluye el compromiso de cumplir los requisitos aplicables.',
+  improvement: 'Incluye el compromiso de mejora continua del sistema de gestión.',
 };
-
-const statusReverseMap: Record<string, string> = {
-  'Vigente': 'VIGENTE',
-  'En Revisión': 'EN_REVISION',
-  'Obsoleta': 'OBSOLETA',
+const emptyChecks = { context: false, framework: false, requirements: false, improvement: false };
+const labels: Record<Status, string> = { BORRADOR: 'Borrador', EN_REVISION: 'En revisión', VIGENTE: 'Vigente', OBSOLETA: 'Obsoleta' };
+const colors: Record<Status, string> = {
+  BORRADOR: 'bg-slate-100 text-slate-700', EN_REVISION: 'bg-amber-100 text-amber-900',
+  VIGENTE: 'bg-emerald-100 text-emerald-800', OBSOLETA: 'bg-slate-100 text-slate-500',
 };
-
-// Category icons and colors
-const typeConfig: Record<string, { icon: React.ReactNode; color: string; bg: string; softBg: string; border: string }> = {
-  'General': {
-    icon: <Shield className="h-5 w-5" />,
-    color: 'text-blue-600', bg: 'bg-blue-600', softBg: 'bg-blue-50', border: 'border-blue-200',
-  },
-  'Seguridad': {
-    icon: <Scale className="h-5 w-5" />,
-    color: 'text-indigo-600', bg: 'bg-indigo-600', softBg: 'bg-indigo-50', border: 'border-indigo-200',
-  },
-  'Riesgos': {
-    icon: <AlertTriangle className="h-5 w-5" />,
-    color: 'text-amber-600', bg: 'bg-amber-600', softBg: 'bg-amber-50', border: 'border-amber-200',
-  },
-  'Sostenibilidad': {
-    icon: <Leaf className="h-5 w-5" />,
-    color: 'text-emerald-600', bg: 'bg-emerald-600', softBg: 'bg-emerald-50', border: 'border-emerald-200',
-  },
+const eventLabels: Record<string, string> = {
+  CREATED: 'Borrador creado', CREATED_FOR_REVIEW: 'Registrada para revisión', EDITED: 'Borrador actualizado',
+  SUBMITTED_FOR_REVIEW: 'Enviada a revisión', APPROVED: 'Aprobada',
+  CHANGES_REQUESTED: 'Ajustes solicitados', SUPERSEDED: 'Reemplazada por una nueva versión',
 };
-
-const defaultTypeConfig = {
-  icon: <BookOpen className="h-5 w-5" />,
-  color: 'text-slate-600', bg: 'bg-slate-600', softBg: 'bg-slate-50', border: 'border-slate-200',
-};
+function dateLabel(value?: string) { return value ? new Date(value).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : 'Sin aprobación registrada'; }
+async function requestJson(url: string, body?: object, signal?: AbortSignal) {
+  const response = await fetch(url, body
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal }
+    : { signal });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'No fue posible procesar la solicitud.');
+  return data;
+}
 
 export default function PoliticasPage() {
-  const { tenant } = useApp();
+  const { tenant, currentUser } = useApp();
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showNew, setShowNew] = useState(false);
-  const [showDetail, setShowDetail] = useState(false);
-  const [showISOInfo, setShowISOInfo] = useState(false);
-  const [showConfig, setShowConfig] = useState(false);
-  const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
-  const [newPolicy, setNewPolicy] = useState<Partial<Policy>>({ type: 'General', status: 'EN_REVISION' });
-  const [showCommunication, setShowCommunication] = useState(false);
-  const [newComm, setNewComm] = useState({ audience: '', method: '', date: '', evidence: '', responsibleName: '', notes: '' });
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('ALL');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [form, setForm] = useState<PolicyForm | null>(null);
+  const [decision, setDecision] = useState<Policy | null>(null);
+  const [checks, setChecks] = useState(emptyChecks);
+  const [note, setNote] = useState('');
+  const [communicationOpen, setCommunicationOpen] = useState(false);
+  const [communication, setCommunication] = useState(emptyCommunication);
+  const selected = policies.find(policy => policy.id === selectedId);
+  const canWrite = !!currentUser && ['SUPER_ADMIN', 'ADMIN_EMPRESA', 'USUARIO'].includes(currentUser.role);
+  const canApprove = !!currentUser && ['SUPER_ADMIN', 'ADMIN_EMPRESA'].includes(currentUser.role);
 
-  // Document Metadata State
-  const [docMetadata, setDocMetadata] = useState({
-    code: 'DIR-REG-005',
-    version: '01',
-    approvalDate: '2026-03-21',
-    managerName: 'GERENTE GENERAL',
-    managerPosition: 'GERENTE GENERAL / REPRESENTANTE LEGAL'
-  });
-
-  // Coding Standard States
-  const [processes, setProcesses] = useState<any[]>([]);
-  const [catPrefixes, setCatPrefixes] = useState<any>(null);
-  const [docTypePrefixes, setDocTypePrefixes] = useState<any>(null);
-  const [builder, setBuilder] = useState({
-      processId: '',
-      type: 'REGISTRO',
-      consecutive: '001'
-  });
+  const load = useCallback(async (signal?: AbortSignal) => {
+    if (!tenant.id) return;
+    try {
+      const data = await requestJson('/api/liderazgo/politicas?tenantId=' + encodeURIComponent(tenant.id), undefined, signal);
+      setPolicies(data);
+      setError('');
+    } catch (cause) {
+      if (signal?.aborted) return;
+      setPolicies([]);
+      setError(cause instanceof Error ? cause.message : 'No fue posible cargar las políticas.');
+    } finally { if (!signal?.aborted) setLoading(false); }
+  }, [tenant.id]);
 
   useEffect(() => {
-    if (tenant?.id) {
-      // Fetch policies from API
-      const fetchPolicies = async () => {
-        try {
-          const res = await fetch(`/api/liderazgo/politicas?tenantId=${tenant.id}`);
-          const data = await res.json();
-          if (data && !data.error) setPolicies(data);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
-      };
-      fetchPolicies();
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
 
-      // Fetch standards for coding
-      const savedCats = localStorage.getItem('sgc_cat_prefixes');
-      const savedDocs = localStorage.getItem('sgc_doc_prefixes');
-      if (savedCats) setCatPrefixes(JSON.parse(savedCats));
-      if (savedDocs) setDocTypePrefixes(JSON.parse(savedDocs));
+  const perform = async (action: () => Promise<void>) => {
+    setBusy(true);
+    try { await action(); } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'La operación no se completó.'); }
+    finally { setBusy(false); }
+  };
 
-      const fetchProcesses = async () => {
-        try {
-          const res = await fetch(`/api/procesos?tenantId=${tenant.id}`);
-          const data = await res.json();
-          if (data && !data.error) setProcesses(data);
-        } catch (e) { console.error(e); }
-      };
-      fetchProcesses();
+  const save = () => perform(async () => {
+    if (!form) return;
+    const policy = await requestJson('/api/liderazgo/politicas', {
+      ...form, tenantId: tenant.id,
+      objectives: form.objectives.split('\n').map(value => value.trim()).filter(Boolean),
+    });
+    setForm(null);
+    setSelectedId(policy.id);
+    await load();
+    toast.success('Borrador guardado.');
+  });
 
-      // Fetch metadata
-      const fetchMetadata = async () => {
-        try {
-          const res = await fetch(`/api/formatos?tenantId=${tenant.id}&moduleKey=5.2`);
-          const data = await res.json();
-          if (data && !data.error) {
-            setDocMetadata({
-              code: data.code,
-              version: data.version,
-              approvalDate: data.approvalDate,
-              managerName: data.managerName || 'GERENTE GENERAL',
-              managerPosition: data.managerPosition || 'GERENTE GENERAL / REPRESENTANTE LEGAL'
-            });
-          }
-        } catch (error) { console.error(error); }
-      };
-      fetchMetadata();
-    }
-  }, [tenant?.id]);
+  const submit = (policy: Policy) => perform(async () => {
+    await requestJson('/api/liderazgo/politicas/' + policy.id + '/enviar-revision', {
+      tenantId: tenant.id, expectedUpdatedAt: policy.updatedAt,
+    });
+    await load();
+    toast.success('Política enviada a revisión.');
+  });
 
-  // Auto-generate code when builder changes
-  useEffect(() => {
-    if (showConfig && builder.processId && catPrefixes && docTypePrefixes) {
-      const process = processes.find(p => p.id === builder.processId);
-      if (process) {
-        const macro = catPrefixes[process.category] || 'GN';
-        const procCode = process.code || 'PROC';
-        const type = docTypePrefixes[builder.type] || 'RE';
-        const generated = `${macro}.${procCode}.${type}.${builder.consecutive}`;
-        setDocMetadata(prev => ({ ...prev, code: generated }));
+  const decide = (action: 'aprobar' | 'solicitar-ajustes') => perform(async () => {
+    if (!decision) return;
+    await requestJson('/api/liderazgo/politicas/' + decision.id + '/' + action, {
+      tenantId: tenant.id, expectedUpdatedAt: decision.updatedAt, note, checks,
+    });
+    setDecision(null);
+    await load();
+    toast.success(action === 'aprobar' ? 'Política aprobada. Registre su comunicación.' : 'Política devuelta a borrador con observaciones.');
+  });
+
+  const createVersion = (policy: Policy) => {
+    const [major, minor = '0'] = policy.version.split('.');
+    setForm({
+      title: policy.title, content: policy.content, type: policy.type,
+      version: Number.isFinite(Number(major)) ? major + '.' + (Number(minor) + 1) : '2.0',
+      supersedesId: policy.id, objectives: (policy.objectives || []).join('\n'),
+    });
+  };
+
+  const saveCommunication = () => perform(async () => {
+    if (!selected) return;
+    await requestJson('/api/liderazgo/politicas/comunicaciones', { ...communication, policyId: selected.id, tenantId: tenant.id });
+    setCommunicationOpen(false);
+    setCommunication(emptyCommunication);
+    await load();
+    toast.success('Evidencia de comunicación registrada.');
+  });
+
+  const exportPolicy = (policy: Policy) => {
+    const pdf = new jsPDF();
+    pdf.setFontSize(11);
+    let y = 20;
+    const paragraphs = [
+      tenant.name, 'Política: ' + policy.title,
+      'Versión ' + policy.version + ' | Estado: ' + labels[policy.status],
+      'Elaborada por: ' + policy.author,
+      'Aprobación: ' + (policy.approvedByName || 'Pendiente') + ' | ' + dateLabel(policy.approvedAt),
+      '', policy.content,
+      ...(policy.objectives?.length ? ['', 'Marco para los objetivos:', ...policy.objectives] : []),
+    ];
+    for (const paragraph of paragraphs) {
+      for (const line of pdf.splitTextToSize(paragraph, 170)) {
+        if (y > 275) { pdf.addPage(); y = 20; }
+        pdf.text(line, 20, y); y += 6;
       }
+      y += 3;
     }
-  }, [builder, showConfig, catPrefixes, docTypePrefixes, processes]);
+    pdf.save('Politica-' + policy.version + '-' + policy.status + '.pdf');
+  };
 
-  const filteredPolicies = policies.filter(policy =>
-    policy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    policy.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    policy.type.toLowerCase().includes(searchTerm.toLowerCase())
+  const filtered = policies.filter(policy =>
+    (filter === 'ALL' || policy.status === filter) &&
+    (policy.title + ' ' + policy.type).toLocaleLowerCase().includes(search.toLocaleLowerCase()),
   );
 
-  const getStatusConfig = (status: string) => {
-    const displayStatus = statusMap[status] || status;
-    switch (displayStatus) {
-      case 'Vigente':
-        return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-200', icon: <CheckCircle2 className="w-3 h-3" />, label: 'Vigente' };
-      case 'En Revisión':
-        return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-200', icon: <Clock className="w-3 h-3" />, label: 'En Revisión' };
-      case 'Obsoleta':
-        return { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-200', icon: <AlertTriangle className="w-3 h-3" />, label: 'Obsoleta' };
-      default:
-        return { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-slate-200', icon: null, label: status };
-    }
-  };
-
-  const handleCreate = async () => {
-    if (!newPolicy.title) { toast.error('El título es requerido'); return; }
-    if (!newPolicy.content) { toast.error('El contenido es requerido'); return; }
-
-    try {
-      const res = await fetch('/api/liderazgo/politicas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: selectedPolicy?.id || undefined,
-          tenantId: tenant?.id,
-          title: newPolicy.title,
-          content: newPolicy.content,
-          type: newPolicy.type || 'General',
-          version: newPolicy.version || '1.0',
-          status: newPolicy.status || 'EN_REVISION',
-          author: newPolicy.author || 'Sin asignar',
-          objectives: (newPolicy.objectives || []).filter(o => o.trim()),
-        }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-
-      if (selectedPolicy) {
-        setPolicies(policies.map(p => p.id === data.id ? data : p));
-        toast.success('Política actualizada exitosamente');
-      } else {
-        setPolicies([data, ...policies]);
-        toast.success('Política creada exitosamente');
-      }
-
-      setShowNew(false);
-      setNewPolicy({ type: 'General', status: 'EN_REVISION' });
-      setSelectedPolicy(null);
-    } catch (error) {
-      toast.error('Error al guardar la política');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await fetch(`/api/liderazgo/politicas?id=${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setPolicies(policies.filter(p => p.id !== id));
-      toast.success('Política eliminada');
-    } catch (error) {
-      toast.error('Error al eliminar la política');
-    }
-  };
-
-  const handleAddCommunication = async () => {
-    if (!selectedPolicy || !newComm.audience || !newComm.method || !newComm.date) {
-      toast.error('Complete los campos obligatorios'); return;
-    }
-    
-    setUploading(true);
-    try {
-      let finalEvidence = newComm.evidence;
-      
-      // If there's a file selected, upload it first
-      const file = fileInputRef.current?.files?.[0];
-      if (file) {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        const uploadRes = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        const uploadData = await uploadRes.json();
-        if (uploadData.error) throw new Error(uploadData.error);
-        finalEvidence = uploadData.url;
-      }
-
-      const res = await fetch('/api/liderazgo/politicas/comunicaciones', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          policyId: selectedPolicy.id, 
-          ...newComm,
-          evidence: finalEvidence 
-        }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-
-      // Update local state
-      const updatedComms = [...(selectedPolicy.communications || []), data];
-      const updatedPolicy = { ...selectedPolicy, communications: updatedComms };
-      setSelectedPolicy(updatedPolicy);
-      setPolicies(policies.map(p => p.id === updatedPolicy.id ? updatedPolicy : p));
-      setNewComm({ audience: '', method: '', date: '', evidence: '', responsibleName: '', notes: '' });
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setShowCommunication(false);
-      toast.success('Comunicación registrada exitosamente con evidencia');
-    } catch (error: any) {
-      toast.error(`Error: ${error.message || 'Error al registrar la comunicación'}`);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleDeleteCommunication = async (commId: string) => {
-    if (!selectedPolicy) return;
-    try {
-      const res = await fetch(`/api/liderazgo/politicas/comunicaciones?id=${commId}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-
-      const updatedComms = (selectedPolicy.communications || []).filter(c => c.id !== commId);
-      const updatedPolicy = { ...selectedPolicy, communications: updatedComms };
-      setSelectedPolicy(updatedPolicy);
-      setPolicies(policies.map(p => p.id === updatedPolicy.id ? updatedPolicy : p));
-      toast.success('Comunicación eliminada');
-    } catch (error) {
-      toast.error('Error al eliminar la comunicación');
-    }
-  };
-
-  const handlePrintPolicy = (policy: Policy) => {
-    try {
-      const safeTenantName = tenant?.name || "SGC";
-      const doc = new jsPDF('p', 'mm', 'letter');
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 25.4; // 1 pulgada (2.54 cm)
-
-      // --- 1. ENCABEZADO FORMAL ISO ---
-      const headerHeight = 22;
-      doc.setDrawColor(30, 41, 59);
-      doc.setLineWidth(0.4);
-      doc.rect(margin, margin, pageWidth - (margin * 2), headerHeight);
-      
-      const col1Width = 40;
-      const col3Width = 45;
-      const col2Width = pageWidth - (margin * 2) - col1Width - col3Width;
-
-      doc.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
-      doc.line(margin + col1Width + col2Width, margin, margin + col1Width + col2Width, margin + headerHeight);
-
-      // --- LOGO O NOMBRE DE EMPRESA ---
-      const logoData = tenant?.logo || tenant?.logoUrl;
-      if (logoData) {
-        try {
-          const format = logoData.includes('data:image/jpeg') || logoData.includes('.jpg') || logoData.includes('.jpeg') ? 'JPEG' : 'PNG';
-          doc.addImage(logoData, format, margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
-        } catch (e) {
-          doc.setFontSize(9).setFont('helvetica', 'bold');
-          doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-        }
-      } else {
-        doc.setFontSize(9).setFont('helvetica', 'bold');
-        doc.text(safeTenantName.toUpperCase(), margin + col1Width/2, margin + headerHeight/2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-      }
-
-      // --- TÍTULO ---
-      doc.setFontSize(14).setFont('helvetica', 'bold');
-      doc.text(policy.title.toUpperCase(), margin + col1Width + col2Width/2, margin + 14, { align: 'center', maxWidth: col2Width - 4 });
-
-      // --- METADATOS ---
-      doc.setFontSize(8).setFont('helvetica', 'normal');
-      const metaX = margin + col1Width + col2Width + 4;
-      doc.text(`Código: ${docMetadata.code}`, metaX, margin + 5);
-      doc.text(`Versión: ${docMetadata.version}`, metaX, margin + 9.5);
-      doc.text(`Fecha: ${docMetadata.approvalDate}`, metaX, margin + 14);
-      doc.text(`Página: 1 de 1`, metaX, margin + 18.5);
-
-      let currentY = margin + headerHeight + 15;
-
-      // --- CONTENIDO DE LA POLÍTICA ---
-      doc.setFontSize(12).setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-      const splitContent = doc.splitTextToSize(policy.content, pageWidth - (margin * 2));
-      doc.text(splitContent, margin, currentY);
-      currentY += (splitContent.length * 6) + 15;
-
-      // --- OBJETIVOS ASOCIADOS ---
-      if (policy.objectives && policy.objectives.length > 0) {
-        doc.setFontSize(12).setFont('helvetica', 'bold');
-        doc.setTextColor(30, 41, 59);
-        doc.text("Objetivos Asociados", margin, currentY);
-        currentY += 8;
-
-        doc.setFontSize(12).setFont('helvetica', 'normal');
-        doc.setTextColor(51, 65, 85);
-        policy.objectives.forEach((obj) => {
-          if (currentY > pageHeight - 40) {
-            doc.addPage();
-            currentY = margin + 10;
-          }
-          const splitObj = doc.splitTextToSize(`• ${obj}`, pageWidth - (margin * 2) - 5);
-          doc.text(splitObj, margin + 2, currentY);
-          currentY += (splitObj.length * 6) + 2;
-        });
-      }
-
-      // --- FIRMA GERENTE ---
-      const footerY = pageHeight - 40;
-      doc.setDrawColor(30, 41, 59);
-      doc.setLineWidth(0.2);
-      doc.line(pageWidth / 2 - 40, footerY, pageWidth / 2 + 40, footerY);
-      
-      doc.setFontSize(10).setFont('helvetica', 'bold');
-      doc.text(docMetadata.managerName.toUpperCase(), pageWidth / 2, footerY + 5, { align: 'center' });
-      doc.setFontSize(7).setFont('helvetica', 'normal');
-      doc.text(docMetadata.managerPosition.toUpperCase(), pageWidth / 2, footerY + 9, { align: 'center' });
-
-      doc.save(`Politica_${policy.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
-      toast.success('Política descargada exitosamente');
-    } catch (error) {
-      console.error('Error generating single policy PDF:', error);
-      toast.error('Error al generar el PDF de la política');
-    }
-  };
-
-  const handleDownloadPDF = () => {
-    try {
-      const safeTenantName = tenant?.name || "SGC";
-
-      const doc = new jsPDF('p', 'mm', 'letter');
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 25.4; // 1 pulgada (2.54 cm)
-
-      // --- HEADER ---
-      const headerHeight = 22;
-      doc.setDrawColor(30, 41, 59);
-      doc.setLineWidth(0.4);
-      doc.rect(margin, margin, pageWidth - (margin * 2), headerHeight);
-
-      const col1Width = 40;
-      const col3Width = 45;
-      const col2Width = pageWidth - (margin * 2) - col1Width - col3Width;
-
-      doc.line(margin + col1Width, margin, margin + col1Width, margin + headerHeight);
-      doc.line(margin + col1Width + col2Width, margin, margin + col1Width + col2Width, margin + headerHeight);
-
-      const logoData = tenant?.logo || tenant?.logoUrl;
-      if (logoData) {
-        try {
-          const format = logoData.includes('data:image/jpeg') || logoData.includes('.jpg') || logoData.includes('.jpeg') ? 'JPEG' : 'PNG';
-          doc.addImage(logoData, format, margin + 2, margin + 2, col1Width - 4, headerHeight - 4, undefined, 'FAST');
-        } catch (e) {
-          doc.setFontSize(9).setFont('helvetica', 'bold');
-          doc.text(safeTenantName.toUpperCase(), margin + col1Width / 2, margin + headerHeight / 2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-        }
-      } else {
-        doc.setFontSize(9).setFont('helvetica', 'bold');
-        doc.text(safeTenantName.toUpperCase(), margin + col1Width / 2, margin + headerHeight / 2 + 2, { align: 'center', maxWidth: col1Width - 4 });
-      }
-
-      doc.setFontSize(14).text("Políticas Institucionales", margin + col1Width + col2Width / 2, margin + 14, { align: 'center' });
-
-      doc.setFontSize(8).setFont('helvetica', 'normal');
-      const metaX = margin + col1Width + col2Width + 4;
-      doc.text(`Código: ${docMetadata.code}`, metaX, margin + 5);
-      doc.text(`Versión: ${docMetadata.version}`, metaX, margin + 9.5);
-      doc.text(`Fecha: ${docMetadata.approvalDate}`, metaX, margin + 14);
-      doc.text(`Página: 1 de 1`, metaX, margin + 18.5);
-
-      let currentY = margin + headerHeight + 10;
-
-      // --- POLICIES TABLE ---
-      autoTable(doc, {
-        startY: currentY,
-        head: [['Código', 'Política', 'Tipo', 'Versión', 'Estado', 'Responsable', 'Fecha']],
-        body: policies.map(p => [
-          p.id, p.title, p.type, `v${p.version}`, statusMap[p.status] || p.status, p.author, new Date(p.createdAt).toLocaleDateString()
-        ]),
-        styles: { fontSize: 8, cellPadding: 3, textColor: [30, 41, 59] },
-        headStyles: { fillColor: [19, 109, 236], textColor: [255, 255, 255], fontStyle: 'bold' },
-        margin: { left: margin, right: margin },
-        columnStyles: {
-          0: { cellWidth: 18 },
-          1: { cellWidth: 'auto' },
-          2: { cellWidth: 22 },
-          3: { cellWidth: 15 },
-          4: { cellWidth: 20 },
-          5: { cellWidth: 30 },
-          6: { cellWidth: 22 },
-        }
-      });
-
-      currentY = (doc as any).lastAutoTable.finalY + 15;
-
-      // --- DETAIL FOR EACH POLICY ---
-      policies.forEach((policy) => {
-        if (currentY > pageHeight - 60) {
-          doc.addPage();
-          currentY = margin + 10;
-        }
-
-        doc.setFontSize(11).setFont('helvetica', 'bold');
-        doc.setTextColor(19, 109, 236);
-        doc.text(`${policy.id} — ${policy.title}`, margin, currentY);
-        currentY += 6;
-
-        doc.setFontSize(9).setFont('helvetica', 'normal');
-        doc.setTextColor(30, 41, 59);
-        const contentLines = doc.splitTextToSize(policy.content, pageWidth - margin * 2);
-        doc.text(contentLines, margin, currentY);
-        currentY += contentLines.length * 4.5 + 8;
-
-        if (policy.objectives && policy.objectives.length > 0) {
-          doc.setFontSize(9).setFont('helvetica', 'bold');
-          doc.text('Objetivos:', margin, currentY);
-          currentY += 5;
-          doc.setFont('helvetica', 'normal');
-          policy.objectives.forEach((obj) => {
-            doc.text(`• ${obj}`, margin + 4, currentY);
-            currentY += 4.5;
-          });
-          currentY += 8;
-        }
-      });
-
-      doc.save(`Politicas_${safeTenantName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
-      toast.success('Documento descargado exitosamente');
-    } catch (error: any) {
-      console.error('ERROR_PDF:', error);
-      toast.error('Error al descargar');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#f8fafc] -m-6 p-8 font-sans text-slate-900 pb-20">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-[900] text-slate-900 tracking-tight uppercase">Políticas Institucionales</h1>
-            <button
-              onClick={() => setShowISOInfo(true)}
-              className="p-1.5 rounded-full hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-all active:scale-95"
-              title="Ver información normativa ISO 9001:2015"
-            >
-              <HelpCircle className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="bg-[#136dec]/10 text-[#136dec] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Cláusula 5.2</span>
-            <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">Política de la Calidad</span>
-
-            <div className="w-px h-4 bg-slate-300 mx-1"></div>
-
-            {/* UI Document Metadata (Dynamic) */}
-            <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setShowConfig(true)}>
-              <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Código: {docMetadata.code}</span>
-              <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Versión: {docMetadata.version}</span>
-              <span className="bg-white border border-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase group-hover:border-blue-400 group-hover:text-blue-600 transition-colors">Aprobación: {docMetadata.approvalDate}</span>
-            </div>
-          </div>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div><p className="text-sm font-semibold text-blue-700">5.2 · Liderazgo</p>
+          <h1 className="text-3xl font-bold tracking-tight">Política de calidad</h1>
+          <p className="mt-2 max-w-2xl text-sm text-slate-600">Elabore, revise y comunique la política. Cada versión conserva su aprobación y evidencia de difusión.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10"
-          >
-            <Clock className="w-4 h-4" />
-            HISTORIAL
-          </Button>
-          <Button
-            onClick={handleDownloadPDF}
-            variant="outline"
-            className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10"
-          >
-            <Download className="w-4 h-4 text-red-500" />
-            PDF
-          </Button>
-          <Button
-            onClick={() => { setSelectedPolicy(null); setNewPolicy({ type: 'General', status: 'EN_REVISION' }); setShowNew(true); }}
-            className="flex items-center gap-2 px-5 py-2 bg-[#136dec] text-white rounded-lg hover:bg-blue-600 font-bold text-xs shadow-lg shadow-blue-600/20 transition-all h-10 uppercase tracking-wider"
-          >
-            <Plus className="w-4 h-4" />
-            NUEVA POLÍTICA
-          </Button>
-        </div>
+        {canWrite && <Button onClick={() => setForm({ ...emptyForm })}><Plus className="mr-2 h-4 w-4" />Nueva política</Button>}
+      </header>
+
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-slate-50 p-4 text-sm">
+        <span className="font-medium">Borrador → Revisión → Vigente</span>
+        <span className="text-slate-500">Los ajustes vuelven a borrador. La nueva aprobación archiva la versión anterior del mismo tipo.</span>
+        <Link href="/planificacion/objetivos" className="text-blue-700 underline">Objetivos de calidad</Link>
       </div>
 
-      {/* Search Bar */}
-      <div className="mb-8">
-        <div className="relative max-w-xl">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Buscar por código, título o tipo de política..."
-            className="pl-12 h-11 bg-white border-slate-200 rounded-xl text-slate-700 focus-visible:ring-1 focus-visible:ring-[#136dec] shadow-sm"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
-        </div>
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">{error}<Button variant="outline" className="ml-4" onClick={() => void load()}>Reintentar</Button></div>}
+      <div className="flex flex-wrap gap-3">
+        <Input aria-label="Buscar políticas" placeholder="Buscar política..." value={search} onChange={event => setSearch(event.target.value)} className="max-w-sm" />
+        <select aria-label="Filtrar por estado" value={filter} onChange={event => setFilter(event.target.value)} className="rounded-md border bg-white px-3 py-2 text-sm">
+          <option value="ALL">Todos los estados</option>{Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
       </div>
 
-      {/* Policies Grid */}
-      <div className="space-y-6">
-        {filteredPolicies.length > 0 ? (
-          filteredPolicies.map((policy) => {
-            const tConfig = typeConfig[policy.type] || defaultTypeConfig;
-            const sConfig = getStatusConfig(policy.status);
-
-            return (
-              <section key={policy.id} className="bg-white rounded-xl border-2 border-slate-200 overflow-hidden shadow-sm transition-all hover:shadow-md">
-                {/* Card Header */}
-                <div className={cn("px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between", tConfig.softBg)}>
-                  <div className="flex items-center gap-3">
-                    <div className={cn("p-2 rounded-lg", tConfig.softBg, tConfig.color)}>
-                      {tConfig.icon}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded border", tConfig.color, tConfig.border, tConfig.softBg)}>
-                          {policy.id}
-                        </span>
-                        <span className={cn("text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1", sConfig.bg, sConfig.text, sConfig.border)}>
-                          {sConfig.icon}
-                          {sConfig.label}
-                        </span>
-                      </div>
-                      <h3 className="font-bold text-slate-800 uppercase tracking-wide text-sm">{policy.title}</h3>
-                    </div>
-                  </div>
-                  <span className={cn("text-[10px] font-bold px-3 py-1 rounded-full border border-current/20", tConfig.softBg, tConfig.color)}>
-                    {policy.type}
-                  </span>
-                </div>
-
-                {/* Card Body */}
-                <div className="px-6 py-5">
-                  <p className="text-sm text-slate-600 leading-relaxed mb-5 line-clamp-3">
-                    {policy.content}
-                  </p>
-
-                  {/* Objectives preview */}
-                  {policy.objectives && policy.objectives.length > 0 && (
-                    <div className="bg-slate-50 rounded-lg p-4 mb-5 border border-slate-100">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Objetivos Asociados</p>
-                      <div className="flex flex-wrap gap-2">
-                        {policy.objectives.slice(0, 3).map((obj, i) => (
-                          <span key={i} className="text-[11px] bg-white border border-slate-200 text-slate-600 px-3 py-1 rounded-lg font-medium">
-                            {obj}
-                          </span>
-                        ))}
-                        {policy.objectives.length > 3 && (
-                          <span className="text-[11px] bg-blue-50 border border-blue-100 text-blue-600 px-3 py-1 rounded-lg font-bold">
-                            +{policy.objectives.length - 3} más
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Communications badge */}
-                  {(policy.communications || []).length > 0 && (
-                    <div className="flex items-center gap-2 mb-3">
-                      <Megaphone className="w-3.5 h-3.5 text-amber-500" />
-                      <span className="text-[11px] font-bold text-amber-600">
-                        {(policy.communications || []).length} Comunicaciones registradas
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Meta row */}
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                    <div className="flex items-center gap-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      <span>v{policy.version}</span>
-                      <span>{new Date(policy.createdAt).toLocaleDateString()}</span>
-                      <span>{policy.author}</span>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                        onClick={() => { setSelectedPolicy(policy); setShowDetail(true); }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-slate-400 hover:text-[#136dec] hover:bg-blue-50 rounded-lg transition-all"
-                        onClick={() => { setSelectedPolicy(policy); setNewPolicy(policy); setShowNew(true); }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                        onClick={() => handlePrintPolicy(policy)}
-                        title="Imprimir Política"
-                      >
-                        <Download className="h-4 w-4 text-red-500" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                        onClick={() => handleDelete(policy.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </section>
-            );
-          })
-        ) : (
-          <div className="p-20 text-center bg-white rounded-xl border border-dashed border-slate-200 shadow-sm">
-            <Info className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">No se encontraron políticas</p>
-            <p className="text-xs text-slate-300 font-medium mt-2">Intente con otros términos de búsqueda o cree una nueva política.</p>
-            <Button
-              variant="outline"
-              className="mt-6 border-slate-200 text-slate-500 rounded-lg text-xs font-bold uppercase tracking-wider"
-              onClick={() => setSearchTerm('')}
-            >
-              Limpiar búsqueda
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* ═══ CREATE / EDIT DIALOG ═══ */}
-      <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent className="max-w-2xl sm:max-w-2xl w-[90vw] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans">
-          <div className="px-6 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
-            <div className="flex items-center gap-3">
-              <div className="bg-[#136dec] p-1.5 rounded-md shadow-lg shadow-blue-600/20">
-                <Plus className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <DialogTitle className="text-xl font-extrabold text-[#1e293b] tracking-tight uppercase leading-none">
-                  {selectedPolicy ? 'MODIFICAR POLÍTICA' : 'REGISTRAR NUEVA POLÍTICA'}
-                </DialogTitle>
-                <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wide">
-                  ISO 9001:2015 — CLÁUSULA 5.2 POLÍTICA DE LA CALIDAD
-                </p>
-              </div>
+      {loading ? <div className="py-16 text-center"><Loader2 className="mx-auto animate-spin" /><p className="mt-2">Cargando políticas...</p></div> :
+        !error && !filtered.length ? <div className="rounded-xl border border-dashed p-12 text-center text-slate-500">No hay políticas para mostrar. Registre la política de su organización para iniciar la revisión.</div> :
+        <div className="grid gap-4 md:grid-cols-2">
+          {filtered.map(policy => <article key={policy.id} className="space-y-4 rounded-xl border bg-white p-5">
+            <div className="flex items-center justify-between gap-2"><Badge className={cn('border-0', colors[policy.status])}>{labels[policy.status]}</Badge><span className="text-xs text-slate-500">{policy.type} · v{policy.version}</span></div>
+            <h2 className="text-lg font-semibold">{policy.title}</h2>
+            <p className="line-clamp-3 whitespace-pre-line text-sm text-slate-600">{policy.content}</p>
+            <p className="text-xs text-slate-500">{policy.approvedAt ? 'Aprobada por ' + policy.approvedByName + ' · ' + dateLabel(policy.approvedAt) : 'Aprobación pendiente'}</p>
+            {policy.status === 'VIGENTE' && <p className="text-xs text-blue-700">{policy.communications.length ? policy.communications.length + ' evidencias de comunicación' : 'Pendiente: registrar comunicación y comprensión de la política.'}</p>}
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setSelectedId(policy.id)}>Ver política e historial</Button>
+              {canWrite && policy.status === 'BORRADOR' && <Button disabled={busy} onClick={() => submit(policy)}><Send className="mr-2 h-4 w-4" />Enviar a revisión</Button>}
+              {canApprove && policy.status === 'EN_REVISION' && <Button onClick={() => { setDecision(policy); setNote(''); setChecks(emptyChecks); }}><ShieldCheck className="mr-2 h-4 w-4" />Revisar</Button>}
             </div>
-          </div>
+          </article>)}
+        </div>}
 
-          <div className="px-6 py-8 space-y-8 overflow-y-auto max-h-[70vh] bg-[#fcfdfe]">
-            {/* Title */}
-            <div className="space-y-3">
-              <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                <span className="h-4 w-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">1</span>
-                TÍTULO DE LA POLÍTICA *
-              </Label>
-              <Input
-                className="bg-white border-slate-200 rounded-xl h-12 focus-visible:ring-1 focus-visible:ring-[#136dec] font-bold text-slate-700 uppercase"
-                placeholder="Ej: POLÍTICA DE CALIDAD INSTITUCIONAL"
-                value={newPolicy.title || ''}
-                onChange={e => setNewPolicy({ ...newPolicy, title: e.target.value })}
-              />
+      <Dialog open={!!selected} onOpenChange={open => { if (!open) setSelectedId(null); }}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{selected?.title}</DialogTitle><DialogDescription>Versión {selected?.version} · {selected && labels[selected.status]}</DialogDescription></DialogHeader>
+          {selected && <>
+            <p className="whitespace-pre-wrap text-sm leading-7">{selected.content}</p>
+            {!!selected.objectives?.length && <section><h3 className="mb-2 font-semibold">Marco para los objetivos</h3><ul className="list-disc space-y-1 pl-5 text-sm">{selected.objectives.map((objective, index) => <li key={index}>{objective}</li>)}</ul></section>}
+            <p className="rounded-lg bg-slate-50 p-3 text-sm">Aprobación: {selected.approvedByName || 'Pendiente'} · {dateLabel(selected.approvedAt)}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => exportPolicy(selected)}><Download className="mr-2 h-4 w-4" />Descargar PDF</Button>
+              {canWrite && selected.status === 'BORRADOR' && <Button variant="outline" onClick={() => setForm({
+                id: selected.id, expectedUpdatedAt: selected.updatedAt, title: selected.title, content: selected.content,
+                type: selected.type, version: selected.version, objectives: (selected.objectives || []).join('\n'),
+              })}><Edit className="mr-2 h-4 w-4" />Editar borrador</Button>}
+              {canWrite && selected.status === 'VIGENTE' && <Button variant="outline" onClick={() => createVersion(selected)}><FilePlus2 className="mr-2 h-4 w-4" />Nueva versión</Button>}
+              {canWrite && selected.status === 'VIGENTE' && <Button onClick={() => { setCommunication(emptyCommunication); setCommunicationOpen(true); }}>Registrar comunicación</Button>}
             </div>
-
-            {/* Type & Status */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-3">
-                <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                  <span className="h-4 w-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">2</span>
-                  CATEGORÍA
-                </Label>
-                <Select value={newPolicy.type} onValueChange={v => setNewPolicy({ ...newPolicy, type: v })}>
-                  <SelectTrigger className="h-12 bg-white border-slate-200 rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="General">General</SelectItem>
-                    <SelectItem value="Seguridad">Seguridad</SelectItem>
-                    <SelectItem value="Riesgos">Riesgos</SelectItem>
-                    <SelectItem value="Sostenibilidad">Sostenibilidad</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-3">
-                <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                  <span className="h-4 w-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">3</span>
-                  VERSIÓN
-                </Label>
-                <Input
-                  className="bg-white border-slate-200 rounded-xl h-12 focus-visible:ring-1 focus-visible:ring-[#136dec] font-bold"
-                  placeholder="Ej: 1.0"
-                  value={newPolicy.version || ''}
-                  onChange={e => setNewPolicy({ ...newPolicy, version: e.target.value })}
-                />
-              </div>
-              <div className="space-y-3">
-                <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                  <span className="h-4 w-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">4</span>
-                  RESPONSABLE
-                </Label>
-                <Input
-                  className="bg-white border-slate-200 rounded-xl h-12 focus-visible:ring-1 focus-visible:ring-[#136dec] font-bold text-xs uppercase"
-                  placeholder="Ej: DIRECCIÓN GENERAL"
-                  value={newPolicy.author || ''}
-                  onChange={e => setNewPolicy({ ...newPolicy, author: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="space-y-3">
-              <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                <span className="h-4 w-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">5</span>
-                DECLARACIÓN DE LA POLÍTICA *
-              </Label>
-              <Textarea
-                className="resize-none bg-white border-slate-200 rounded-xl p-5 focus-visible:ring-1 focus-visible:ring-[#136dec] font-medium text-slate-700 min-h-[140px]"
-                placeholder="Redacte la declaración formal de la política..."
-                value={newPolicy.content || ''}
-                onChange={e => setNewPolicy({ ...newPolicy, content: e.target.value })}
-              />
-            </div>
-
-            {/* Objectives */}
-            <div className="space-y-3 pb-4">
-              <Label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                <span className="h-4 w-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">6</span>
-                OBJETIVOS ASOCIADOS (uno por línea)
-              </Label>
-              <Textarea
-                className="resize-none bg-white border-slate-200 rounded-xl p-5 focus-visible:ring-1 focus-visible:ring-[#136dec] font-medium text-slate-700 min-h-[100px] text-sm"
-                placeholder="Garantizar la satisfacción del cliente&#10;Cumplir requisitos legales&#10;Mejorar continuamente"
-                value={newPolicy.objectives?.join('\n') || ''}
-                onChange={e => setNewPolicy({ ...newPolicy, objectives: e.target.value.split('\n') })}
-              />
-            </div>
-          </div>
-
-          <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex justify-end items-center gap-3">
-            <Button variant="ghost" className="text-slate-500 font-bold uppercase text-[10px] tracking-widest h-11 px-8" onClick={() => setShowNew(false)}>Descartar</Button>
-            <Button className="bg-[#136dec] hover:bg-blue-700 text-white font-bold uppercase text-[10px] tracking-widest h-11 px-10 shadow-lg shadow-blue-600/20" onClick={handleCreate}>
-              <Save className="h-4 w-4 mr-2" />
-              {selectedPolicy ? 'Actualizar Política' : 'Guardar Política'}
-            </Button>
-          </div>
+            <section className="border-t pt-4"><h3 className="font-semibold">Comunicación y comprensión · 5.2.2</h3>
+              {!selected.communications.length && <p className="mt-2 text-sm text-slate-500">Sin evidencias registradas.</p>}
+              {selected.communications.map(item => <div key={item.id} className="mt-3 space-y-1 rounded-lg border p-3 text-sm">
+                <p className="font-medium">{item.audience} · {item.audienceType === 'EXTERNA' ? 'Partes interesadas externas' : 'Comunicación interna'}</p>
+                <p>{item.method} · {dateLabel(item.date)} · {item.responsibleName}</p>
+                <p className="whitespace-pre-wrap break-words">Evidencia: {item.evidence || 'Sin evidencia documentada'}</p>
+                <p className="whitespace-pre-wrap">Comprensión y aplicación: {item.understandingEvidence || 'No registrada'}</p>
+                {item.notes && <p className="text-slate-600">{item.notes}</p>}
+              </div>)}
+            </section>
+            <section className="border-t pt-4"><h3 className="font-semibold">Historial de versión y revisión</h3>
+              {!selected.approvalEvents.length && <p className="mt-2 text-sm text-slate-500">Sin historial previo registrado.</p>}
+              {selected.approvalEvents.map(event => <div key={event.id} className="mt-3 border-l-2 border-blue-200 pl-3 text-sm">
+                <p className="font-medium">{eventLabels[event.action] || event.action}</p>
+                <p className="text-xs text-slate-500">{event.userName} · {dateLabel(event.createdAt)}</p>
+                <p className="mt-1 whitespace-pre-wrap">{event.note}</p>
+                {event.snapshot && <details className="mt-2"><summary className="cursor-pointer text-blue-700">Contenido registrado en este evento</summary><p className="mt-2 whitespace-pre-wrap rounded-md bg-slate-50 p-3">{event.snapshot.content}</p></details>}
+              </div>)}
+            </section>
+          </>}
         </DialogContent>
       </Dialog>
 
-      {/* ═══ DETAIL DIALOG ═══ */}
-      <Dialog open={showDetail} onOpenChange={setShowDetail}>
-        <DialogContent className="max-w-4xl max-h-[90vh] bg-white border-none p-0 overflow-hidden rounded-3xl shadow-2xl font-sans flex flex-col">
-          <ScrollArea className="flex-1">
-          {selectedPolicy && (() => {
-            const tConfig = typeConfig[selectedPolicy.type] || defaultTypeConfig;
-            const sConfig = getStatusConfig(selectedPolicy.status);
-            return (
-              <>
-                <div className={cn("h-1.5 w-full", tConfig.bg)} />
-                <div className="p-5">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center text-white shrink-0 shadow-md", tConfig.bg)}>
-                      {React.cloneElement(tConfig.icon as React.ReactElement<{ className?: string }>, { className: "w-6 h-6" })}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge className={cn("border-none uppercase text-[9px] tracking-widest font-black px-3 py-1", tConfig.bg)}>{selectedPolicy.type}</Badge>
-                        <span className={cn("text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1", sConfig.bg, sConfig.text, sConfig.border)}>
-                          {sConfig.icon}
-                          {sConfig.label}
-                        </span>
-                      </div>
-                      <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight truncate">{selectedPolicy.title}</h2>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/50">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Declaración de la Política</p>
-                      <p className="text-xs font-medium text-slate-600 leading-relaxed">{selectedPolicy.content}</p>
-                    </div>
-
-                    {selectedPolicy.objectives && selectedPolicy.objectives.length > 0 && (
-                      <div className="bg-[#136dec]/5 rounded-xl p-4 border border-blue-100/50">
-                        <p className="text-[9px] font-black text-[#136dec] uppercase tracking-widest mb-1.5">Objetivos Asociados</p>
-                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                          {selectedPolicy.objectives.map((obj, i) => (
-                            <li key={i} className="flex items-start gap-1.5 text-[11px] font-medium text-slate-700">
-                              <CheckCircle2 className="w-3 h-3 text-[#136dec] shrink-0 mt-0.5" />
-                              {obj}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* ═══ COMUNICACIÓN DE LA POLÍTICA (5.2.2) ═══ */}
-                    <div className="bg-amber-50/50 rounded-xl p-4 border border-amber-100/50">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <Megaphone className="w-3.5 h-3.5 text-amber-600" />
-                          <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest">Comunicación (5.2.2)</p>
-                          <span className="text-[8px] font-bold bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full">
-                            {(selectedPolicy.communications || []).length} registros
-                          </span>
-                        </div>
-                        <Button
-                          size="sm"
-                          className="bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-bold uppercase tracking-wider h-7 px-3 rounded-lg"
-                          onClick={() => setShowCommunication(true)}
-                        >
-                          <Plus className="w-2.5 h-2.5 mr-1" /> Registrar
-                        </Button>
-                      </div>
-
-                      {(selectedPolicy.communications || []).length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left border-collapse">
-                            <thead>
-                              <tr className="bg-white/60">
-                                <th className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-amber-100">Audiencia</th>
-                                <th className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-amber-100">Método</th>
-                                <th className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-amber-100">Fecha</th>
-                                <th className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-amber-100">Responsable</th>
-                                <th className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-amber-100">Evidencia</th>
-                                <th className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-amber-100 text-right">Acción</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-amber-50">
-                              {(selectedPolicy.communications || []).map((comm) => (
-                                <tr key={comm.id} className="hover:bg-white/40 transition-colors">
-                                  <td className="px-3 py-1.5 text-[11px] font-medium text-slate-700">{comm.audience}</td>
-                                  <td className="px-3 py-1.5 text-[11px] text-slate-600">{comm.method}</td>
-                                  <td className="px-3 py-1.5 text-[11px] text-slate-500 font-bold">{new Date(comm.date).toLocaleDateString()}</td>
-                                  <td className="px-3 py-1.5 text-[11px] text-slate-500 uppercase">{comm.responsibleName}</td>
-                                  <td className="px-3 py-1.5 text-[11px] text-slate-400 italic">
-                                    {comm.evidence ? (
-                                      comm.evidence.startsWith('/uploads') ? (
-                                        <a 
-                                          href={comm.evidence} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="text-blue-600 hover:underline flex items-center gap-1 font-bold not-italic"
-                                        >
-                                          <Download className="w-2.5 h-2.5" /> Ver PDF
-                                        </a>
-                                      ) : comm.evidence
-                                    ) : '—'}
-                                  </td>
-                                  <td className="px-3 py-1.5 text-right">
-                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-slate-300 hover:text-red-500 hover:bg-red-50" onClick={() => handleDeleteCommunication(comm.id)}>
-                                      <Trash2 className="h-2.5 w-2.5" />
-                                    </Button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-amber-600/60 italic text-center py-4">No se han registrado comunicaciones de esta política.</p>
-                      )}
-
-                      {/* Inline add communication form */}
-                      {showCommunication && (
-                        <div className="mt-4 bg-white rounded-xl p-4 border border-amber-200 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nueva Comunicación</p>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowCommunication(false)}><X className="h-3 h-3" /></Button>
-                          </div>
-                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                            <Input className="h-7 text-[10px] border-slate-200" placeholder="Audiencia" value={newComm.audience} onChange={e => setNewComm({...newComm, audience: e.target.value})} />
-                            <Input className="h-7 text-[10px] border-slate-200" placeholder="Método" value={newComm.method} onChange={e => setNewComm({...newComm, method: e.target.value})} />
-                            <Input type="date" className="h-7 text-[10px] border-slate-200" value={newComm.date} onChange={e => setNewComm({...newComm, date: e.target.value})} />
-                            <Input className="h-7 text-[10px] border-slate-200" placeholder="Responsable" value={newComm.responsibleName} onChange={e => setNewComm({...newComm, responsibleName: e.target.value})} />
-                            <div className="flex flex-col gap-0.5 lg:col-span-2">
-                              <input 
-                                type="file" 
-                                accept=".pdf"
-                                ref={fileInputRef}
-                                className="h-7 text-[8px] block w-full text-slate-500 file:mr-2 file:py-0 file:px-2 file:rounded-full file:border-0 file:text-[8px] file:font-semibold file:bg-blue-50 file:text-blue-700 border border-slate-200 rounded-md p-1" 
-                              />
-                            </div>
-                            <Input className="h-7 text-[10px] border-slate-200 lg:col-span-2" placeholder="Notas adicionales..." value={newComm.notes} onChange={e => setNewComm({...newComm, notes: e.target.value})} />
-                          </div>
-                          <div className="flex justify-end">
-                            <Button 
-                              size="sm" 
-                              className="bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-bold uppercase h-7 px-4" 
-                              onClick={handleAddCommunication}
-                              disabled={uploading}
-                            >
-                              {uploading ? (
-                                <><div className="animate-spin rounded-full h-2 w-2 border-b-2 border-white mr-1.5"></div> Subiendo...</>
-                              ) : (
-                                <><Save className="w-2.5 h-2.5 mr-1" /> Guardar</>
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-6 border-t border-slate-100">
-                      <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Responsable</p>
-                        <p className="text-sm font-bold text-slate-700 uppercase">{selectedPolicy.author}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Versión</p>
-                        <p className="text-sm font-bold text-slate-500">v{selectedPolicy.version}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Fecha</p>
-                        <p className="text-sm font-bold text-slate-500">{new Date(selectedPolicy.createdAt).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex justify-end gap-3">
-                    <Button 
-                      onClick={() => handlePrintPolicy(selectedPolicy)}
-                      variant="outline"
-                      className="border-slate-200 text-slate-700 hover:bg-slate-50 px-6 h-10 font-bold uppercase text-[9px] tracking-widest rounded-xl flex items-center gap-2"
-                    >
-                      <Download className="w-3.5 h-3.5 text-red-500" /> Imprimir PDF
-                    </Button>
-                    <Button onClick={() => setShowDetail(false)} className="bg-slate-900 hover:bg-black text-white px-6 h-10 font-bold uppercase text-[9px] tracking-widest rounded-xl">Cerrar Ficha</Button>
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-      {/* ═══ ISO INFO DIALOG ═══ */}
-      <Dialog open={showISOInfo} onOpenChange={setShowISOInfo}>
-        <DialogContent className="w-[70vw] sm:max-w-[70vw] bg-white border border-gray-200 shadow-sm rounded-3xl overflow-hidden flex flex-col p-0 gap-0 font-sans">
-          <header className="px-6 pt-8 pb-4 border-b border-gray-50 bg-white">
-            <div className="flex flex-col gap-2">
-              <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
-                5 Liderazgo
-              </h1>
-              <h2 className="text-xl font-medium text-[#1e3a8a]">
-                5.2 Política
-              </h2>
-            </div>
-          </header>
-          <div className="px-6 pt-4 pb-8 space-y-8 bg-white overflow-y-auto max-h-[60vh]">
-            <div className="bg-slate-100/80 border border-slate-200 rounded-2xl p-5 space-y-4">
-              <section className="space-y-6">
-                <p className="text-lg text-gray-800 leading-relaxed italic font-bold">
-                  5.2.1 Establecimiento de la política de la calidad
-                </p>
-                <p className="text-lg text-gray-800 leading-relaxed italic">
-                  La alta dirección <strong className="font-black text-gray-900 not-italic">debe</strong> establecer, implementar y mantener una política de la calidad que:
-                </p>
-                <div className="flex flex-col gap-4 text-gray-600 text-sm md:text-lg leading-relaxed italic md:ml-6">
-                  <p>a) sea apropiada al propósito y contexto de la organización y apoye su dirección estratégica;</p>
-                  <p>b) proporcione un marco de referencia para el establecimiento de los objetivos de la calidad;</p>
-                  <p>c) incluya un compromiso de cumplir los requisitos aplicables;</p>
-                  <p>d) incluya un compromiso de mejora continua del sistema de gestión de la calidad.</p>
-                </div>
-              </section>
-              <section className="space-y-6 pt-4">
-                <p className="text-lg text-gray-800 leading-relaxed italic font-bold">
-                  5.2.2 Comunicación de la política de la calidad
-                </p>
-                <p className="text-lg text-gray-800 leading-relaxed italic">
-                  La política de la calidad <strong className="font-black text-gray-900 not-italic">debe</strong>:
-                </p>
-                <div className="flex flex-col gap-4 text-gray-600 text-sm md:text-lg leading-relaxed italic md:ml-6">
-                  <p>a) estar disponible y mantenerse como información documentada;</p>
-                  <p>b) comunicarse, entenderse y aplicarse dentro de la organización;</p>
-                  <p>c) estar disponible para las partes interesadas pertinentes, según corresponda.</p>
-                </div>
-              </section>
-            </div>
-          </div>
-          <footer className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-            <div className="text-xs text-gray-400 font-bold tracking-tight uppercase">
-              SISTEMA DE GESTIÓN DE LA CALIDAD (SGC)
-            </div>
-            <Button
-              onClick={() => setShowISOInfo(false)}
-              className="bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-bold py-3 px-10 rounded shadow-md transition-all duration-200 ease-in-out active:scale-95 h-auto uppercase tracking-wider"
-            >
-              ENTENDIDO
-            </Button>
-          </footer>
-        </DialogContent>
-      </Dialog>
-
-      {/* ═══ CONFIG DIALOG ═══ */}
-      <Dialog open={showConfig} onOpenChange={setShowConfig}>
-        <DialogContent className="max-w-md bg-white border-none rounded-3xl shadow-2xl p-0 overflow-hidden">
-          <div className="bg-slate-900 p-6 text-white flex items-center gap-3">
-            <Settings className="w-6 h-6 text-blue-400" />
-            <div>
-              <h2 className="text-xl font-bold uppercase tracking-tight italic">Configurar Documento</h2>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Metadatos de Políticas Institucionales</p>
-            </div>
-          </div>
-
-          <div className="p-8 space-y-6 bg-white text-slate-900">
-            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl space-y-4">
-              <p className="text-[10px] font-black uppercase text-indigo-400 mb-2">Asistente de Codificación Estándar</p>
-              
-              <div className="grid grid-cols-1 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-[9px] font-black uppercase text-slate-500 ml-1">Seleccionar Proceso Responsable</Label>
-                  <Select value={builder.processId} onValueChange={(val) => setBuilder({...builder, processId: val})}>
-                    <SelectTrigger className="h-10 bg-white border-slate-200 font-bold text-xs uppercase">
-                      <SelectValue placeholder="SELECCIONAR PROCESO" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {processes.map(p => (
-                        <SelectItem key={p.id} value={p.id} className="text-xs font-bold uppercase">
-                          {p.name} ({p.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-[9px] font-black uppercase text-slate-500 ml-1">Tipo Documental</Label>
-                    <Select value={builder.type} onValueChange={(val) => setBuilder({...builder, type: val})}>
-                      <SelectTrigger className="h-10 bg-white border-slate-200 font-bold text-xs uppercase">
-                        <SelectValue placeholder="TIPO" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {docTypePrefixes && Object.keys(docTypePrefixes).map(t => (
-                          <SelectItem key={t} value={t} className="text-xs font-bold uppercase">{t}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[9px] font-black uppercase text-slate-500 ml-1">Consecutivo</Label>
-                    <Input 
-                      value={builder.consecutive}
-                      onChange={e => setBuilder({...builder, consecutive: e.target.value})}
-                      className="h-10 bg-white border-slate-200 font-bold text-xs text-center"
-                      placeholder="001"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
+      <Dialog open={!!form} onOpenChange={open => { if (!open && !busy) setForm(null); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{form?.id ? 'Editar borrador' : form?.supersedesId ? 'Nueva versión de la política' : 'Nueva política'}</DialogTitle><DialogDescription>Incluya adecuación al contexto, marco para objetivos y compromisos con los requisitos aplicables y la mejora continua.</DialogDescription></DialogHeader>
+          {form && <form onSubmit={event => { event.preventDefault(); void save(); }} className="space-y-4">
+            <div className="space-y-2"><Label htmlFor="policy-title">Título</Label><Input id="policy-title" required maxLength={200} value={form.title} onChange={event => setForm({ ...form, title: event.target.value })} /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nombre de quien Firma</Label>
-                <Input
-                  value={docMetadata.managerName}
-                  onChange={e => setDocMetadata({ ...docMetadata, managerName: e.target.value.toUpperCase() })}
-                  className="h-12 border-slate-100 bg-slate-50 font-black text-slate-800 uppercase text-center text-xs tracking-wider"
-                  placeholder="NOMBRE"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cargo de quien Firma</Label>
-                <Input
-                  value={docMetadata.managerPosition}
-                  onChange={e => setDocMetadata({ ...docMetadata, managerPosition: e.target.value.toUpperCase() })}
-                  className="h-12 border-slate-100 bg-slate-50 font-black text-slate-800 uppercase text-center text-xs tracking-wider"
-                  placeholder="CARGO"
-                />
-              </div>
+              <div className="space-y-2"><Label htmlFor="policy-type">Tipo</Label><select id="policy-type" disabled={!!form.id || !!form.supersedesId} value={form.type} onChange={event => setForm({ ...form, type: event.target.value })} className="w-full rounded-md border bg-white p-2 text-sm">
+                {Array.from(new Set(['General', 'Calidad', 'Seguridad', 'Riesgos', 'Sostenibilidad', form.type])).map(type => <option key={type}>{type}</option>)}
+              </select></div>
+              <div className="space-y-2"><Label htmlFor="policy-version">Versión</Label><Input id="policy-version" required disabled={!!form.id} value={form.version} onChange={event => setForm({ ...form, version: event.target.value })} /></div>
             </div>
+            <div className="space-y-2"><Label htmlFor="policy-content">Contenido de la política</Label><Textarea id="policy-content" required maxLength={20000} rows={10} value={form.content} onChange={event => setForm({ ...form, content: event.target.value })} /></div>
+            <div className="space-y-2"><Label htmlFor="policy-objectives">Marco para los objetivos (una orientación por línea, opcional)</Label><Textarea id="policy-objectives" rows={3} value={form.objectives} onChange={event => setForm({ ...form, objectives: event.target.value })} /></div>
+            <DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={() => setForm(null)}>Cancelar</Button><Button disabled={busy} type="submit">{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar borrador</Button></DialogFooter>
+          </form>}
+        </DialogContent>
+      </Dialog>
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Código Final (Generado o Manual)</Label>
-              <Input
-                value={docMetadata.code}
-                onChange={e => setDocMetadata({ ...docMetadata, code: e.target.value.toUpperCase() })}
-                className="h-12 border-slate-100 bg-slate-50 font-black text-[#136dec] uppercase text-center text-lg"
-              />
-            </div>
+      <Dialog open={!!decision} onOpenChange={open => { if (!open && !busy) setDecision(null); }}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Revisar política · {decision?.version}</DialogTitle><DialogDescription>La decisión quedará registrada a nombre de {currentUser?.name}. Confirme los criterios revisados antes de aprobar.</DialogDescription></DialogHeader>
+          <p className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm">{decision?.content}</p>
+          <div className="space-y-3">{Object.entries(checkLabels).map(([key, label]) => <label key={key} className="flex items-start gap-3 text-sm">
+            <input type="checkbox" className="mt-1" checked={checks[key as keyof typeof checks]} onChange={event => setChecks({ ...checks, [key]: event.target.checked })} />{label}
+          </label>)}</div>
+          <Label htmlFor="policy-note">Observación (obligatoria para solicitar ajustes)</Label><Textarea id="policy-note" maxLength={2000} value={note} onChange={event => setNote(event.target.value)} />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" disabled={busy || !note.trim()} onClick={() => decide('solicitar-ajustes')}><RotateCcw className="mr-2 h-4 w-4" />Solicitar ajustes</Button>
+            <Button disabled={busy || !Object.values(checks).every(Boolean)} onClick={() => decide('aprobar')}><ShieldCheck className="mr-2 h-4 w-4" />Aprobar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={communicationOpen} onOpenChange={open => { if (!busy) setCommunicationOpen(open); }}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Registrar comunicación</DialogTitle><DialogDescription>Relacione una evidencia real de difusión. Para personal interno, describa cómo verificó comprensión y aplicación.</DialogDescription></DialogHeader>
+          <form onSubmit={event => { event.preventDefault(); void saveCommunication(); }} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Versión</Label>
-                <Input
-                  value={docMetadata.version}
-                  onChange={e => setDocMetadata({ ...docMetadata, version: e.target.value })}
-                  className="h-12 border-slate-100 bg-slate-50 font-black"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fecha de Aprobación</Label>
-                <Input
-                  type="date"
-                  value={docMetadata.approvalDate}
-                  onChange={e => setDocMetadata({ ...docMetadata, approvalDate: e.target.value })}
-                  className="h-12 border-slate-100 bg-slate-50 font-bold"
-                />
-              </div>
+              <div className="space-y-2"><Label htmlFor="audience-type">Ámbito</Label><select id="audience-type" value={communication.audienceType} onChange={event => setCommunication({ ...communication, audienceType: event.target.value })} className="w-full rounded-md border p-2 text-sm"><option value="INTERNA">Interno</option><option value="EXTERNA">Externo</option></select></div>
+              <div className="space-y-2"><Label htmlFor="communication-date">Fecha</Label><Input id="communication-date" type="date" required value={communication.date} onChange={event => setCommunication({ ...communication, date: event.target.value })} /></div>
             </div>
-
-            <div className="pt-4 flex justify-between items-center text-[10px] text-slate-300 italic">
-              <p>* Estos datos se verán reflejados en el encabezado oficial del PDF.</p>
-            </div>
-          </div>
-
-          <div className="p-6 bg-slate-50 flex justify-end gap-3 border-t">
-            <Button 
-              onClick={async () => {
-                if (!tenant?.id) return toast.error('Error: Empresa no identificada');
-                try {
-                  const res = await fetch('/api/formatos', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      tenantId: tenant.id,
-                      moduleKey: '5.2',
-                      ...docMetadata
-                    }),
-                  });
-                  const data = await res.json();
-                  if (data.error) throw new Error(data.error);
-                  setShowConfig(false);
-                  toast.success('Configuración guardada correctamente');
-                } catch (error) {
-                  toast.error('Error al guardar la configuración');
-                }
-              }}
-              className="bg-[#136dec] hover:bg-blue-600 text-white font-black uppercase text-[10px] px-8 h-12 rounded-xl"
-            >
-              Aplicar Configuración
-            </Button>
-          </div>
+            {([
+              ['audience', 'Audiencia'], ['method', 'Medio de comunicación'],
+              ['evidence', 'Referencia o enlace de evidencia'],
+              ['understandingEvidence', 'Evidencia de comprensión y aplicación'], ['notes', 'Aclaraciones (opcional)'],
+            ] as const).map(([key, label]) => <div key={key} className="space-y-2"><Label htmlFor={'comm-' + key}>{label}</Label><Textarea id={'comm-' + key} required={key !== 'notes' && (key !== 'understandingEvidence' || communication.audienceType === 'INTERNA')} rows={2} maxLength={2000} value={communication[key]} onChange={event => setCommunication({ ...communication, [key]: event.target.value })} /></div>)}
+            <DialogFooter><Button variant="outline" type="button" disabled={busy} onClick={() => setCommunicationOpen(false)}>Cancelar</Button><Button type="submit" disabled={busy}>Registrar evidencia</Button></DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

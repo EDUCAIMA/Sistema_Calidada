@@ -7,68 +7,83 @@ datasource db {
 }
 
 model Tenant {
-  id                String             @id @default(cuid())
-  name              String
-  slug              String             @unique
-  logo              String?
-  plan              PlanType           @default(BASICO)
-  active            Boolean            @default(true)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  currency          String?            @default("USD")
-  industry          String?
-  phone             String?
-  timezone          String?            @default("America/Bogota")
-  audits            Audit[]
-  dofaItems         DOFAItem[]
-  documents         Document[]
-  formatControls    FormatControl[]
-  policies          Policy[]
-  processes         Process[]
-  risks             Risk[]
-  riskMatrices      RiskMatrix[]
-  sgcScopes         SGCScope[]
-  stakeholders      Stakeholder[]
-  users             User[]
-  qualityObjectives QualityObjective[]
+  id                        String                     @id @default(cuid())
+  name                      String
+  slug                      String                     @unique
+  logo                      String?
+  plan                      PlanType                   @default(BASICO)
+  active                    Boolean                    @default(true)
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  currency                  String?                    @default("USD")
+  industry                  String?
+  phone                     String?
+  timezone                  String?                    @default("America/Bogota")
+  audits                    Audit[]
+  dofaItems                 DOFAItem[]
+  documents                 Document[]
+  formatControls            FormatControl[]
+  policies                  Policy[]
+  processes                 Process[]
+  risks                     Risk[]
+  riskMatrices              RiskMatrix[]
+  sgcScopes                 SGCScope[]
+  stakeholders              Stakeholder[]
+  users                     User[]
+  qualityObjectives         QualityObjective[]
+  leadershipCommitments     LeadershipCommitment[]
+  responsibilityMatrices    ResponsibilityMatrix[]
+  responsibilityAssignments ResponsibilityAssignment[]
+  leadershipRecordEvents    LeadershipRecordEvent[]
+  changePlans               ChangePlan[]
 }
 
 model User {
-  id                   String    @id @default(cuid())
-  tenantId             String
-  email                String    @unique
-  password             String?
-  name                 String
-  position             String?
-  role                 Role      @default(USUARIO)
-  avatar               String?
-  active               Boolean   @default(true)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  phone                String?
-  processesResponsible Process[] @relation("ProcessResponsible")
-  tenant               Tenant    @relation(fields: [tenantId], references: [id])
+  id                             String                     @id @default(cuid())
+  tenantId                       String
+  email                          String                     @unique
+  password                       String?
+  name                           String
+  position                       String?
+  role                           Role                       @default(USUARIO)
+  topManagement                  Boolean                    @default(false)
+  avatar                         String?
+  active                         Boolean                    @default(true)
+  createdAt                      DateTime                   @default(now())
+  updatedAt                      DateTime                   @updatedAt
+  phone                          String?
+  processesResponsible           Process[]                  @relation("ProcessResponsible")
+  responsibilityAssignments      ResponsibilityAssignment[] @relation("ResponsibilityAssignee")
+  responsibilityAcknowledgements ResponsibilityAssignment[] @relation("ResponsibilityAcknowledgedBy")
+  responsibilityApprovals        ResponsibilityMatrix[]     @relation("ResponsibilityMatrixApprover")
+  responsibilitySubmissions      ResponsibilityMatrix[]     @relation("ResponsibilityMatrixSubmitter")
+  tenant                         Tenant                     @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
 }
 
 model Process {
-  id               String                   @id @default(cuid())
-  tenantId         String
-  name             String
-  code             String
-  category         ProcessCategory
-  objective        String
-  scope            String
-  responsibleId    String
-  responsibleName  String?
-  order            Int
-  active           Boolean                  @default(true)
-  createdAt        DateTime                 @default(now())
-  updatedAt        DateTime                 @updatedAt
-  documents        Document[]
-  responsible      User                     @relation("ProcessResponsible", fields: [responsibleId], references: [id])
-  tenant           Tenant                   @relation(fields: [tenantId], references: [id])
-  characterization ProcessCharacterization?
-  risks            Risk[]
+  id                        String                     @id @default(cuid())
+  tenantId                  String
+  name                      String
+  code                      String
+  category                  ProcessCategory
+  objective                 String
+  scope                     String
+  responsibleId             String
+  responsibleName           String?
+  order                     Int
+  active                    Boolean                    @default(true)
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  documents                 Document[]
+  responsible               User                       @relation("ProcessResponsible", fields: [responsibleId], references: [id])
+  tenant                    Tenant                     @relation(fields: [tenantId], references: [id])
+  characterization          ProcessCharacterization?
+  risks                     Risk[]
+  responsibilityAssignments ResponsibilityAssignment[]
+
+  @@unique([tenantId, id])
 }
 
 model ProcessCharacterization {
@@ -90,28 +105,36 @@ model ProcessCharacterization {
 }
 
 model Document {
-  id             String            @id @default(cuid())
-  tenantId       String
-  code           String
-  name           String
-  type           DocumentType
-  status         DocumentStatus    @default(BORRADOR)
-  processId      String?
-  processName    String?
-  currentVersion Int               @default(1)
-  fileUrl        String?
-  fileName       String?
-  fileSize       Int?
-  createdBy      String
-  createdByName  String?
-  approvedBy     String?
-  approvedDate   DateTime?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  nextReviewDate DateTime?
-  process        Process?          @relation(fields: [processId], references: [id])
-  tenant         Tenant            @relation(fields: [tenantId], references: [id])
-  versions       DocumentVersion[]
+  id              String                  @id @default(cuid())
+  tenantId        String
+  code            String
+  name            String
+  type            DocumentType
+  status          DocumentStatus          @default(BORRADOR)
+  processId       String?
+  processName     String?
+  currentVersion  Int                     @default(1)
+  fileUrl         String?
+  fileName        String?
+  fileSize        Int?
+  createdBy       String
+  createdByName   String?
+  submittedBy     String?
+  submittedByName String?
+  submittedAt     DateTime?
+  approvedBy      String?
+  approvedByName  String?
+  approvedDate    DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  nextReviewDate  DateTime?
+  process         Process?                @relation(fields: [processId], references: [id])
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id])
+  versions        DocumentVersion[]
+  approvalEvents  DocumentApprovalEvent[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, code, currentVersion])
 }
 
 model DocumentVersion {
@@ -125,6 +148,23 @@ model DocumentVersion {
   uploadedByName    String?
   uploadedAt        DateTime @default(now())
   document          Document @relation(fields: [documentId], references: [id])
+
+  @@unique([documentId, version])
+}
+
+model DocumentApprovalEvent {
+  id         String         @id @default(cuid())
+  documentId String
+  action     String
+  fromStatus DocumentStatus
+  toStatus   DocumentStatus
+  userId     String
+  userName   String
+  note       String?
+  createdAt  DateTime       @default(now())
+  document   Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, createdAt])
 }
 
 model RiskMatrix {
@@ -140,32 +180,47 @@ model RiskMatrix {
 }
 
 model Risk {
-  id                  String       @id @default(cuid())
-  tenantId            String
-  matrixId            String
-  processId           String?
-  processName         String?
-  description         String
-  type                RiskType
-  cause               String
-  consequence         String
-  probability         Int
-  impact              Int
-  level               RiskLevel
-  riskValue           Int
-  existingControls    String
-  treatmentPlan       String
-  responsible         String
-  dueDate             DateTime?
-  status              ActionStatus @default(ABIERTA)
-  residualProbability Int?
-  residualImpact      Int?
-  residualLevel       RiskLevel?
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-  matrix              RiskMatrix   @relation(fields: [matrixId], references: [id])
-  process             Process?     @relation(fields: [processId], references: [id])
-  tenant              Tenant       @relation(fields: [tenantId], references: [id])
+  createdBy              String?
+  createdByName          String?
+  id                     String       @id @default(cuid())
+  tenantId               String
+  matrixId               String?
+  kind                   String       @default("RIESGO")
+  sourceType             String       @default("CONTEXTO")
+  sourceId               String?
+  sourceReference        String       @default("")
+  responsibleId          String?
+  resources              String       @default("")
+  integrationPlan        String       @default("")
+  evaluationMethod       String       @default("")
+  evaluationDueDate      DateTime?
+  treatmentJustification String       @default("")
+  processId              String?
+  processName            String?
+  description            String
+  type                   RiskType
+  cause                  String
+  consequence            String
+  probability            Int
+  impact                 Int
+  level                  RiskLevel
+  riskValue              Int
+  existingControls       String
+  treatmentPlan          String
+  responsible            String
+  dueDate                DateTime?
+  status                 ActionStatus @default(ABIERTA)
+  residualProbability    Int?
+  residualImpact         Int?
+  residualLevel          RiskLevel?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  matrix                 RiskMatrix?  @relation(fields: [matrixId], references: [id])
+  process                Process?     @relation(fields: [processId], references: [id])
+  tenant                 Tenant       @relation(fields: [tenantId], references: [id])
+  reviews                RiskReview[]
+
+  @@index([tenantId, kind, status])
 }
 
 model Audit {
@@ -280,23 +335,50 @@ model Policy {
   status         PolicyStatus          @default(EN_REVISION)
   author         String
   objectives     Json?
+  approvedById   String?
+  approvedByName String?
+  approvedAt     DateTime?
+  supersedesId   String?
+  approvalChecks Json?
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
   tenant         Tenant                @relation(fields: [tenantId], references: [id])
   communications PolicyCommunication[]
+  approvalEvents PolicyApprovalEvent[]
+
+  @@index([tenantId, status])
+}
+
+model PolicyApprovalEvent {
+  snapshot   Json?
+  id         String       @id @default(cuid())
+  policyId   String
+  action     String
+  fromStatus PolicyStatus
+  toStatus   PolicyStatus
+  userId     String
+  userName   String
+  note       String?
+  createdAt  DateTime     @default(now())
+  policy     Policy       @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId, createdAt])
 }
 
 model PolicyCommunication {
-  id              String   @id @default(cuid())
-  policyId        String
-  audience        String
-  method          String
-  date            DateTime
-  evidence        String?
-  responsibleName String
-  notes           String?
-  createdAt       DateTime @default(now())
-  policy          Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  id                    String   @id @default(cuid())
+  policyId              String
+  audience              String
+  method                String
+  date                  DateTime
+  evidence              String?
+  responsibleName       String
+  notes                 String?
+  audienceType          String   @default("INTERNA")
+  understandingEvidence String?
+  registeredById        String?
+  createdAt             DateTime @default(now())
+  policy                Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
 }
 
 enum Role {
@@ -375,6 +457,7 @@ enum PlanType {
 }
 
 enum PolicyStatus {
+  BORRADOR
   VIGENTE
   EN_REVISION
   OBSOLETA
@@ -421,6 +504,10 @@ model QualityObjective {
   communicationEvidence   String?
   status                  String              @default("EN_PROGRESO") // EN_PROGRESO, CUMPLIDO, EN_RIESGO, ATRASADO
   progress                Int                 @default(0)
+  actionPlan              String?
+  evaluationMethod        String?
+  targetMet               Boolean?
+  archivedAt              DateTime?
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
   tenant                  Tenant              @relation(fields: [tenantId], references: [id])
@@ -434,5 +521,193 @@ model ObjectiveTracking {
   note        String
   progress    Int
   actual      String?
+  eventType   String           @default("MEASUREMENT")
+  evidence    String?
+  targetMet   Boolean?
+  actorId     String?
+  actorName   String?
+  snapshot    Json?
   objective   QualityObjective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+}
+
+model LeadershipCommitment {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  category             String
+  title                String
+  description          String
+  responsibleId        String
+  responsibleName      String
+  dueDate              DateTime
+  status               String   @default("ABIERTA")
+  evidence             String?
+  result               String?
+  customerRequirements String?
+  customerRisks        String?
+  customerSatisfaction String?
+  createdById          String
+  createdByName        String
+  updatedById          String
+  updatedByName        String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  tenant               Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+}
+
+model ResponsibilityMatrix {
+  id              String                     @id @default(cuid())
+  tenantId        String
+  code            String                     @default("SGC-MAT-01")
+  version         Int
+  status          String                     @default("BORRADOR")
+  scope           String                     @default("Todos los procesos del Sistema de Gestión de la Calidad")
+  supersedesId    String?
+  submittedById   String?
+  submittedByName String?
+  submittedAt     DateTime?
+  approvedById    String?
+  approvedByName  String?
+  approvedAt      DateTime?
+  approvalNote    String?
+  effectiveAt     DateTime?
+  nextReviewAt    DateTime?
+  createdById     String
+  createdByName   String
+  updatedById     String
+  updatedByName   String
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  tenant          Tenant                     @relation(fields: [tenantId], references: [id])
+  submittedBy     User?                      @relation("ResponsibilityMatrixSubmitter", fields: [tenantId, submittedById], references: [tenantId, id], onDelete: Restrict)
+  approvedBy      User?                      @relation("ResponsibilityMatrixApprover", fields: [tenantId, approvedById], references: [tenantId, id], onDelete: Restrict)
+  supersedes      ResponsibilityMatrix?      @relation("ResponsibilityMatrixRevision", fields: [tenantId, supersedesId], references: [tenantId, id], onDelete: Restrict)
+  revisions       ResponsibilityMatrix[]     @relation("ResponsibilityMatrixRevision")
+  assignments     ResponsibilityAssignment[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, version])
+  @@index([tenantId, status])
+  @@index([tenantId, supersedesId])
+  @@index([tenantId, submittedById])
+  @@index([tenantId, approvedById])
+}
+
+model ResponsibilityAssignment {
+  id                    String               @id @default(cuid())
+  tenantId              String
+  matrixId              String
+  processId             String?
+  processName           String?
+  title                 String
+  department            String
+  assignedToId          String
+  assignedToName        String
+  reportsTo             String
+  responsibilities      String
+  authorities           String
+  raciRoles             Json
+  sgcDuties             Json
+  communicatedAt        DateTime?
+  communicationMethod   String?
+  communicationAudience String?
+  communicationEvidence String?
+  acknowledgedAt        DateTime?
+  acknowledgedById      String?
+  understandingEvidence String?
+  active                Boolean              @default(true)
+  createdById           String
+  createdByName         String
+  updatedById           String
+  updatedByName         String
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  tenant                Tenant               @relation(fields: [tenantId], references: [id])
+  matrix                ResponsibilityMatrix @relation(fields: [tenantId, matrixId], references: [tenantId, id], onDelete: Cascade)
+  process               Process?             @relation(fields: [tenantId, processId], references: [tenantId, id], onDelete: Restrict)
+  assignedTo            User                 @relation("ResponsibilityAssignee", fields: [tenantId, assignedToId], references: [tenantId, id], onDelete: Restrict)
+  acknowledgedBy        User?                @relation("ResponsibilityAcknowledgedBy", fields: [tenantId, acknowledgedById], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, active])
+  @@index([matrixId, active])
+  @@index([processId])
+  @@index([assignedToId])
+  @@index([tenantId, acknowledgedById])
+}
+
+model LeadershipRecordEvent {
+  id         String   @id @default(cuid())
+  tenantId   String
+  recordType String
+  recordId   String
+  action     String
+  userId     String
+  userName   String
+  snapshot   Json
+  createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, recordType, recordId, createdAt])
+}
+
+model RiskReview {
+  id                  String   @id @default(cuid())
+  riskId              String
+  result              String
+  evaluation          String
+  evidence            String
+  followUp            String?
+  residualProbability Int?
+  residualImpact      Int?
+  userId              String
+  userName            String
+  planSnapshot        Json
+  createdAt           DateTime @default(now())
+  risk                Risk     @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  @@index([riskId, createdAt])
+}
+
+model ChangePlan {
+  id                    String         @id @default(cuid())
+  tenantId              String
+  title                 String
+  purpose               String
+  consequences          String
+  integrityMeasures     String
+  resources             String
+  responsibilityChanges String
+  implementationPlan    String
+  evaluationMethod      String
+  processId             String
+  processName           String
+  responsibleId         String
+  responsibleName       String
+  dueDate               DateTime
+  status                String         @default("PLANIFICADO")
+  createdBy             String
+  createdByName         String
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  tenant                Tenant         @relation(fields: [tenantId], references: [id])
+  reviews               ChangeReview[]
+
+  @@index([tenantId, status])
+}
+
+model ChangeReview {
+  id           String     @id @default(cuid())
+  changePlanId String
+  result       String
+  evaluation   String
+  evidence     String
+  followUp     String?
+  userId       String
+  userName     String
+  planSnapshot Json
+  createdAt    DateTime   @default(now())
+  changePlan   ChangePlan @relation(fields: [changePlanId], references: [id], onDelete: Cascade)
+
+  @@index([changePlanId, createdAt])
 }

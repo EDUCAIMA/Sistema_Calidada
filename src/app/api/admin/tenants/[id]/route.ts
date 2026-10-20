@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { getAuthenticatedUser } from '@/lib/auth-session';
+import { ApiError, apiError, requireTenantAccess } from '@/lib/api-auth';
 
 export async function PATCH(
     request: Request,
@@ -8,6 +10,7 @@ export async function PATCH(
 ) {
     try {
         const { id: tenantId } = await params;
+        await requireTenantAccess(request, tenantId, { admin: true, write: true });
         const body = await request.json();
 
         const { name, industry, timezone, currency, phone, logo } = body;
@@ -25,13 +28,7 @@ export async function PATCH(
         });
 
         return NextResponse.json(updated);
-    } catch (error: any) {
-        console.error('Error updating tenant:', error);
-        return NextResponse.json(
-            { error: 'Error al actualizar la empresa', details: error.message },
-            { status: 500 }
-        );
-    }
+    } catch (error) { return apiError(error); }
 }
 
 export async function DELETE(
@@ -40,28 +37,44 @@ export async function DELETE(
 ) {
     try {
         const { id: tenantId } = await params;
+        const actor = await getAuthenticatedUser(request);
+        if (!actor) throw new ApiError(401, 'Inicie sesión nuevamente.');
+        if (actor.role !== 'SUPER_ADMIN') throw new ApiError(403, 'La desactivación de una empresa requiere un superadministrador.');
         const { adminPassword, adminEmail } = await request.json();
 
-        if (!tenantId || !adminPassword || !adminEmail) {
+        if (!tenantId || typeof adminPassword !== 'string' || !adminPassword || typeof adminEmail !== 'string' || !adminEmail.trim()) {
             return NextResponse.json(
-                { error: 'Información incompleta para la eliminación' },
+                { error: 'Información incompleta para la desactivación' },
                 { status: 400 }
             );
         }
 
-        // 1. Verificar la contraseña del administrador
-        const admin = await prisma.user.findUnique({
-            where: { email: adminEmail }
-        });
+        if (tenantId === actor.tenantId) {
+            throw new ApiError(409, 'No puede desactivar la empresa a la que pertenece su propia cuenta. Use otro superadministrador para evitar perder el acceso global.');
+        }
 
-        if (!admin || (admin.role !== 'SUPER_ADMIN' && admin.role !== 'ADMIN_EMPRESA')) {
+        const [admin, tenant] = await Promise.all([
+            prisma.user.findFirst({
+                where: { id: actor.id, email: adminEmail.trim().toLowerCase(), role: 'SUPER_ADMIN', active: true },
+                select: { id: true, password: true },
+            }),
+            prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, active: true } }),
+        ]);
+
+        if (!tenant) {
+            throw new ApiError(404, 'Empresa no encontrada.');
+        }
+
+        if (!admin) {
              return NextResponse.json(
                 { error: 'No tienes permisos para realizar esta acción' },
                 { status: 403 }
             );
         }
 
-        const isPasswordCorrect = await bcrypt.compare(adminPassword, admin.password || '');
+        const isPasswordCorrect = admin.password
+            ? await bcrypt.compare(adminPassword, admin.password).catch(() => false)
+            : false;
         if (!isPasswordCorrect) {
             return NextResponse.json(
                 { error: 'Contraseña de administrador incorrecta' },
@@ -69,57 +82,27 @@ export async function DELETE(
             );
         }
 
-        // 2. Ejecutar la eliminación en cascada manual dentro de una transacción
-        await prisma.$transaction(async (tx) => {
-            // ELIMINAR REGISTROS SIGUIENDO EL ORDEN DE DEPENDENCIAS (HIJOS -> PADRES)
-
-            // 1. Auditorías, Hallazgos y Acciones Correctivas
-            const audits = await tx.audit.findMany({ where: { tenantId } });
-            const auditIds = audits.map(a => a.id);
-            const findings = await tx.finding.findMany({ where: { auditId: { in: auditIds } } });
-            const findingIds = findings.map(f => f.id);
-
-            await tx.correctiveAction.deleteMany({ where: { findingId: { in: findingIds } } });
-            await tx.finding.deleteMany({ where: { auditId: { in: auditIds } } });
-            await tx.audit.deleteMany({ where: { tenantId } });
-
-            // 2. Riesgos y Matrices
-            await tx.risk.deleteMany({ where: { tenantId } });
-            await tx.riskMatrix.deleteMany({ where: { tenantId } });
-
-            // 3. Documentos y Versiones
-            const documents = await tx.document.findMany({ where: { tenantId } });
-            const docIds = documents.map(d => d.id);
-            await tx.documentVersion.deleteMany({ where: { documentId: { in: docIds } } });
-            await tx.document.deleteMany({ where: { tenantId } });
-
-            // 4. Procesos y Caracterizaciones
-            const processes = await tx.process.findMany({ where: { tenantId } });
-            const processIds = processes.map(p => p.id);
-            await tx.processCharacterization.deleteMany({ where: { processId: { in: processIds } } });
-            await tx.process.deleteMany({ where: { tenantId } });
-
-            // 5. Usuarios (Deben borrarse DESPUÉS de los procesos que dependen de ellos por responsableId)
-            await tx.user.deleteMany({ where: { tenantId } });
-
-            // 6. Otros (Contexto y Formatos)
-            await tx.dOFAItem.deleteMany({ where: { tenantId } });
-            await tx.stakeholder.deleteMany({ where: { tenantId } });
-            await tx.sGCScope.deleteMany({ where: { tenantId } });
-            await tx.formatControl.deleteMany({ where: { tenantId } });
-
-            // 7. Finalmente, el Tenant
-            await tx.tenant.delete({
-                where: { id: tenantId }
+        if (!tenant.active) {
+            return NextResponse.json({
+                message: 'La empresa ya estaba desactivada. Sus registros permanecen conservados.',
+                tenantId,
+                deactivated: true,
+                alreadyInactive: true,
             });
+        }
+
+        const changed = await prisma.tenant.updateMany({
+            where: { id: tenantId, active: true },
+            data: { active: false },
         });
 
-        return NextResponse.json({ message: 'Sistema eliminado exitosamente' });
-    } catch (error: any) {
-        console.error('Error al eliminar sistema:', error);
-        return NextResponse.json(
-            { error: 'Error al procesar la eliminación: ' + error.message },
-            { status: 500 }
-        );
-    }
+        if (changed.count !== 1) throw new ApiError(409, 'La empresa cambió durante la desactivación. Actualice la página.');
+
+        return NextResponse.json({
+            message: 'Empresa desactivada. Los usuarios y registros del SGC permanecen conservados.',
+            tenantId,
+            deactivated: true,
+            alreadyInactive: false,
+        });
+    } catch (error) { return apiError(error); }
 }

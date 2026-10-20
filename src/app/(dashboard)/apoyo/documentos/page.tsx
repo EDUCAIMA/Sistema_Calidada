@@ -2,11 +2,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-    Plus, Download, Search, Filter, Eye, Trash2,
+    Plus, Download, Search, Filter, Eye,
     FileText, FileSpreadsheet, File, Clock, CheckCircle2, XCircle, AlertCircle, Save,
-    ArrowRight, History, Settings2, FileCheck, Info, Calendar,
-    HelpCircle, ShieldAlert, Share2, Layers, BookOpen, 
-    FileSignature, LayoutGrid, MoreVertical, Edit
+    History, Settings2, FileCheck, Info,
+    HelpCircle, ShieldAlert, Layers, BookOpen,
+    FileSignature, LayoutGrid, Edit, Send, ShieldCheck, Loader2, RotateCcw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,11 +16,10 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { mockDocuments } from '@/lib/mock-data';
 import type { Document, DocumentStatus, DocumentType, ProcessCategory, Process } from '@/lib/types';
 import { toast } from 'sonner';
 import { useApp } from '@/context/app-context';
@@ -55,19 +54,27 @@ const typeLabels: Record<DocumentType, string> = {
     FORMATO: 'Formato', POLITICA: 'Política', GUIA: 'Guía', REGISTRO: 'Registro', OTRO: 'Otro',
 };
 
-const baseDocuments: Document[] = [
-    { id: 'bd-1', tenantId: 'default', code: 'ES.CAL.MA.01', name: 'Alcance del Sistema de Gestión', type: 'MANUAL', processName: 'ESTRATEGICO', processId: 'p-cal-01', currentVersion: 1, status: 'APROBADO', author: 'Eduardo Caicedo', fileName: 'alcance-sgc.pdf', createdBy: 'system', createdAt: new Date(), updatedAt: new Date() },
-    { id: 'bd-2', tenantId: 'default', code: 'ES.CAL.PO.01', name: 'Política de Calidad', type: 'POLITICA', processName: 'ESTRATEGICO', processId: 'p-cal-01', currentVersion: 1, status: 'APROBADO', author: 'Eduardo Caicedo', fileName: 'politica-calidad.pdf', createdBy: 'system', createdAt: new Date(), updatedAt: new Date() },
-    { id: 'bd-3', tenantId: 'default', code: 'AP.CAL.OT.01', name: 'Mapa de Procesos', type: 'OTRO', processName: 'APOYO', processId: 'p-cal-01', currentVersion: 2, status: 'APROBADO', author: 'Eduardo Caicedo', fileName: 'mapa-procesos.pdf', createdBy: 'system', createdAt: new Date(), updatedAt: new Date() },
-    { id: 'bd-4', tenantId: 'default', code: 'ES.CAL.RE.01', name: 'Matriz de Partes Interesadas', type: 'REGISTRO', processName: 'ESTRATEGICO', processId: 'p-cal-01', currentVersion: 1, status: 'APROBADO', author: 'Director de Calidad', fileName: 'partes-interesadas.pdf', createdBy: 'system', createdAt: new Date(), updatedAt: new Date() },
-    { id: 'bd-5', tenantId: 'default', code: 'ES.CAL.RE.02', name: 'Matriz DOFA', type: 'REGISTRO', processName: 'ESTRATEGICO', processId: 'p-cal-01', currentVersion: 1, status: 'APROBADO', author: 'Director de Calidad', fileName: 'matriz-dofa.pdf', createdBy: 'system', createdAt: new Date(), updatedAt: new Date() },
-];
+interface DocumentForm {
+    id?: string;
+    code?: string;
+    name?: string;
+    type: DocumentType;
+    status: DocumentStatus;
+    processId: string;
+    medio: 'DIGITAL' | 'FISICO';
+    version: number;
+    autor: string;
+    fileUrl?: string;
+    fileName?: string;
+    fileSize?: number;
+}
 
 export default function DocumentosPage() {
     const { tenant, currentUser } = useApp();
     
     // States FIRST
     const [documents, setDocuments] = useState<Document[]>([]);
+    const [loadingDocuments, setLoadingDocuments] = useState(true);
     const [search, setSearch] = useState('');
     const [filterType, setFilterType] = useState<string>('ALL');
     const [showNew, setShowNew] = useState(false);
@@ -91,12 +98,11 @@ export default function DocumentosPage() {
 
     const [processes, setProcesses] = useState<Process[]>([]);
     const [showStandardization, setShowStandardization] = useState(false);
-    const [activeStandardizationTab, setActiveStandardizationTab] = useState('listado');
     const [showProcessModal, setShowProcessModal] = useState(false);
     const [tempCatPrefixes, setTempCatPrefixes] = useState(catPrefixes);
     const [tempDocTypePrefixes, setTempDocTypePrefixes] = useState(docTypePrefixes);
     const [newProcess, setNewProcess] = useState({ name: '', code: '', category: 'APOYO' });
-    const [newDoc, setNewDoc] = useState<any>({ 
+    const [newDoc, setNewDoc] = useState<DocumentForm>({
         type: 'PROCEDIMIENTO', 
         status: 'BORRADOR',
         processId: '',
@@ -113,33 +119,30 @@ export default function DocumentosPage() {
     });
     const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
     const [isEditingStandard, setIsEditingStandard] = useState(false);
+    const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
+    const [workflowDoc, setWorkflowDoc] = useState<Document | null>(null);
+    const [workflowAction, setWorkflowAction] = useState<'APPROVE' | 'CHANGES'>('APPROVE');
+    const [workflowNote, setWorkflowNote] = useState('');
+    const [workflowBusy, setWorkflowBusy] = useState(false);
+    const canApprove = currentUser?.role === 'ADMIN_EMPRESA' || currentUser?.role === 'SUPER_ADMIN';
 
-
-    // Persistencia Local para este demo
     useEffect(() => {
-        const saved = localStorage.getItem('sgc_master_list');
-        const docs = saved ? JSON.parse(saved) : [];
-        const hasOldCodes = docs.some((d: any) => d.code && d.code.startsWith('SIG-'));
-        
-        if (saved && !hasOldCodes) {
+        if (!tenant?.id) return;
+        const fetchDocuments = async () => {
+            setLoadingDocuments(true);
             try {
-                setDocuments(docs);
-            } catch (e) {
-                setDocuments([...baseDocuments, ...mockDocuments]);
+                const response = await fetch(`/api/apoyo/documentos?tenantId=${encodeURIComponent(tenant.id)}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'No fue posible cargar los documentos.');
+                setDocuments(data);
+            } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'No fue posible cargar los documentos.');
+            } finally {
+                setLoadingDocuments(false);
             }
-        } else {
-            // Si hay códigos viejos (SIG-*) o no hay nada, forzar bases nuevas
-            console.log("Migrando listado maestro a nueva codificación dot-format...");
-            setDocuments([...baseDocuments, ...mockDocuments]);
-            localStorage.setItem('sgc_master_list', JSON.stringify([...baseDocuments, ...mockDocuments]));
-        }
-    }, []);
-
-    useEffect(() => {
-        if (documents.length > 0) {
-            localStorage.setItem('sgc_master_list', JSON.stringify(documents));
-        }
-    }, [documents]);
+        };
+        fetchDocuments();
+    }, [tenant?.id]);
 
     useEffect(() => {
         localStorage.setItem('sgc_cat_prefixes', JSON.stringify(catPrefixes));
@@ -153,7 +156,7 @@ export default function DocumentosPage() {
             setTempCatPrefixes(catPrefixes);
             setTempDocTypePrefixes(docTypePrefixes);
         }
-    }, [showStandardization]);
+    }, [showStandardization, catPrefixes, docTypePrefixes]);
 
     useEffect(() => {
         const fetchProcesses = async () => {
@@ -163,45 +166,19 @@ export default function DocumentosPage() {
                 if (data && !data.error) {
                     setProcesses(data);
                     
-                    // Sincronizar caracterizaciones en el listado maestro
-                    setDocuments(prevDocs => {
-                        const newDocs = [...prevDocs];
-                        data.forEach((p: Process) => {
-                            const macro = catPrefixes[p.category as ProcessCategory] || 'GN';
-                            const cpCode = `${macro}.${p.code}.CP.01`;
-                            const exists = newDocs.some(d => d.code === cpCode);
-                            if (!exists) {
-                                newDocs.push({
-                                    id: `cp-${p.id}`,
-                                    code: cpCode,
-                                    name: `Caracterización del Proceso ${p.name}`,
-                                    type: 'PROCEDIMIENTO',
-                                    processName: p.category,
-                                    currentVersion: 1,
-                                    status: 'APROBADO',
-                                    author: 'Director de Calidad',
-                                    fileName: `cp-${p.code.toLowerCase()}.pdf`
-                                } as any);
-                            }
-                        });
-                        return newDocs;
-                    });
-
-                    if (data.length > 0 && !newDoc.processId) {
-                        setNewDoc((prev: any) => ({ ...prev, processId: data[0].id }));
+                    if (data.length > 0) {
+                        setNewDoc(prev => prev.processId ? prev : { ...prev, processId: data[0].id });
                     }
                 }
             } catch (error) { 
                 console.error('Error fetching processes:', error); 
-                // Si la API falla, al menos mantén las bases
-                if (documents.length === 0) setDocuments([...baseDocuments, ...mockDocuments]);
             }
         };
         fetchProcesses();
     }, [tenant.id]);
 
     useEffect(() => {
-        if (showNew && newDoc.processId && newDoc.type) {
+        if (showNew && !editingDocumentId && newDoc.processId && newDoc.type) {
             const process = processes.find(p => p.id === newDoc.processId);
             const macroPref = process ? catPrefixes[process.category as ProcessCategory] : 'GN';
             const processPref = process ? process.code : 'GNS';
@@ -217,10 +194,10 @@ export default function DocumentosPage() {
             const generatedCode = `${prefixToMatch}.${nextIdx}`;
             
             if (newDoc.code !== generatedCode) {
-                setNewDoc((prev: any) => ({ ...prev, code: generatedCode }));
+                setNewDoc(prev => ({ ...prev, code: generatedCode }));
             }
         }
-    }, [newDoc.type, newDoc.processId, showNew, docTypePrefixes, catPrefixes, documents]);
+    }, [newDoc.type, newDoc.processId, newDoc.code, showNew, editingDocumentId, docTypePrefixes, catPrefixes, documents, processes]);
 
     const filtered = useMemo(() => {
         return documents.filter(d => {
@@ -236,6 +213,199 @@ export default function DocumentosPage() {
         if (name.endsWith('.xlsx') || name.endsWith('.xls')) return <FileSpreadsheet className="h-4 w-4 text-emerald-600" />;
         return <FileText className="h-4 w-4 text-blue-600" />;
     }
+
+    const replaceDocument = (document: Document, supersededIds: string[] = []) => {
+        const superseded = new Set(supersededIds);
+        setDocuments(current => current.map(item => {
+            if (item.id === document.id) return document;
+            if (superseded.has(item.id)) return { ...item, status: 'OBSOLETO' as const };
+            return item;
+        }));
+        setSelectedDoc(current => current?.id === document.id ? document : current);
+    };
+
+    const resetDocumentForm = () => {
+        setEditingDocumentId(null);
+        setNewDoc({
+            type: 'PROCEDIMIENTO',
+            status: 'BORRADOR',
+            processId: processes[0]?.id || '',
+            medio: 'DIGITAL',
+            version: 1,
+            autor: currentUser?.name || 'Sistema',
+        });
+    };
+
+    const openNewDocument = () => {
+        resetDocumentForm();
+        setShowNew(true);
+    };
+
+    const openEditDocument = (document: Document) => {
+        if (document.status !== 'BORRADOR') return;
+        setEditingDocumentId(document.id);
+        setNewDoc({
+            id: document.id,
+            code: document.code,
+            name: document.name,
+            type: document.type,
+            status: document.status,
+            processId: document.processId || '',
+            medio: 'DIGITAL',
+            version: document.currentVersion,
+            autor: document.createdByName || document.author || currentUser?.name || 'Sistema',
+            fileUrl: document.fileUrl,
+            fileName: document.fileName,
+            fileSize: document.fileSize,
+        });
+        setShowNew(true);
+    };
+
+    const handleSaveDocument = async () => {
+        if (!tenant?.id || !newDoc.name || !newDoc.code || !newDoc.processId) {
+            toast.error('Complete el proceso, nombre y código del documento.');
+            return;
+        }
+        setWorkflowBusy(true);
+        try {
+            const process = processes.find(item => item.id === newDoc.processId);
+            const response = await fetch('/api/apoyo/documentos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: editingDocumentId || undefined,
+                    tenantId: tenant.id,
+                    code: newDoc.code,
+                    name: newDoc.name,
+                    type: newDoc.type,
+                    processId: newDoc.processId,
+                    processName: process?.name,
+                    currentVersion: Number(newDoc.version) || 1,
+                    fileUrl: newDoc.fileUrl,
+                    fileName: newDoc.fileName,
+                    fileSize: newDoc.fileSize,
+                }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'No fue posible guardar el documento.');
+
+            if (editingDocumentId) {
+                replaceDocument(data);
+                toast.success('Borrador actualizado.');
+            } else {
+                setDocuments(current => [data, ...current]);
+                toast.success('Documento creado como borrador.');
+            }
+            setShowNew(false);
+            resetDocumentForm();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'No fue posible guardar el documento.');
+        } finally {
+            setWorkflowBusy(false);
+        }
+    };
+
+    const handleSubmitForReview = async (document: Document) => {
+        if (!tenant?.id) return;
+        setWorkflowBusy(true);
+        try {
+            const response = await fetch(`/api/apoyo/documentos/${document.id}/enviar-revision`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenantId: tenant.id }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'No fue posible enviar el documento a revisión.');
+            replaceDocument(data);
+            toast.success('Documento enviado a revisión.');
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'No fue posible enviar el documento a revisión.');
+        } finally {
+            setWorkflowBusy(false);
+        }
+    };
+
+    const openWorkflow = (document: Document, action: 'APPROVE' | 'CHANGES') => {
+        setWorkflowDoc(document);
+        setWorkflowAction(action);
+        setWorkflowNote('');
+    };
+
+    const handleWorkflowDecision = async () => {
+        if (!tenant?.id || !workflowDoc) return;
+        if (workflowAction === 'CHANGES' && !workflowNote.trim()) {
+            toast.error('Indique los ajustes requeridos.');
+            return;
+        }
+        setWorkflowBusy(true);
+        try {
+            const endpoint = workflowAction === 'APPROVE' ? 'aprobar' : 'solicitar-ajustes';
+            const response = await fetch(`/api/apoyo/documentos/${workflowDoc.id}/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenantId: tenant.id, note: workflowNote }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'No fue posible completar la decisión.');
+
+            if (workflowAction === 'APPROVE') {
+                replaceDocument(data.document, data.supersededDocumentIds || []);
+                toast.success('Documento aprobado y puesto en vigencia.');
+            } else {
+                replaceDocument(data);
+                toast.success('Documento devuelto a borrador con observaciones.');
+            }
+            setWorkflowDoc(null);
+            setWorkflowNote('');
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'No fue posible completar la decisión.');
+        } finally {
+            setWorkflowBusy(false);
+        }
+    };
+
+    const handleCreateVersion = async (document: Document) => {
+        if (!tenant?.id) return;
+        setWorkflowBusy(true);
+        try {
+            const response = await fetch('/api/apoyo/documentos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tenantId: tenant.id,
+                    code: document.code,
+                    name: document.name,
+                    type: document.type,
+                    processId: document.processId,
+                    processName: document.processName,
+                    currentVersion: document.currentVersion + 1,
+                    fileUrl: document.fileUrl,
+                    fileName: document.fileName,
+                    fileSize: document.fileSize,
+                    sourceDocumentId: document.id,
+                    changeDescription: `Nueva versión basada en la versión ${document.currentVersion}.`,
+                }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'No fue posible crear la nueva versión.');
+            setDocuments(current => [data, ...current]);
+            setSelectedDoc(data);
+            toast.success(`Versión ${data.currentVersion} creada como borrador.`);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'No fue posible crear la nueva versión.');
+        } finally {
+            setWorkflowBusy(false);
+        }
+    };
+
+    const eventLabel = (action: string) => ({
+        CREATED: 'Documento creado como borrador',
+        NEW_VERSION_CREATED: 'Nueva versión creada',
+        SUBMITTED_FOR_REVIEW: 'Enviado a revisión',
+        APPROVED: 'Aprobado y puesto en vigencia',
+        CHANGES_REQUESTED: 'Devuelto para ajustes',
+        SUPERSEDED: 'Versión sustituida',
+    }[action] || action.replaceAll('_', ' '));
 
     return (
         <div className="min-h-screen bg-[#f8fafc] -m-6 p-8 font-sans text-slate-900 pb-20">
@@ -264,7 +434,7 @@ export default function DocumentosPage() {
                     <Button variant="outline" className="flex items-center gap-2 px-4 py-2 bg-white border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-xs transition-all shadow-sm h-10">
                         <History className="w-4 h-4 text-slate-400" /> Registro de Cambios
                     </Button>
-                    <Button onClick={() => setShowNew(true)} className="flex items-center gap-2 px-5 py-2 bg-slate-900 text-white rounded-lg hover:bg-black font-bold text-xs shadow-lg transition-all h-10 uppercase tracking-wider">
+                    <Button onClick={openNewDocument} className="flex items-center gap-2 px-5 py-2 bg-slate-900 text-white rounded-lg hover:bg-black font-bold text-xs shadow-lg transition-all h-10 uppercase tracking-wider">
                         <Plus className="w-4 h-4" /> Nuevo Documento
                     </Button>
                 </div>
@@ -314,7 +484,7 @@ export default function DocumentosPage() {
                                             </Badge>
                                         </div>
                                         <h2 className="text-2xl font-black text-slate-900 leading-tight">{selectedDoc.name}</h2>
-                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Versión Actual: {selectedDoc.currentVersion} | Creado por: {selectedDoc.author || 'Eduardo Caicedo'}</p>
+                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Versión Actual: {selectedDoc.currentVersion} | Creado por: {selectedDoc.createdByName || selectedDoc.author || 'Sistema'}</p>
                                     </div>
                                     <Button variant="ghost" onClick={() => setSelectedDoc(null)} className="h-8 w-8 p-0 rounded-full hover:bg-slate-100"><XCircle className="w-5 h-5 text-slate-300" /></Button>
                                 </div>
@@ -334,21 +504,31 @@ export default function DocumentosPage() {
                                             <FileSignature className="w-20 h-20 text-slate-100" />
                                             <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Visor de Documento Seguro (PDF)</p>
                                             <div className="p-10 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
-                                                <p className="text-slate-500 italic text-sm">Contenido del documento "{selectedDoc.name}" protegido por norma ISO 9001:2015</p>
+                                                <p className="text-slate-500 italic text-sm">Contenido del documento &quot;{selectedDoc.name}&quot; protegido por norma ISO 9001:2015</p>
                                             </div>
                                         </div>
                                     </div>
                                     
-                                    {/* Flujo de Estados Popover (Simulado) */}
+                                    {/* Flujo real de estados */}
                                     <div className="absolute bottom-6 right-6">
-                                        <Card className="shadow-2xl border-none p-1 bg-white/80 backdrop-blur rounded-2xl">
+                                        <Card className="shadow-2xl border-none px-3 py-2 bg-white/90 backdrop-blur rounded-2xl">
+                                            <div className="mb-1 flex justify-between text-[8px] font-black uppercase tracking-wider text-slate-400">
+                                                <span>Borrador</span><span>Revisión</span><span>Vigente</span>
+                                            </div>
                                             <div className="flex gap-1">
-                                                {['BORRADOR', 'EN_REVISION', 'PARA_APROBACION', 'APROBADO'].map((st, i) => (
-                                                    <div key={st} className={cn(
-                                                        "h-2 w-8 rounded-full",
-                                                        i === 3 ? "bg-emerald-500" : "bg-slate-200"
-                                                    )} title={st}></div>
-                                                ))}
+                                                {(['BORRADOR', 'EN_REVISION', 'APROBADO'] as DocumentStatus[]).map((status, index) => {
+                                                    const currentIndex = selectedDoc.status === 'OBSOLETO'
+                                                        ? 2
+                                                        : ['BORRADOR', 'EN_REVISION', 'APROBADO'].indexOf(selectedDoc.status);
+                                                    return (
+                                                        <div key={status} className={cn(
+                                                            "h-2 w-14 rounded-full",
+                                                            index <= currentIndex
+                                                                ? selectedDoc.status === 'OBSOLETO' ? 'bg-rose-400' : 'bg-emerald-500'
+                                                                : 'bg-slate-200'
+                                                        )} title={status}></div>
+                                                    );
+                                                })}
                                             </div>
                                         </Card>
                                     </div>
@@ -363,15 +543,27 @@ export default function DocumentosPage() {
                                     <div className="space-y-8">
                                         <div>
                                             <p className="text-[10px] font-black text-slate-800 uppercase mb-4 flex items-center gap-2">
-                                                <History className="w-3 h-3 text-indigo-500" /> Historial de Versiones
+                                                <History className="w-3 h-3 text-indigo-500" /> Historial de aprobación
                                             </p>
                                             <div className="space-y-4 border-l-2 border-slate-100 ml-1.5 pl-4">
-                                                <div className="relative">
-                                                     <div className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-emerald-500 ring-4 ring-emerald-50"></div>
-                                                     <p className="text-[11px] font-black text-slate-800">Ver 1.0 (Vigente)</p>
-                                                     <p className="text-[10px] text-slate-400 font-bold uppercase">21 Mar 2026 — Manuel Rojas</p>
-                                                     <p className="text-[10px] text-slate-500 mt-1 leading-tight italic">"Creación inicial bajo nueva estructura de procesos 2026"</p>
-                                                </div>
+                                                {(selectedDoc.approvalEvents || []).map(event => (
+                                                    <div className="relative" key={event.id}>
+                                                        <div className={cn(
+                                                            "absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ring-4",
+                                                            event.action === 'APPROVED' ? 'bg-emerald-500 ring-emerald-50' :
+                                                            event.action === 'CHANGES_REQUESTED' ? 'bg-amber-500 ring-amber-50' :
+                                                            event.action === 'SUPERSEDED' ? 'bg-rose-500 ring-rose-50' : 'bg-indigo-500 ring-indigo-50'
+                                                        )}></div>
+                                                        <p className="text-[11px] font-black text-slate-800">{eventLabel(event.action)}</p>
+                                                        <p className="text-[10px] text-slate-400 font-bold uppercase">
+                                                            {new Date(event.createdAt).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })} — {event.userName}
+                                                        </p>
+                                                        {event.note && <p className="text-[10px] text-slate-500 mt-1 leading-tight italic">“{event.note}”</p>}
+                                                    </div>
+                                                ))}
+                                                {(selectedDoc.approvalEvents || []).length === 0 && (
+                                                    <p className="text-[10px] italic text-slate-400">Sin eventos registrados.</p>
+                                                )}
                                             </div>
                                         </div>
 
@@ -382,27 +574,65 @@ export default function DocumentosPage() {
                                             <div className="p-4 bg-slate-50 rounded-2xl space-y-3 font-mono">
                                                 <div className="space-y-1">
                                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Aprobado por:</p>
-                                                    <p className="text-[10px] font-black text-slate-800 truncate">Eduardo Caicedo (Gerencia)</p>
+                                                    <p className="text-[10px] font-black text-slate-800 truncate">{selectedDoc.approvedByName || 'Pendiente de aprobación'}</p>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <div>
                                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Fecha:</p>
-                                                        <p className="text-[10px] font-black text-slate-800">2026-03-21</p>
+                                                        <p className="text-[10px] font-black text-slate-800">{selectedDoc.approvedDate ? new Date(selectedDoc.approvedDate).toLocaleDateString('es-CO') : '—'}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">IP Registro:</p>
-                                                        <p className="text-[10px] font-black text-slate-800">190.12.33.x</p>
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Versión:</p>
+                                                        <p className="text-[10px] font-black text-slate-800">{selectedDoc.currentVersion}</p>
                                                     </div>
                                                 </div>
                                                 <div className="pt-2 border-t border-slate-200">
-                                                    <Badge className="bg-emerald-500/10 text-emerald-600 text-[8px] border-none font-black shadow-none tracking-tighter uppercase px-1 h-4">FIRMA DIGITAL VERIFICADA SIG</Badge>
+                                                    <Badge className={cn(
+                                                        "text-[8px] border-none font-black shadow-none tracking-tighter uppercase px-1 h-4",
+                                                        selectedDoc.status === 'APROBADO' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-700'
+                                                    )}>{selectedDoc.status === 'APROBADO' ? 'APROBACIÓN VERIFICADA' : 'APROBACIÓN PENDIENTE'}</Badge>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="pt-4 space-y-4">
-                                            <Button variant="outline" className="w-full h-11 border-slate-200 text-slate-600 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50">Solicitar Cambio</Button>
-                                            <Button className="w-full h-11 bg-slate-900 text-white font-black uppercase text-[10px] tracking-widest rounded-xl shadow-lg">Descargar Original</Button>
+                                        <div className="pt-4 space-y-3">
+                                            {selectedDoc.status === 'BORRADOR' && (
+                                                <>
+                                                    <Button onClick={() => openEditDocument(selectedDoc)} variant="outline" disabled={workflowBusy} className="w-full h-11 border-slate-200 text-slate-600 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50">
+                                                        <Edit className="mr-2 h-3.5 w-3.5" /> Editar borrador
+                                                    </Button>
+                                                    <Button onClick={() => handleSubmitForReview(selectedDoc)} disabled={workflowBusy} className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[10px] tracking-widest rounded-xl shadow-lg">
+                                                        {workflowBusy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-2 h-3.5 w-3.5" />} Enviar a revisión
+                                                    </Button>
+                                                </>
+                                            )}
+                                            {selectedDoc.status === 'EN_REVISION' && canApprove && (
+                                                <>
+                                                    <Button onClick={() => openWorkflow(selectedDoc, 'CHANGES')} variant="outline" disabled={workflowBusy} className="w-full h-11 border-amber-200 text-amber-700 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-amber-50">
+                                                        <RotateCcw className="mr-2 h-3.5 w-3.5" /> Solicitar ajustes
+                                                    </Button>
+                                                    <Button onClick={() => openWorkflow(selectedDoc, 'APPROVE')} disabled={workflowBusy} className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-[10px] tracking-widest rounded-xl shadow-lg">
+                                                        <ShieldCheck className="mr-2 h-3.5 w-3.5" /> Aprobar y publicar
+                                                    </Button>
+                                                </>
+                                            )}
+                                            {selectedDoc.status === 'EN_REVISION' && !canApprove && (
+                                                <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-[10px] font-bold leading-relaxed text-indigo-800">
+                                                    Pendiente de decisión por un administrador de la empresa.
+                                                </div>
+                                            )}
+                                            {(selectedDoc.status === 'APROBADO' || selectedDoc.status === 'OBSOLETO') && (
+                                                <Button onClick={() => handleCreateVersion(selectedDoc)} disabled={workflowBusy} variant="outline" className="w-full h-11 border-indigo-200 text-indigo-700 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-indigo-50">
+                                                    {workflowBusy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-2 h-3.5 w-3.5" />} Crear nueva versión
+                                                </Button>
+                                            )}
+                                            <Button
+                                                disabled={!selectedDoc.fileUrl}
+                                                onClick={() => selectedDoc.fileUrl && window.open(selectedDoc.fileUrl, '_blank', 'noopener,noreferrer')}
+                                                className="w-full h-11 bg-slate-900 text-white font-black uppercase text-[10px] tracking-widest rounded-xl shadow-lg"
+                                            >
+                                                <Download className="mr-2 h-3.5 w-3.5" /> {selectedDoc.fileUrl ? 'Descargar original' : 'Sin archivo adjunto'}
+                                            </Button>
                                         </div>
                                     </div>
                                 </ScrollArea>
@@ -448,6 +678,13 @@ export default function DocumentosPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
+                                        {loadingDocuments && (
+                                            <TableRow>
+                                                <TableCell colSpan={6} className="h-32 text-center text-sm font-bold text-slate-400">
+                                                    <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" /> Cargando documentos...
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                         {filtered.map(doc => (
                                             <TableRow key={doc.id} className="hover:bg-slate-50 transition-colors border-slate-100 group">
                                                 <TableCell className="px-6 py-4 border-r border-slate-100 font-black text-slate-400 tracking-tighter text-xs font-mono">{doc.code}</TableCell>
@@ -477,6 +714,13 @@ export default function DocumentosPage() {
                                                 </TableCell>
                                             </TableRow>
                                         ))}
+                                        {!loadingDocuments && filtered.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={6} className="h-32 text-center text-sm font-bold text-slate-400">
+                                                    No hay documentos para los filtros seleccionados.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>
@@ -815,12 +1059,18 @@ export default function DocumentosPage() {
             </Dialog>
 
             {/* NEW RECORD MODAL REDESIGN 7.5.2 */}
-            <Dialog open={showNew} onOpenChange={setShowNew}>
+            <Dialog open={showNew} onOpenChange={open => {
+                if (!workflowBusy) {
+                    setShowNew(open);
+                    if (!open) resetDocumentForm();
+                }
+            }}>
                 <DialogContent className="max-w-2xl border-none shadow-2xl rounded-[2rem] p-0 overflow-hidden font-sans">
                     <header className="bg-slate-900 text-white p-10 relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-10"><FileSignature className="w-24 h-24"/></div>
                         <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3">
-                             <Plus className="h-8 w-8 text-emerald-400" /> Acta de Nacimiento
+                             {editingDocumentId ? <Edit className="h-8 w-8 text-amber-400" /> : <Plus className="h-8 w-8 text-emerald-400" />}
+                             {editingDocumentId ? 'Editar borrador' : 'Acta de Nacimiento'}
                         </DialogTitle>
                         <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">Creación y Actualización de Información (ISO 7.5.2)</DialogDescription>
                     </header>
@@ -845,7 +1095,7 @@ export default function DocumentosPage() {
                                 </div>
                                 <div className="space-y-2 pt-2">
                                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Soporte / Medio (7.5.2 b)</label>
-                                     <Select value={newDoc.medio} onValueChange={v => setNewDoc({ ...newDoc, medio: v })}>
+                                     <Select value={newDoc.medio} onValueChange={v => setNewDoc({ ...newDoc, medio: v as 'DIGITAL' | 'FISICO' })}>
                                         <SelectTrigger className="h-12 bg-slate-50 border-none rounded-2xl font-bold shadow-inner"><SelectValue /></SelectTrigger>
                                         <SelectContent className="font-sans">
                                             <SelectItem value="DIGITAL" className="font-bold">Digital (PDF, Excel, Web)</SelectItem>
@@ -867,7 +1117,7 @@ export default function DocumentosPage() {
                                         <div className="w-px h-8 bg-white/10"></div>
                                         <div className="text-center">
                                             <p className="text-[9px] font-black text-slate-500 uppercase">Autor</p>
-                                            <p className="text-white font-black text-[10px] uppercase truncate max-w-[80px]">{newDoc.autor.split(' ')[0]}</p>
+                                            <p className="text-white font-black text-[10px] uppercase truncate max-w-[80px]">{(newDoc.autor || 'Sistema').split(' ')[0]}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -888,27 +1138,74 @@ export default function DocumentosPage() {
                     </div>
 
                     <DialogFooter className="p-10 pt-0 bg-white">
-                        <Button variant="ghost" onClick={() => setShowNew(false)} className="h-14 px-8 font-black uppercase text-[10px] tracking-widest text-slate-400 hover:text-slate-600">Cancelar</Button>
+                        <Button variant="ghost" disabled={workflowBusy} onClick={() => { setShowNew(false); resetDocumentForm(); }} className="h-14 px-8 font-black uppercase text-[10px] tracking-widest text-slate-400 hover:text-slate-600">Cancelar</Button>
                         <Button 
-                            onClick={() => {
-                                if(!newDoc.name) {
-                                    toast.error("El nombre es obligatorio");
-                                    return;
-                                }
-                                const docToAdd: any = {
-                                    ...newDoc,
-                                    id: `doc-${Date.now()}`,
-                                    currentVersion: newDoc.version,
-                                    author: newDoc.autor,
-                                    fileName: newDoc.name.toLowerCase().replace(/ /g, '-') + '.pdf'
-                                };
-                                setDocuments([docToAdd, ...documents]);
-                                setShowNew(false);
-                                toast.success("Documento registrado con éxito");
-                            }} 
+                            onClick={handleSaveDocument}
+                            disabled={workflowBusy}
                             className="h-14 px-12 bg-slate-900 text-white font-black uppercase text-xs rounded-2xl shadow-2xl shadow-slate-900/20"
                         >
-                            Registrar Documento
+                            {workflowBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {editingDocumentId ? 'Guardar borrador' : 'Registrar Documento'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* DECISIÓN DE APROBACIÓN DOCUMENTAL */}
+            <Dialog open={Boolean(workflowDoc)} onOpenChange={open => {
+                if (!open && !workflowBusy) {
+                    setWorkflowDoc(null);
+                    setWorkflowNote('');
+                }
+            }}>
+                <DialogContent className="max-w-lg border-none p-0 overflow-hidden rounded-2xl shadow-2xl">
+                    <header className={cn(
+                        "p-6 text-white",
+                        workflowAction === 'APPROVE' ? 'bg-emerald-700' : 'bg-amber-600'
+                    )}>
+                        <DialogTitle className="flex items-center gap-3 text-xl font-black uppercase tracking-tight">
+                            {workflowAction === 'APPROVE' ? <ShieldCheck className="h-6 w-6" /> : <RotateCcw className="h-6 w-6" />}
+                            {workflowAction === 'APPROVE' ? 'Aprobar documento' : 'Solicitar ajustes'}
+                        </DialogTitle>
+                        <DialogDescription className="mt-2 text-xs font-medium text-white/80">
+                            {workflowAction === 'APPROVE'
+                                ? 'La versión quedará vigente y la versión anterior del mismo código pasará a obsoleta.'
+                                : 'El documento volverá a borrador conservando la observación en su trazabilidad.'}
+                        </DialogDescription>
+                    </header>
+                    <div className="space-y-5 p-6">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-xs font-black uppercase text-slate-800">{workflowDoc?.code} · versión {workflowDoc?.currentVersion}</p>
+                            <p className="mt-1 text-sm text-slate-600">{workflowDoc?.name}</p>
+                            <p className="mt-2 text-[10px] font-bold uppercase text-slate-400">Decisión de {currentUser?.name}</p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="document-workflow-note" className="text-xs font-bold text-slate-700">
+                                Observación {workflowAction === 'CHANGES' ? '*' : '(opcional)'}
+                            </Label>
+                            <textarea
+                                id="document-workflow-note"
+                                value={workflowNote}
+                                onChange={event => setWorkflowNote(event.target.value.slice(0, 500))}
+                                placeholder={workflowAction === 'APPROVE' ? 'Ej.: Revisado en comité de calidad...' : 'Describa claramente los ajustes requeridos...'}
+                                className="min-h-28 w-full resize-none rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+                                maxLength={500}
+                            />
+                            <p className="text-right text-[10px] text-slate-400">{workflowNote.length}/500</p>
+                        </div>
+                    </div>
+                    <DialogFooter className="border-t border-slate-100 bg-slate-50 p-5">
+                        <Button variant="ghost" disabled={workflowBusy} onClick={() => setWorkflowDoc(null)}>Cancelar</Button>
+                        <Button
+                            disabled={workflowBusy || (workflowAction === 'CHANGES' && !workflowNote.trim())}
+                            onClick={handleWorkflowDecision}
+                            className={cn(
+                                "font-bold text-white",
+                                workflowAction === 'APPROVE' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'
+                            )}
+                        >
+                            {workflowBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {workflowAction === 'APPROVE' ? 'Aprobar y publicar' : 'Devolver a borrador'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -980,7 +1277,7 @@ export default function DocumentosPage() {
                                     return;
                                 }
                                 
-                                const pToAdd: any = {
+                                const pToAdd: Process = {
                                     id: `proc-${Date.now()}`,
                                     tenantId: tenant.id,
                                     name: newProcess.name,
@@ -1000,8 +1297,9 @@ export default function DocumentosPage() {
                                 const macro = catPrefixes[pToAdd.category as ProcessCategory] || 'GN';
                                 const cpCode = `${macro}.${pToAdd.code}.CP.01`;
                                 
-                                const cpDoc: any = {
+                                const cpDoc: Document = {
                                     id: `cp-${pToAdd.id}`,
+                                    tenantId: tenant.id,
                                     code: cpCode,
                                     name: `Caracterización del Proceso ${pToAdd.name}`,
                                     type: 'PROCEDIMIENTO',
@@ -1010,7 +1308,11 @@ export default function DocumentosPage() {
                                     currentVersion: 1,
                                     status: 'BORRADOR', // Inicia en borrador como exige la norma para nuevos
                                     author: currentUser?.name || 'Sistema',
-                                    fileName: `cp-${pToAdd.code.toLowerCase()}.pdf`
+                                    fileName: `cp-${pToAdd.code.toLowerCase()}.pdf`,
+                                    createdBy: currentUser?.id || 'Sistema',
+                                    createdByName: currentUser?.name || 'Sistema',
+                                    createdAt: new Date(),
+                                    updatedAt: new Date(),
                                 };
                                 
                                 setDocuments(prev => [cpDoc, ...prev]);

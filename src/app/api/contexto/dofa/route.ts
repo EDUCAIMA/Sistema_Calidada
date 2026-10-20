@@ -1,94 +1,55 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import prisma from '@/lib/db';
+import { ApiError, apiError, requireTenantAccess } from '@/lib/api-auth';
+import { getAuthenticatedUser } from '@/lib/auth-session';
+
+const optionalText = z.string().trim().max(5000).nullish().transform(value => value || '');
+const dofaSchema = z.object({
+    id: z.string().trim().min(1).max(200).optional(),
+    tenantId: z.string().trim().min(1).max(200),
+    category: z.enum(['DEBILIDAD', 'OPORTUNIDAD', 'FORTALEZA', 'AMENAZA']),
+    description: z.string().trim().min(1, 'La descripción es obligatoria.').max(5000),
+    impact: optionalText, actions: optionalText, responsible: optionalText,
+});
 
 export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get('tenantId');
-
-    if (!tenantId) {
-        return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
-    }
-
     try {
-        const items = await prisma.dOFAItem.findMany({
-            where: { tenantId },
-            orderBy: { createdAt: 'desc' },
-        });
-        return NextResponse.json(items);
-    } catch (error) {
-        return NextResponse.json({ error: 'Failed to fetch DOFA items' }, { status: 500 });
-    }
+        const tenantId = new URL(request.url).searchParams.get('tenantId') || '';
+        await requireTenantAccess(request, tenantId);
+        return NextResponse.json(await prisma.dOFAItem.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } }));
+    } catch (error) { return apiError(error); }
 }
 
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
-        const { id, tenantId, category, description, impact, actions, responsible } = body;
-
-        if (!tenantId || !category || !description) {
-            return NextResponse.json({ error: 'Faltan campos obligatorios (tenantId, category, description)' }, { status: 400 });
+        const raw = await request.json();
+        await requireTenantAccess(request, raw?.tenantId, { write: true });
+        const { id, ...data } = dofaSchema.parse(raw);
+        if (id) {
+            const existing = await prisma.dOFAItem.findFirst({ where: { id, tenantId: data.tenantId } });
+            if (!existing) throw new ApiError(404, 'Factor DOFA no encontrado en esta empresa.');
+            return NextResponse.json(await prisma.dOFAItem.update({ where: { id, tenantId: data.tenantId, updatedAt: existing.updatedAt }, data }));
         }
-
-        // Asegurar que el tenant existe (para evitar errores de FK con IDs de prueba)
-        const tenantExists = await prisma.tenant.findUnique({ where: { id: tenantId } });
-        if (!tenantExists) {
-            await prisma.tenant.create({
-                data: {
-                    id: tenantId,
-                    name: 'Empresa Demo',
-                    slug: `demo-${tenantId.slice(-4)}`,
-                    active: true,
-                }
-            });
-        }
-
-        const data = {
-            tenantId,
-            category,
-            description,
-            impact: impact || '',
-            actions: actions || '',
-            responsible: responsible || '',
-        };
-
-        let result;
-        if (id && !id.startsWith('dofa-')) {
-            // Update existing using cuid
-            result = await prisma.dOFAItem.update({
-                where: { id },
-                data,
-            });
-        } else {
-            // Create new
-            result = await prisma.dOFAItem.create({
-                data,
-            });
-        }
-
-        return NextResponse.json(result);
-    } catch (error: any) {
-        console.error('Error detallado en DOFA API:', error);
-        return NextResponse.json({ 
-            error: 'Error al procesar la solicitud en el servidor',
-            details: error.message 
-        }, { status: 500 });
-    }
+        return NextResponse.json(await prisma.dOFAItem.create({ data }), { status: 201 });
+    } catch (error) { return apiError(error); }
 }
 
 export async function DELETE(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-        return NextResponse.json({ error: 'id is required' }, { status: 400 });
-    }
-
     try {
-        await prisma.dOFAItem.delete({
-            where: { id },
+        const actor = await getAuthenticatedUser(request);
+        if (!actor) throw new ApiError(401, 'La sesión expiró. Inicie sesión nuevamente.');
+        const id = new URL(request.url).searchParams.get('id');
+        if (!id) throw new ApiError(400, 'El identificador es obligatorio.');
+        const existing = await prisma.dOFAItem.findFirst({ where: { id, ...(actor.role === 'SUPER_ADMIN' ? {} : { tenantId: actor.tenantId }) } });
+        if (!existing) throw new ApiError(404, 'Factor DOFA no encontrado.');
+        await requireTenantAccess(request, existing.tenantId, { write: true });
+        await prisma.$transaction(async tx => {
+            if (await tx.risk.count({ where: { tenantId: existing.tenantId, sourceType: 'CONTEXTO', sourceId: id } })) {
+                throw new ApiError(409, 'Este factor es el origen de riesgos u oportunidades registrados. Debe conservarse para mantener su trazabilidad.');
+            }
+            await tx.dOFAItem.delete({ where: { id, tenantId: existing.tenantId, updatedAt: existing.updatedAt } });
         });
         return NextResponse.json({ success: true });
-    } catch (error) {
-        return NextResponse.json({ error: 'Failed to delete DOFA item' }, { status: 500 });
-    }
+    } catch (error) { return apiError(error); }
 }

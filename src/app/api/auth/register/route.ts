@@ -55,6 +55,7 @@ export async function POST(request: Request) {
           email: email,
           password: hashedPassword,
           role: 'ADMIN_EMPRESA',
+          topManagement: true,
           tenantId: tenant.id,
         },
       });
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
       { message: 'Registro exitoso', tenantId: result.tenant.id },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error en registro:', error);
     return NextResponse.json(
       { error: 'Ocurrió un error al procesar el registro' },
@@ -74,4 +75,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

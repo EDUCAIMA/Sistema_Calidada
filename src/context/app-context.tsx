@@ -63,7 +63,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setSidebarCollapsed(prev => !prev);
     }, []);
 
-    const logout = useCallback(() => {
+    const logout = useCallback(async () => {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+        } catch (error) {
+            console.error('Error closing server session:', error);
+        }
         setCurrentUser(null);
         setTenant(defaultTenant);
         localStorage.removeItem('sgc_user');

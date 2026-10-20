@@ -33,6 +33,7 @@ export interface User {
   name: string;
   position?: string;
   role: Role;
+  topManagement?: boolean;
   phone?: string;
   avatar?: string;
   active: boolean;
@@ -105,12 +106,18 @@ export interface Document {
   fileSize?: number;
   createdBy: string;
   createdByName?: string;
+  submittedBy?: string;
+  submittedByName?: string;
+  submittedAt?: Date | string;
   approvedBy?: string;
-  approvedDate?: Date;
-  nextReviewDate?: Date;
+  approvedByName?: string;
+  approvedDate?: Date | string;
+  nextReviewDate?: Date | string;
   author?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  versions?: DocumentVersion[];
+  approvalEvents?: DocumentApprovalEvent[];
 }
 
 export interface DocumentVersion {
@@ -122,7 +129,19 @@ export interface DocumentVersion {
   fileName: string;
   uploadedBy: string;
   uploadedByName?: string;
-  uploadedAt: Date;
+  uploadedAt: Date | string;
+}
+
+export interface DocumentApprovalEvent {
+  id: string;
+  documentId: string;
+  action: 'CREATED' | 'NEW_VERSION_CREATED' | 'SUBMITTED_FOR_REVIEW' | 'APPROVED' | 'CHANGES_REQUESTED' | 'SUPERSEDED' | string;
+  fromStatus: DocumentStatus;
+  toStatus: DocumentStatus;
+  userId: string;
+  userName: string;
+  note?: string;
+  createdAt: Date | string;
 }
 
 // ==================== RISK ====================

@@ -1,55 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import {
-    calculateNextEvaluationDate,
-    calculateQualityObjectiveStatus,
-} from '@/lib/quality-objectives';
+import { apiError, requireTenantAccess } from '@/lib/api-auth';
+import { calculateNextEvaluationDate, calculateQualityObjectiveStatus, objectiveTrackingSchema } from '@/lib/quality-objectives';
 
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
-        const objectiveId = typeof body.objectiveId === 'string' ? body.objectiveId : '';
-        const tenantId = typeof body.tenantId === 'string' ? body.tenantId : '';
-        const note = typeof body.note === 'string' ? body.note.trim() : '';
-        const actual = typeof body.actual === 'string' ? body.actual.trim() : '';
-        const progress = Number(body.progress);
-
-        if (!objectiveId || !tenantId || !note || !actual) {
-            return NextResponse.json(
-                { error: 'Objetivo, empresa, resultado actual y nota son obligatorios.' },
-                { status: 400 },
-            );
+        const raw = await req.json();
+        const tenantId = typeof raw?.tenantId === 'string' ? raw.tenantId.trim() : '';
+        const actor = await requireTenantAccess(req, tenantId, { write: true });
+        const parsed = objectiveTrackingSchema.safeParse(raw);
+        if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+        const { objectiveId, note, actual, evidence, progress, targetMet, expectedUpdatedAt } = parsed.data;
+        const objective = await prisma.qualityObjective.findFirst({ where: { id: objectiveId, tenantId } });
+        if (!objective) return NextResponse.json({ error: 'Objetivo no encontrado.' }, { status: 404 });
+        if (objective.archivedAt) return NextResponse.json({ error: 'No se registran mediciones sobre objetivos archivados.' }, { status: 409 });
+        if (objective.updatedAt.getTime() !== new Date(expectedUpdatedAt).getTime()) {
+            return NextResponse.json({ error: 'El objetivo cambió desde que abrió el seguimiento. Actualice la página y evalúe la versión actual.' }, { status: 409 });
         }
-        if (!Number.isFinite(progress) || progress < 0 || progress > 100) {
-            return NextResponse.json({ error: 'El progreso debe estar entre 0 y 100.' }, { status: 400 });
-        }
-
-        const objective = await prisma.qualityObjective.findFirst({
-            where: { id: objectiveId, tenantId },
-        });
-        if (!objective) {
-            return NextResponse.json({ error: 'Objetivo no encontrado.' }, { status: 404 });
-        }
-
+        if (!objective.evaluationMethod || !objective.actionPlan) return NextResponse.json({ error: 'Completa el plan de acciones y el método de evaluación antes de registrar resultados.' }, { status: 409 });
         const nextEvaluationDate = calculateNextEvaluationDate(objective.evaluationFreq);
-        const status = calculateQualityObjectiveStatus({
-            progress,
-            deadline: objective.deadline,
-            nextEvaluationDate,
+        if (!nextEvaluationDate) return NextResponse.json({ error: 'Actualiza la frecuencia de evaluación del objetivo.' }, { status: 409 });
+        const status = calculateQualityObjectiveStatus({ targetMet, deadline: objective.deadline, nextEvaluationDate });
+        const result = await prisma.$transaction(async (tx) => {
+            await tx.qualityObjective.update({ where: { id: objectiveId, updatedAt: new Date(expectedUpdatedAt), archivedAt: null }, data: { actual, progress, targetMet, status, nextEvaluationDate } });
+            const tracking = await tx.objectiveTracking.create({ data: {
+                objectiveId, note, progress, actual, evidence, targetMet, eventType: 'MEASUREMENT', actorId: actor.id, actorName: actor.name,
+                snapshot: { indicator: objective.indicator, target: objective.target, evaluationMethod: objective.evaluationMethod },
+            } });
+            const updatedObjective = await tx.qualityObjective.findUniqueOrThrow({ where: { id: objectiveId }, include: { tracking: { orderBy: { date: 'desc' } } } });
+            return { tracking, objective: updatedObjective };
         });
-
-        const [tracking, updatedObjective] = await prisma.$transaction([
-            prisma.objectiveTracking.create({ data: { objectiveId, note, progress, actual } }),
-            prisma.qualityObjective.update({
-                where: { id: objectiveId },
-                data: { actual, progress, status, nextEvaluationDate },
-                include: { tracking: { orderBy: { date: 'desc' } } },
-            }),
-        ]);
-
-        return NextResponse.json({ tracking, objective: updatedObjective });
-    } catch (error) {
-        console.error('Error saving tracking:', error);
-        return NextResponse.json({ error: 'Error al guardar el seguimiento.' }, { status: 500 });
-    }
+        return NextResponse.json(result);
+    } catch (error) { return apiError(error); }
 }

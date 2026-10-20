@@ -50,8 +50,9 @@ const navItems: NavItem[] = [
         icon: <Target className="h-4.5 w-4.5" />,
         clause: '5',
         children: [
+            { title: '5.1 Liderazgo y cliente', href: '/liderazgo/compromisos' },
             { title: '5.2 Política', href: '/liderazgo/politicas' },
-            { title: 'Roles y Responsabilidades', href: '/liderazgo/roles' },
+            { title: '5.3 Roles y responsabilidades', href: '/liderazgo/roles' },
         ],
     },
     {
@@ -59,9 +60,9 @@ const navItems: NavItem[] = [
         icon: <ShieldAlert className="h-4.5 w-4.5" />,
         clause: '6',
         children: [
-            { title: 'Matrices de Riesgos', href: '/planificacion/riesgos' },
-            { title: 'Objetivos de Calidad', href: '/planificacion/objetivos' },
-            { title: 'Gestión del Cambio', href: '/planificacion/cambios' },
+            { title: '6.1 Riesgos y oportunidades', href: '/planificacion/riesgos' },
+            { title: '6.2 Objetivos de calidad', href: '/planificacion/objetivos' },
+            { title: '6.3 Planificación de cambios', href: '/planificacion/cambios' },
         ],
     },
     {

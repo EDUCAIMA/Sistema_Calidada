@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, Filter, MoreVertical, ExternalLink, Trash2, Key, AlertTriangle } from 'lucide-react';
+import { Download, Filter, MoreVertical, ExternalLink, PowerOff, Key, AlertTriangle } from 'lucide-react';
 import { useApp } from '@/context/app-context';
 import { useRouter } from 'next/navigation';
 import { Tenant } from '@/lib/types';
@@ -17,8 +17,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
@@ -46,11 +44,11 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
   const [tenants, setTenants] = useState<TenantReal[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // States for deletion
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [systemToDelete, setSystemToDelete] = useState<TenantReal | null>(null);
+  // States for tenant deactivation
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [systemToDeactivate, setSystemToDeactivate] = useState<TenantReal | null>(null);
   const [adminPassword, setAdminPassword] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeactivating, setIsDeactivating] = useState(false);
 
   useEffect(() => {
     async function fetchTenants() {
@@ -70,19 +68,23 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
   }, []);
 
   const handleEnterSystem = (system: TenantReal) => {
+    if (!system.active) {
+      toast.error('La empresa está desactivada. Debe reactivarse antes de ingresar.');
+      return;
+    }
     setTenant(system);
     router.push('/dashboard');
   };
 
-  const handleDelete = async () => {
-    if (!systemToDelete || !adminPassword || !currentUser?.email) {
-      toast.error('Información incompleta para la eliminación');
+  const handleDeactivate = async () => {
+    if (!systemToDeactivate || !adminPassword || !currentUser?.email) {
+      toast.error('Información incompleta para la desactivación');
       return;
     }
     
     try {
-      setIsDeleting(true);
-      const response = await fetch(`/api/admin/tenants/${systemToDelete.id}`, {
+      setIsDeactivating(true);
+      const response = await fetch(`/api/admin/tenants/${systemToDeactivate.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -94,18 +96,20 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Error al eliminar el sistema');
+        throw new Error(data.error || 'Error al desactivar la empresa');
       }
       
-      toast.success('Sistema y toda su información eliminada correctamente');
-      setTenants(tenants.filter(t => t.id !== systemToDelete.id));
-      setDeleteDialogOpen(false);
-      setSystemToDelete(null);
+      toast.success(data.message || 'Empresa desactivada; sus registros permanecen conservados.');
+      setTenants(current => current.map(tenant => tenant.id === systemToDeactivate.id
+        ? { ...tenant, active: false }
+        : tenant));
+      setDeactivateDialogOpen(false);
+      setSystemToDeactivate(null);
       setAdminPassword('');
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo desactivar la empresa.');
     } finally {
-      setIsDeleting(false);
+      setIsDeactivating(false);
     }
   };
 
@@ -204,6 +208,7 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
                           size="sm" 
                           className="h-8 text-[10px] font-bold uppercase tracking-widest text-blue-600 hover:text-white hover:bg-blue-600 gap-2 border border-blue-100 rounded-lg px-3"
                           onClick={() => handleEnterSystem(system)}
+                          disabled={!system.active}
                         >
                           <ExternalLink className="h-3 w-3" />
                           Ingresar
@@ -225,13 +230,14 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
                             <DropdownMenuSeparator className="bg-slate-100 my-1" />
                             <DropdownMenuItem 
                               className="flex items-center gap-2 text-red-600 hover:bg-red-50 py-2.5 px-3 rounded-lg cursor-pointer transition-colors"
+                              disabled={!system.active || system.id === currentUser?.tenantId}
                               onClick={() => {
-                                setSystemToDelete(system);
-                                setDeleteDialogOpen(true);
+                                setSystemToDeactivate(system);
+                                setDeactivateDialogOpen(true);
                               }}
                             >
-                              <Trash2 className="h-4 w-4" />
-                              <span className="font-medium text-sm">Eliminar Sistema</span>
+                              <PowerOff className="h-4 w-4" />
+                              <span className="font-medium text-sm">{system.active ? 'Desactivar empresa' : 'Empresa desactivada'}</span>
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -241,7 +247,7 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 text-sm">
+                  <td colSpan={7} className="py-12 text-center text-slate-400 text-sm">
                     No se encontraron sistemas QMS que coincidan con la búsqueda.
                   </td>
                 </tr>
@@ -251,16 +257,16 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
         </div>
       </CardContent>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      {/* Tenant deactivation confirmation */}
+      <Dialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-white">
           <div className="bg-red-600 p-6 flex flex-col items-center text-center">
              <div className="bg-white/20 p-3 rounded-2xl mb-4 backdrop-blur-md">
                 <AlertTriangle className="h-8 w-8 text-white" />
              </div>
-             <DialogTitle className="text-2xl font-bold text-white mb-2">¿Eliminar Sistema?</DialogTitle>
+             <DialogTitle className="text-2xl font-bold text-white mb-2">¿Desactivar empresa?</DialogTitle>
              <DialogDescription className="text-red-100 font-medium">
-               Esta acción es <span className="underline decoration-white font-bold">irreversible</span>. Se eliminarán permanentemente todos los usuarios, procesos, documentos y riesgos asociados a <span className="text-white font-black">{systemToDelete?.name}</span>.
+               Se bloqueará el acceso a <span className="text-white font-black">{systemToDeactivate?.name}</span> y a todos sus usuarios. Los procesos, documentos, matrices y demás registros del SGC permanecerán conservados.
              </DialogDescription>
           </div>
           
@@ -288,21 +294,21 @@ export function SystemsTable({ searchTerm }: SystemsTableProps) {
               <Button 
                 variant="destructive" 
                 className="h-12 text-sm font-bold bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/20 rounded-xl"
-                onClick={handleDelete}
-                disabled={!adminPassword || isDeleting}
+                onClick={handleDeactivate}
+                disabled={!adminPassword || isDeactivating}
               >
-                {isDeleting ? 'Procesando eliminación...' : 'Sí, Eliminar Todo Permanentemente'}
+                {isDeactivating ? 'Procesando desactivación...' : 'Sí, desactivar empresa'}
               </Button>
               <Button 
                 variant="ghost" 
                 className="h-12 text-sm font-bold text-slate-500 hover:text-slate-900 border-none hover:bg-slate-100 rounded-xl"
                 onClick={() => {
-                  setDeleteDialogOpen(false);
+                  setDeactivateDialogOpen(false);
                   setAdminPassword('');
                 }}
-                disabled={isDeleting}
+                disabled={isDeactivating}
               >
-                Cancelar y Mantener Datos
+                Cancelar
               </Button>
             </div>
           </div>

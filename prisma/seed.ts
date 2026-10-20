@@ -30,6 +30,7 @@ async function main() {
       password: hashedPassword,
       name: 'Administrador Sistema',
       role: 'SUPER_ADMIN',
+      topManagement: true,
       tenantId: tenant.id,
     },
   })

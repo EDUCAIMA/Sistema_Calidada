@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { getAuthenticatedUser } from '@/lib/auth-session';
+import { ApiError, apiError } from '@/lib/api-auth';
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const actor = await getAuthenticatedUser(request);
+        if (!actor) throw new ApiError(401, 'Inicie sesión nuevamente.');
+        if (actor.role !== 'SUPER_ADMIN') throw new ApiError(403, 'La consulta global requiere un superadministrador.');
         const tenants = await prisma.tenant.findMany({
             include: {
                 users: {
@@ -27,10 +32,6 @@ export async function GET() {
 
         return NextResponse.json(tenants);
     } catch (error) {
-        console.error('Error fetching all tenants:', error);
-        return NextResponse.json(
-            { error: 'Error al obtener las empresas' },
-            { status: 500 }
-        );
+        return apiError(error);
     }
 }
