@@ -96,8 +96,8 @@ const navItems: NavItem[] = [
         icon: <ClipboardCheck className="h-4.5 w-4.5" />,
         clause: '9',
         children: [
-            { title: '9.2 Auditorías', href: '/evaluacion/auditorias' },
-            { title: '9.1 Indicadores', href: '/evaluacion/indicadores' },
+            { title: '9.1 Seguimiento, medición, análisis y evaluación', href: '/evaluacion/indicadores' },
+            { title: '9.2 Auditorías internas', href: '/evaluacion/auditorias' },
             { title: '9.3 Revisión por la dirección', href: '/evaluacion/revision' },
         ],
     },
