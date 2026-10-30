@@ -13,11 +13,34 @@ Next.js, React, Prisma y PostgreSQL. Liderazgo y planificación mantienen la edi
 | 6.2 | /planificacion/objetivos | Meta, indicador, acciones, responsable, recursos, plazo, comunicación y mediciones evidenciadas. |
 | 6.3 | /planificacion/cambios | Propósito, consecuencias, integridad del SGC, recursos, responsabilidades, implementación y evaluación. |
 
-Los registros se aíslan por empresa. Los auditores consultan; los usuarios operan los planes; los administradores gestionan usuarios y asignaciones. La aprobación de la matriz 5.3 exige que el usuario haya sido designado expresamente como alta dirección en Administración → Usuarios. El titular confirma personalmente sus responsabilidades. La sesión se valida en el servidor, no mediante el rol guardado en el navegador.
+Los registros se aíslan por empresa. En estos módulos, los auditores consultan; los usuarios operan los planes; los administradores gestionan usuarios y asignaciones. La aprobación de la matriz 5.3 exige que el usuario haya sido designado expresamente como alta dirección en Administración → Usuarios. El titular confirma personalmente sus responsabilidades. La sesión se valida en el servidor, no mediante el rol guardado en el navegador.
 
 Una ejecución al 100 % no demuestra cumplimiento de una meta. Riesgos, oportunidades y cambios solo cierran con una evaluación eficaz y evidencia. Objetivos, cargos, procesos y usuarios se archivan o desactivan sin borrar su historial. Una revisión de política no reemplaza la versión vigente hasta aprobarse.
 
 Las evidencias de estos módulos son referencias o descripciones verificables: no son firmas electrónicas ni un repositorio de adjuntos. La organización debe aportar los documentos, demostrar la comprensión de la política y verificar los resultados reales.
+
+## Auditorías y seguimiento
+
+En **9. Evaluación → 9.2 Auditorías** (`/evaluacion/auditorias`), cree un programa F1 y agregue auditorías. Cada auditoría genera su expediente F2–F8:
+
+| Formato | Contenido |
+| --- | --- |
+| F1 | Programa, criterios, recursos y cronograma derivado de las auditorías vinculadas. |
+| F2 | Plan, alcance, criterios, equipo, procesos y agenda. |
+| F3 | Preguntas, respuestas, evidencias y resultados de verificación. |
+| F4 | Hallazgos vinculables a preguntas de F3. |
+| F5 | Apertura, acuerdos y participantes. |
+| F6 | Cierre, conclusiones, compromisos y participantes. |
+| F7 | Informe con el plan y los hallazgos aprobados. |
+| F8 | Causas, correcciones, acciones por hallazgo, responsables, plazos y eficacia. |
+
+Todos admiten borradores persistentes, revisión, aprobación, nuevas versiones, historial y descarga PDF del registro o de la plantilla vacía. Guarde los cambios antes de descargar. Los encabezados usan el estándar documental de la empresa y las claves `9.2.F1` a `9.2.F8` del catálogo. El encabezado identifica la versión del formato; el cuerpo identifica la versión del registro. Al aprobar se conserva una copia de los datos y del contexto documental para las descargas históricas. Un logo cargado como imagen queda conservado; un logo externo conserva su URL y depende de que ese recurso permanezca disponible.
+
+Los administradores y usuarios de la empresa gestionan programas, expedientes y acciones. Los auditores asignados como líder o integrantes pueden diligenciar F2–F7; otros auditores solo consultan. La aprobación y la verificación de eficacia corresponden al administrador. F7 exige F2 y F4 aprobados. Una acción cerrada exige evidencia y evaluación eficaz; aprobar el informe no cierra las acciones. Las referencias de evidencia y confirmación de asistencia son texto, no carga de adjuntos ni firma electrónica.
+
+**10. Mejora → No conformidades / Acciones correctivas** consulta los hallazgos y actividades de F4/F8 y enlaza al mismo expediente. Las auditorías anteriores se conservan y pueden habilitar sus siete formatos desde la pantalla; sus hallazgos legados no se convierten automáticamente en nuevos registros F4.
+
+La migración aditiva `20261030000000_audit_workspace` conserva las auditorías existentes, crea programas, formatos y eventos, y agrega restricciones de empresa, propietario, estados y aprobación. Se probó sobre el esquema anterior en PostgreSQL desechable. No elimine los `CHECK` ni las claves compuestas de empresa al generar migraciones futuras.
 
 ## Ejecución
 

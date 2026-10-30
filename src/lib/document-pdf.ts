@@ -4,6 +4,7 @@ import { DOCUMENT_CATALOG } from '@/lib/document-catalog';
 import { parseDocumentStandardConfig, type DocumentStandardConfig } from '@/lib/document-standard';
 
 export interface PdfSection {
+  keepTogether?: boolean;
   title?: string;
   text?: string | string[];
   head?: string[];
@@ -25,6 +26,8 @@ export interface StandardPdfOptions {
   orientation?: 'portrait' | 'landscape';
   metadata?: PdfMetadata;
   sections: PdfSection[];
+  /** Persisted corporate identity for an approved historical record. */
+  contextSnapshot?: DocumentStandardContext;
 }
 export interface DocumentStandardContext {
   tenant: { id: string; name: string; logo: string | null };
@@ -117,6 +120,7 @@ export function buildStandardPdf(
       headStyles: { fillColor: color, textColor: 255, fontStyle: 'bold', fontSize: 9 },
       alternateRowStyles: section.text === undefined ? { fillColor: [247, 249, 252] } : {},
       rowPageBreak: 'avoid',
+      pageBreak: section.keepTogether ? 'avoid' : 'auto',
       showHead: 'everyPage',
       didDrawPage: data => { cursor = data.cursor?.y || top; },
     });
@@ -217,7 +221,10 @@ async function printableLogo(source: string | null): Promise<string | null> {
 }
 
 export async function downloadStandardPdf(options: StandardPdfOptions): Promise<void> {
-  const context = await loadDocumentStandard(options.tenantId);
+  const context = options.contextSnapshot
+    ? structuredClone(options.contextSnapshot)
+    : await loadDocumentStandard(options.tenantId);
+  if (context.tenant.id !== options.tenantId) throw new Error('El documento no corresponde a la empresa seleccionada.');
   context.tenant.logo = await printableLogo(context.tenant.logo);
   const pdf = buildStandardPdf(options, context);
   const filename = options.filename.replace(/\.pdf$/i, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9_-]+/g, '-');

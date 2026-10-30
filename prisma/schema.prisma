@@ -20,6 +20,7 @@ model Tenant {
   phone                     String?
   timezone                  String?                    @default("America/Bogota")
   audits                    Audit[]
+  auditPrograms             AuditProgram[]
   dofaItems                 DOFAItem[]
   documents                 Document[]
   formatControls            FormatControl[]
@@ -264,6 +265,75 @@ model Audit {
   updatedAt       DateTime    @updatedAt
   tenant          Tenant      @relation(fields: [tenantId], references: [id])
   findings        Finding[]
+  programId       String?
+  code            String?
+  revision        Int         @default(1)
+  teamMemberIds   Json        @default("[]")
+  program         AuditProgram? @relation(fields: [tenantId, programId], references: [tenantId, id], onDelete: Restrict)
+  auditDocuments  AuditDocument[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+}
+
+model AuditProgram {
+  id        String   @id @default(cuid())
+  tenantId  String
+  code      String
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  revision  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  audits    Audit[]
+  documents AuditDocument[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+}
+
+model AuditDocument {
+  id               String   @id @default(cuid())
+  tenantId         String
+  programId        String?
+  auditId          String?
+  kind             String
+  status           String   @default("BORRADOR")
+  version          Int      @default(1)
+  revision         Int      @default(1)
+  data             Json
+  approvedAt       DateTime?
+  approvedBy       String?
+  approvedByName   String?
+  exportSnapshot   Json?
+  updatedBy        String
+  updatedByName    String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  program          AuditProgram? @relation(fields: [tenantId, programId], references: [tenantId, id], onDelete: Restrict)
+  audit            Audit? @relation(fields: [tenantId, auditId], references: [tenantId, id], onDelete: Restrict)
+  events           AuditDocumentEvent[]
+
+  @@unique([programId, kind])
+  @@unique([auditId, kind])
+  @@index([tenantId, kind, status])
+}
+
+model AuditDocumentEvent {
+  id         String   @id @default(cuid())
+  documentId String
+  action     String
+  version    Int
+  userId     String
+  userName   String
+  note       String
+  snapshot   Json
+  createdAt  DateTime @default(now())
+  document   AuditDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@index([documentId, createdAt])
 }
 
 model Finding {

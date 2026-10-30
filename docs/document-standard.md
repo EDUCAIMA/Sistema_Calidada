@@ -79,3 +79,9 @@ El listado maestro dispone de su propia exportación PDF y cada registro de una 
 - Los tipos inactivos no se ofrecen para documentos nuevos. La edición o nueva versión del mismo documento conserva su clasificación histórica.
 - Los permisos de aprobar no se deducen de la disponibilidad del botón de descarga.
 - El estándar no supone por sí mismo certificación ni conformidad con todos los requisitos de ISO 9001.
+
+## Expedientes de auditoría
+
+Las exportaciones F1–F8 usan las claves `9.2.F1` a `9.2.F8`. El código y la versión de la cabecera identifican el formato configurado; la versión del contenido consta en **Control del registro**, junto con autor y aprobación. Una plantilla vacía siempre muestra «Plantilla sin diligenciar».
+
+`contextSnapshot` permite exportar un registro aprobado con el contexto documental capturado al aprobar, validando que pertenece a la empresa. Las secciones congeladas contienen las referencias resueltas y los datos vinculados usados al emitirlo. El historial permite descargar ese registro aunque luego haya nuevas versiones de sus hallazgos. Para preservar el logo de forma independiente de servidores externos, cárguelo como PNG/JPEG en la configuración.

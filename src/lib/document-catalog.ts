@@ -12,4 +12,12 @@ export const DOCUMENT_CATALOG = [
   { key: '6.3', clause: '6.3', title: 'Planificación de cambios', href: '/planificacion/cambios', group: 'Planificación', typeId: 'FORMATO' },
   { key: '7.5', clause: '7.5', title: 'Listado maestro y documentos', href: '/apoyo/documentos', group: 'Apoyo', typeId: 'REGISTRO' },
   { key: '7.5.2', clause: '7.5.2', title: 'Estándar documental y codificación', href: '/apoyo/estandar-documental', group: 'Apoyo', typeId: 'MANUAL' },
+  { key: '9.2.F1', clause: '9.2', title: 'F1. Programa de auditorías', href: '/evaluacion/auditorias?format=F1', group: 'Auditorías', typeId: 'FORMATO' },
+  { key: '9.2.F2', clause: '9.2', title: 'F2. Plan de auditoría', href: '/evaluacion/auditorias?format=F2', group: 'Auditorías', typeId: 'FORMATO' },
+  { key: '9.2.F3', clause: '9.2', title: 'F3. Lista de verificación', href: '/evaluacion/auditorias?format=F3', group: 'Auditorías', typeId: 'FORMATO' },
+  { key: '9.2.F4', clause: '9.2', title: 'F4. Registro de hallazgos', href: '/evaluacion/auditorias?format=F4', group: 'Auditorías', typeId: 'FORMATO' },
+  { key: '9.2.F5', clause: '9.2', title: 'F5. Acta de apertura', href: '/evaluacion/auditorias?format=F5', group: 'Auditorías', typeId: 'FORMATO' },
+  { key: '9.2.F6', clause: '9.2', title: 'F6. Acta de cierre', href: '/evaluacion/auditorias?format=F6', group: 'Auditorías', typeId: 'FORMATO' },
+  { key: '9.2.F7', clause: '9.2', title: 'F7. Informe de auditoría', href: '/evaluacion/auditorias?format=F7', group: 'Auditorías', typeId: 'FORMATO' },
+  { key: '9.2.F8', clause: '9.2', title: 'F8. Plan de mejoramiento', href: '/evaluacion/auditorias?format=F8', group: 'Auditorías', typeId: 'FORMATO' },
 ] as const;
