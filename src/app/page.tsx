@@ -2,21 +2,10 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Shield,
-  Mail,
-  Lock,
-  ArrowRight,
-  Eye,
-  EyeOff,
-  LifeBuoy,
-  ChevronRight
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Shield, Mail, LockKeyhole, ArrowRight, Eye, EyeOff, LoaderCircle } from 'lucide-react';
 import Link from 'next/link';
+import { LoginCarousel } from '@/components/login-carousel';
+import styles from './login.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,216 +16,94 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (loading) return;
     setError(null);
     setLoading(true);
-
     try {
-      const res = await fetch('/api/auth/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, remember }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al iniciar sesión');
-      }
-
-      // Guardar sesión en localStorage
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Error al iniciar sesión');
       localStorage.setItem('sgc_user', JSON.stringify(data.user));
       localStorage.setItem('sgc_tenant', JSON.stringify(data.tenant));
-
-      // Redirigir según rol
-      if (data.user.role === 'SUPER_ADMIN') {
-        router.push('/admin-portal');
-      } else {
-        router.push('/dashboard');
-      }
-    } catch (err: any) {
-      setError(err.message);
+      router.push(data.user.role === 'SUPER_ADMIN' ? '/admin-portal' : '/dashboard');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'No fue posible iniciar sesión. Inténtalo de nuevo.');
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#000814] text-slate-200 font-sans flex flex-col relative overflow-hidden">
-      {/* Background Decorative Elements - Intel-style Blue Gradients & Patterns */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Main Radial Gradients (Intel Blues) */}
-        <div className="absolute top-[-20%] right-[-10%] w-[70%] h-[70%] blur-[150px] rounded-full mix-blend-screen animate-pulse" style={{ backgroundColor: '#0071c5' }} />
-        <div className="absolute bottom-[-20%] left-[-10%] w-[70%] h-[70%] blur-[150px] rounded-full mix-blend-screen" style={{ backgroundColor: '#00c7fd' }} />
-
-        {/* Wavy Organic Shapes (SVG) - Blue variations */}
-        <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 1000 1000" preserveAspectRatio="none">
-          <path d="M0,1000 C300,800 400,950 700,700 C900,550 1000,700 1000,700 L1000,1000 Z" fill="#003a70" />
-          <path d="M0,1000 C200,850 300,900 600,650 C800,500 1000,650 1000,650 L1000,1000 Z" fill="#0071c5" opacity="0.5" />
-          <path d="M0,0 C300,200 400,50 700,300 C900,450 1000,300 1000,300 L1000,0 Z" fill="#001e3c" />
-        </svg>
-
-        {/* Dotted Patterns */}
-        <div className="absolute top-20 right-40 w-32 h-32 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
-        <div className="absolute bottom-40 left-20 w-48 h-24 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
-
-        {/* Abstract Geometric Shapes */}
-        <div className="absolute top-1/4 left-10 w-8 h-8 border-2 border-white/10 rotate-45" />
-        <div className="absolute bottom-1/4 right-20 w-12 h-12 border border-blue-500/10 rounded-full" />
-        <div className="absolute top-1/2 right-1/3 w-0 h-0 border-l-[15px] border-l-transparent border-b-[25px] border-b-blue-500/10 border-r-[15px] border-r-transparent -rotate-12" />
-
-        {/* Subtle Light Flares */}
-        <div className="absolute top-[15%] left-[12%] w-1 h-1 bg-white rounded-full shadow-[0_0_15px_2px_rgba(0,113,197,0.8)]" />
-        <div className="absolute bottom-[25%] right-[15%] w-1 h-1 bg-white rounded-full shadow-[0_0_15px_2px_rgba(0,199,253,0.8)]" />
-      </div>
-
-      {/* Navigation Header */}
-      <header className="p-6 flex justify-between items-center z-10">
-        <div className="flex items-center gap-2">
-          <div className="bg-blue-600 p-1.5 rounded-lg">
-            <Shield className="h-6 w-6 text-white" fill="currentColor" fillOpacity={0.2} />
-          </div>
-          <span className="text-xl font-bold tracking-tight text-white">QualityLink</span>
-        </div>
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <Link href="/" className={styles.brand} aria-label="QualityLink, inicio">
+          <Shield aria-hidden="true" strokeWidth={2.7} />
+          <span>Quality<span className={styles.brandAccent}>Link</span></span>
+        </Link>
       </header>
-
-      {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center p-4 z-10">
-        <div className="w-full max-w-[480px]">
-          <div className="bg-[#111927]/80 backdrop-blur-xl border border-white/5 rounded-2xl shadow-2xl p-10">
-            <div className="text-center mb-10">
-              <h1 className="text-3xl font-bold text-white mb-3">Bienvenido de nuevo</h1>
-              <p className="text-slate-400 text-sm max-w-[280px] mx-auto leading-relaxed">
-                Por favor, introduce tus credenciales para acceder al panel de QMS.
-              </p>
-            </div>
-
-            {error && (
-              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center animate-in fade-in slide-in-from-top-2">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium text-slate-300">
-                  Usuario o Correo electrónico
-                </Label>
-                <div className="relative group">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors">
-                    <Mail className="h-4 w-4" />
-                  </div>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="ej. admin@empresa.com"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="bg-[#1c2536] border-white/5 h-12 pl-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600"
-                    required
+      <main className={styles.main}>
+        <LoginCarousel />
+        <section className={styles.loginPanel} aria-labelledby="login-title">
+          <div className={styles.formContainer}>
+            <h1 id="login-title" className={styles.heading}>Bienvenido de nuevo</h1>
+            <p className={styles.intro}>Accede a tu sistema de gestión de calidad.</p>
+            <form onSubmit={handleLogin} className={styles.form} aria-busy={loading}>
+              {error && <div className={styles.error} role="alert" id="login-error">{error}</div>}
+              <div className={styles.field}>
+                <label htmlFor="email">Correo electrónico</label>
+                <div className={styles.inputWrapper}>
+                  <Mail className={styles.inputIcon} size={21} aria-hidden="true" />
+                  <input
+                    id="email" name="email" type="email" autoComplete="username"
+                    autoCapitalize="none" spellCheck={false} placeholder="nombre@empresa.com"
+                    value={email} onChange={event => setEmail(event.target.value)}
+                    className={styles.input} required disabled={loading}
+                    aria-describedby={error ? 'login-error' : undefined}
                   />
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="password" className="text-sm font-medium text-slate-300">
-                    Contraseña
-                  </Label>
-                  <Link href="/forgot-password" title="Recuperar contraseña" className="text-xs font-semibold text-blue-500 hover:text-blue-400 hover:underline transition-colors">
-                    ¿Olvidaste tu contraseña?
-                  </Link>
-                </div>
-                <div className="relative group">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors">
-                    <Lock className="h-4 w-4" />
-                  </div>
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    className="bg-[#1c2536] border-white/5 h-12 pl-11 pr-11 text-white focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-600"
-                    required
+              <div className={styles.field}>
+                <label htmlFor="password">Contraseña</label>
+                <div className={styles.inputWrapper}>
+                  <LockKeyhole className={styles.inputIcon} size={21} aria-hidden="true" />
+                  <input
+                    id="password" name="password" type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password" placeholder="••••••••"
+                    value={password} onChange={event => setPassword(event.target.value)}
+                    className={`${styles.input} ${styles.passwordInput}`} required disabled={loading}
+                    aria-describedby={error ? 'login-error' : undefined}
                   />
                   <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                    type="button" className={styles.passwordToggle}
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? <EyeOff size={21} /> : <Eye size={21} />}
                   </button>
                 </div>
               </div>
-
-              <div className="flex items-center gap-3">
-                <Checkbox
-                  id="remember"
-                  checked={remember}
-                  onCheckedChange={checked => setRemember(checked === true)}
-                  className="border-slate-500 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                />
-                <label htmlFor="remember" className="text-sm text-slate-400 cursor-pointer select-none">
-                  Mantener sesión iniciada por 30 días
+              <div className={styles.formOptions}>
+                <label className={styles.remember} title="Mantener sesión iniciada por 30 días">
+                  <input type="checkbox" name="remember" checked={remember}
+                    onChange={event => setRemember(event.target.checked)} disabled={loading} />
+                  Recordarme
                 </label>
+                <Link href="/forgot-password" className={styles.textLink}>¿Olvidaste tu contraseña?</Link>
               </div>
-
-              <Button
-                type="submit"
-                className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98]"
-                disabled={loading}
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
-                      <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
-                    </svg>
-                    Autenticando...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    Iniciar sesión
-                    <ArrowRight className="h-4 w-4" />
-                  </span>
-                )}
-              </Button>
+              <button type="submit" className={styles.submit} disabled={loading}>
+                {loading ? <><LoaderCircle size={21} className={styles.spinner} aria-hidden="true" /> Iniciando sesión…</> : <>Iniciar sesión <ArrowRight size={22} aria-hidden="true" /></>}
+              </button>
+              <p className={styles.register}>¿No tienes una cuenta? <Link href="/register" className={styles.textLink}>Solicitar acceso</Link></p>
             </form>
-
-            <div className="mt-12 pt-8 border-t border-white/5 text-center">
-              <p className="text-[11px] text-slate-500 uppercase tracking-widest font-medium mb-3">
-                © 2024 QualityLink Systems. Todos los derechos reservados.
-              </p>
-              <div className="flex items-center justify-center gap-1.5 text-slate-400">
-                <Shield className="h-3 w-3" />
-                <span className="text-[10px] font-semibold">Sistema de gestión de calidad</span>
-              </div>
-            </div>
-
-            <p className="text-center text-xs text-slate-500 mt-6">
-              ¿No tienes una cuenta?{' '}
-              <Link href="/register" className="text-blue-500 font-semibold hover:underline">
-                Solicitar acceso
-              </Link>
-            </p>
           </div>
-        </div>
+          <footer className={styles.footer}>QualityLink <span aria-hidden="true">·</span> Sistema de gestión de calidad</footer>
+        </section>
       </main>
-
-      {/* Footer Navigation */}
-      <footer className="p-8 text-center z-10">
-        <div className="flex flex-wrap justify-center gap-3">
-          {['Política de Privacidad', 'Términos de Servicio', 'Estado del Sistema', 'Soporte'].map((link) => (
-            <button 
-              key={link} 
-              className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-white/5 border border-white/10 rounded-xl hover:bg-blue-600/20 hover:border-blue-500/40 hover:text-white transition-all duration-300"
-            >
-              {link}
-            </button>
-          ))}
-        </div>
-      </footer>
     </div>
   );
 }
