@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { downloadStandardPdf } from '@/lib/document-pdf';
 import { auditPdfOptions } from '@/lib/audits/export';
+import { AuditReportLinks } from './AuditReportLinks';
 import { AUDIT_FORMS, auditStatusLabels, blankAuditData, blankAuditRow, formDefinition, type AuditKind, type AuditData, type AuditRow, type AuditSource, type AuditDocumentView, type AuditProgramView, type AuditView, type Field, type DirectoryPerson, type DirectoryProcess } from '@/lib/audits/forms';
 
 const endpoint = '/api/evaluacion/auditorias';
@@ -214,7 +215,8 @@ export function AuditWorkspace({ tenantId }: { tenantId: string }) {
           {kind === 'F8' && <p className="text-xs text-slate-500">{row.verifiedAt ? `Eficacia verificada por ${row.verifiedBy} · ${row.verifiedAt}` : 'La verificación de eficacia corresponde a un administrador. Una actividad implementada no está cerrada hasta verificar su eficacia.'}</p>}
           </article>)}
         </div>}
-        {['F5', 'F6', 'F7'].includes(kind) && <LinkedSummary kind={kind} source={source} />}
+        {['F5', 'F6'].includes(kind) && <LinkedSummary kind={kind} source={source} />}
+        {kind === 'F7' && <AuditReportLinks document={document} source={source} />}
         <div className="flex flex-wrap gap-2 border-t pt-5">
           {editable && <><Button disabled={busy || !dirty} onClick={() => act('save')}><Save className="mr-2 h-4 w-4" />Guardar borrador</Button><Button variant="outline" disabled={busy || dirty} onClick={() => act('submit')}><Send className="mr-2 h-4 w-4" />Enviar a revisión</Button></>}
           {document.status === 'EN_REVISION' && detail?.canApprove && <><Button disabled={busy} onClick={() => act('approve')}><CheckCircle2 className="mr-2 h-4 w-4" />{kind === 'F7' ? 'Aprobar y emitir informe' : 'Aprobar formato'}</Button><Button variant="outline" disabled={busy} onClick={() => { setDecision('return'); setNote(''); }}>Solicitar ajustes</Button></>}
